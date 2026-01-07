@@ -976,43 +976,21 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [inputValue, setInputValue] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [started, setStarted] = useState(false);
-            const [sessionActivities, setSessionActivities] = useState([]);
             const messagesEndRef = useRef(null);
             
             useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
             
-            // Send email digest when leaving chat
-            const sendSessionDigest = async () => {
-                if (messages.length < 3) return; // Don't send if barely any conversation
-                
-                // Build session summary from messages
-                const userMessages = messages.filter(m => m.isUser).map(m => m.text);
-                const sessionSummary = userMessages.length > 0 
-                    ? `Discussed: ${userMessages.slice(-5).join(', ').substring(0, 200)}...`
-                    : 'Brief planning session';
-                
-                // Activities submitted this session
-                const activitiesText = sessionActivities.length > 0
-                    ? sessionActivities.map(a => `• ${a.title} in ${a.city} (€${a.estimatedCost})`).join('\n')
-                    : 'No new activities submitted';
-                
-                // Budget status
+            // Send email digest when activity is submitted
+            const sendActivityEmail = async (activity) => {
                 const profile = store.userProfiles[userId];
                 const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
                 
-                // Send to both parents
                 await EmailService.sendDigestToBothParents(
                     user.name,
-                    sessionSummary,
-                    activitiesText,
+                    `Submitted a new activity for review!`,
+                    `• ${activity.title} in ${activity.city} (€${activity.estimatedCost})\n\n${activity.description}`,
                     budgetText
                 );
-            };
-            
-            // Wrap onBack to send digest
-            const handleBack = async () => {
-                await sendSessionDigest();
-                onBack();
             };
             
             useEffect(() => {
@@ -1021,12 +999,28 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     const history = store.conversations[userId] || [];
                     if (history.length > 0) setMessages(history.slice(-20));
                     
+                    // Check for activities needing revision
+                    const needsRevision = store.activities.filter(a => 
+                        a.kidId === userId && a.status === 'needs-revision' && !a.isSample
+                    );
+                    
                     setIsLoading(true);
                     setTimeout(async () => {
                         const cities = (store.itinerary || CONFIG.itinerary).map(i => i.city).join(', ');
-                        const greeting = history.length > 0 
-                            ? `Welcome back, ${user.name}! 👋 Ready to keep planning? We can pick up where we left off or explore something new!`
-                            : `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
+                        let greeting = '';
+                        
+                        if (needsRevision.length > 0) {
+                            // Alert about feedback
+                            const feedbackItems = needsRevision.map(a => 
+                                `**${a.title}**: "${a.parentFeedback}"`
+                            ).join('\n\n');
+                            greeting = `Hey ${user.name}! 👋 Quick heads up - your parents left some feedback on ${needsRevision.length === 1 ? 'an activity' : 'some activities'}:\n\n${feedbackItems}\n\nWant to work on revising ${needsRevision.length === 1 ? 'it' : 'one of them'}, or explore something new?`;
+                        } else if (history.length > 0) {
+                            greeting = `Welcome back, ${user.name}! 👋 Ready to keep planning? We can pick up where we left off or explore something new!`;
+                        } else {
+                            greeting = `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
+                        }
+                        
                         const msg = { id: Date.now(), text: greeting, isUser: false };
                         setMessages(prev => [...prev, msg]);
                         store.addMessage(userId, msg);
@@ -1085,8 +1079,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         kidName: user.name
                     });
                     console.log('Activity submitted:', newActivity);
-                    // Track for session digest
-                    setSessionActivities(prev => [...prev, newActivity]);
+                    // Send email to parents
+                    await sendActivityEmail(newActivity);
                 }
                 
                 // Clean the response for display (remove the submission block)
@@ -1101,7 +1095,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             return (
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
                     <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', paddingTop: 'calc(var(--space-sm) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)', minHeight: '60px' }}>
-                        <button onClick={handleBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                        <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
                             <Icon name="ArrowLeft" size={20} />
                         </button>
                         <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{user.emoji}</div>
