@@ -587,10 +587,7 @@
         const useStore = () => {
             const [activities, setActivities] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_activities');
-                return saved ? JSON.parse(saved) : [
-                    { id: 'SAMPLE-1', kidId: 'tyler', kidName: 'Tyler', title: 'Colosseum & Roman Forum Tour', city: 'Rome', description: 'Guided tour of ancient Roman sites with skip-the-line tickets.', estimatedCost: 85, travelMethod: 'Metro', travelTime: '20 min', duration: '3 hours', otherConsiderations: 'Book in advance. Bring water.', status: 'approved', dateSubmitted: '2026-01-15', parentFeedback: '', isSample: true },
-                    { id: 'SAMPLE-2', kidId: 'abby', kidName: 'Abby', title: 'Watercolor Painting Class', city: 'Florence', description: 'Learn to paint Tuscan landscapes. All supplies included!', estimatedCost: 65, travelMethod: 'Walking', travelTime: '15 min', duration: '2.5 hours', otherConsiderations: 'Class in English.', status: 'approved', dateSubmitted: '2026-01-18', parentFeedback: '', isSample: true }
-                ];
+                return saved ? JSON.parse(saved) : [];
             });
             
             const [conversations, setConversations] = useState(() => {
