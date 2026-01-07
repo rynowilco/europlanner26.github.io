@@ -156,6 +156,18 @@
                     { english: 'The check, please', local: 'L\'addition, s\'il vous plaît', pronunciation: 'lah-dee-SYOHN seel voo PLAY', when: 'At restaurants' },
                     { english: 'It\'s beautiful!', local: 'C\'est magnifique!', pronunciation: 'say mah-nyee-FEEK', when: 'Admiring something' },
                     { english: 'Do you speak English?', local: 'Parlez-vous anglais?', pronunciation: 'par-lay VOO ahn-GLAY', when: 'Starting a conversation' }
+                ],
+                German: [
+                    { english: 'Hello', local: 'Hallo / Grüezi (Swiss)', pronunciation: 'HAH-loh / GREW-tsee', when: 'Greeting anyone' },
+                    { english: 'Good day', local: 'Guten Tag', pronunciation: 'GOO-ten tahk', when: 'Formal daytime greeting' },
+                    { english: 'Thank you', local: 'Danke', pronunciation: 'DAHN-kuh', when: 'After receiving help' },
+                    { english: 'Please', local: 'Bitte', pronunciation: 'BIT-tuh', when: 'When asking for something' },
+                    { english: 'Excuse me', local: 'Entschuldigung', pronunciation: 'ent-SHOOL-dee-goong', when: 'Getting attention or apologizing' },
+                    { english: 'Where is...?', local: 'Wo ist...?', pronunciation: 'voh ist', when: 'Asking for directions' },
+                    { english: 'How much?', local: 'Wie viel kostet?', pronunciation: 'vee feel KOS-tet', when: 'Asking prices' },
+                    { english: 'The check, please', local: 'Die Rechnung, bitte', pronunciation: 'dee REKH-noong BIT-tuh', when: 'At restaurants' },
+                    { english: 'Delicious!', local: 'Lecker!', pronunciation: 'LEK-er', when: 'Complimenting food' },
+                    { english: 'Do you speak English?', local: 'Sprechen Sie Englisch?', pronunciation: 'SHPREKH-en zee ENG-lish', when: 'Starting a conversation' }
                 ]
             }
         };
@@ -454,7 +466,23 @@
                     'milan': { lat: 45.4642, lng: 9.1900 },
                     'barcelona': { lat: 41.3851, lng: 2.1734 },
                     'amsterdam': { lat: 52.3676, lng: 4.9041 },
-                    'london': { lat: 51.5074, lng: -0.1278 }
+                    'london': { lat: 51.5074, lng: -0.1278 },
+                    // Switzerland
+                    'iseltwald': { lat: 46.7167, lng: 7.9667 },
+                    // Italy - Cinque Terre & Tuscany
+                    'riomaggiore': { lat: 44.0961, lng: 9.7378 },
+                    'noce': { lat: 43.0833, lng: 11.7833 },
+                    'cinque terre': { lat: 44.1461, lng: 9.6439 },
+                    // Northern Italy
+                    'lake garda': { lat: 45.6500, lng: 10.6333 },
+                    'dolomites': { lat: 46.4102, lng: 11.8440 },
+                    'ortisei': { lat: 46.5744, lng: 11.6717 },
+                    // Austria
+                    'innbrücke': { lat: 47.2800, lng: 11.4500 },
+                    'innsbruck': { lat: 47.2692, lng: 11.4041 },
+                    'ampass': { lat: 47.2667, lng: 11.4667 },
+                    // Kids Choice placeholder (default to middle of route)
+                    'train day - kids choice': { lat: 46.0, lng: 9.0 }
                 };
                 const countryLanguages = {
                     'italy': 'Italian',
@@ -462,7 +490,10 @@
                     'spain': 'Spanish',
                     'netherlands': 'Dutch',
                     'uk': 'English',
-                    'england': 'English'
+                    'england': 'English',
+                    'switzerland': 'German',
+                    'austria': 'German',
+                    'switzerland/italy': 'Italian'
                 };
                 return rows.slice(1).filter(row => row[0]).map(row => {
                     const city = row[0];
