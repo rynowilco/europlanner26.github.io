@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Euro Planner '26</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS & JS for maps -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    
+    <style>
+        :root {
+            --color-cream: #FDF6E9;
+            --color-warm-white: #FFFDF9;
+            --color-tan: #E8DCC8;
+            --color-terracotta: #C4704F;
+            --color-navy: #1E3A5F;
+            --color-sage: #7D9B76;
+            --color-gold: #D4A853;
+            --color-text: #2C2C2C;
+            --color-text-light: #666666;
+            --color-border: #E0D5C4;
+            --color-success: #4CAF50;
+            --color-warning: #FF9800;
+            --color-error: #E53935;
+            --font-display: 'Crimson Pro', Georgia, serif;
+            --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px;
+            --radius-sm: 8px; --radius-md: 12px; --radius-lg: 20px; --radius-full: 9999px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08); --shadow-md: 0 4px 12px rgba(0,0,0,0.1); --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+        body { font-family: var(--font-body); background: var(--color-cream); color: var(--color-text); -webkit-font-smoothing: antialiased; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .markdown-content p { margin-bottom: 0.75em; }
+        .markdown-content p:last-child { margin-bottom: 0; }
+        .markdown-content ul, .markdown-content ol { margin: 0.5em 0; padding-left: 1.5em; }
+        .markdown-content li { margin: 0.25em 0; }
+        .markdown-content strong { font-weight: 600; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--color-tan); border-radius: 3px; }
+        
+        /* Leaflet custom styles */
+        .leaflet-container { font-family: var(--font-body); }
+        .custom-popup .leaflet-popup-content-wrapper { border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+        .custom-popup .leaflet-popup-content { margin: 0; padding: 0; }
+        .custom-popup .leaflet-popup-tip { background: white; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const CONFIG = {
+            // Claude API
+            CLAUDE_API_KEY: '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',
+            CLAUDE_MODEL: 'claude-sonnet-4-20250514',
+            
+            // Google Sheets API
+            GOOGLE_API_KEY: 'AIzaSyDcsv7an4O4p2XsaE-Dk6kHs3bmesTckfk',
+            SPREADSHEET_ID: '12ca-wAeLKrmfgdJQmxKjRFNAvptjdnJCobSkm1wk838',
+            SHEET_NAMES: {
+                itinerary: 'Itinerary',
+                userProfiles: 'User Profiles',
+                activities: 'Activity Proposals',
+                conversations: 'Conversation Memory',
+                phrases: 'Language Phrases',
+                params: 'Soft Parameters'
+            },
+            
+            // Default user data (will be overwritten by Google Sheets)
+            users: {
+                abby: { 
+                    name: 'Abby', 
+                    age: 11, 
+                    emoji: '🌟', 
+                    color: '#C4704F', 
+                    interests: ['trying new foods', 'shopping', 'learning languages', 'swimming', 'culture', 'sports', 'baking', 'fashion', 'makeup & skincare'],
+                    preferences: 'Likes humor and jokes. Good for a few hours of walking. Sticks to familiar foods but wants to try cool food spots. Wants to avoid: long car rides, really long hikes. Perfect day: finding cool food spots, shopping, trying a new activity she has never done before.',
+                    budgetTotal: 1000, 
+                    budgetRemaining: 1000, 
+                    approvedActivities: 0, 
+                    phrasesLearned: 0 
+                },
+                tyler: { 
+                    name: 'Tyler', 
+                    age: 14, 
+                    emoji: '⚡', 
+                    color: '#1E3A5F', 
+                    interests: ['seeing the world', 'food', 'human interaction', 'playing sports', 'learning on Duolingo', 'family bonding'],
+                    preferences: 'Likes humor and jokes. Will try almost anything food-wise! Prefers shorter walks with breaks. Wants to avoid: long car rides. Perfect day: bonding with family, learning about a new place. Fun fact he knows: you don\'t tip in Europe.',
+                    budgetTotal: 1000, 
+                    budgetRemaining: 1000, 
+                    approvedActivities: 0, 
+                    phrasesLearned: 0 
+                }
+            },
+            parentEmails: ['katieheindel@gmail.com', 'talentonian@gmail.com'],
+            adminPassword: 'sardine',
+            softParams: { maxTravelTimeMinutes: 120, perActivityBudgetGuideline: 100, activityDeadline: '2026-05-11', requiredActivitiesPerKid: 3, eurToUsdRate: 1.08 },
+            itinerary: [
+                { city: 'Florence', country: 'Italy', startDate: '2025-07-01', endDate: '2025-07-05', accommodation: 'TBD', transport: 'Rental car', lat: 43.7696, lng: 11.2558, language: 'Italian' },
+                { city: 'Rome', country: 'Italy', startDate: '2025-07-05', endDate: '2025-07-08', accommodation: 'TBD', transport: 'Train, Metro, Walking', lat: 41.9028, lng: 12.4964, language: 'Italian' },
+                { city: 'Paris', country: 'France', startDate: '2025-07-08', endDate: '2025-07-12', accommodation: 'TBD', transport: 'Metro, Walking', lat: 48.8566, lng: 2.3522, language: 'French' }
+            ],
+            phrases: {
+                Italian: [
+                    { english: 'Hello', local: 'Ciao', pronunciation: 'CHOW', when: 'Greeting anyone' },
+                    { english: 'Good morning', local: 'Buongiorno', pronunciation: 'bwon-JOUR-no', when: 'Morning greeting (more formal)' },
+                    { english: 'Thank you', local: 'Grazie', pronunciation: 'GRAH-tsee-eh', when: 'After receiving help or service' },
+                    { english: 'Please', local: 'Per favore', pronunciation: 'pair fah-VOH-ray', when: 'When asking for something' },
+                    { english: 'Excuse me', local: 'Scusi', pronunciation: 'SKOO-zee', when: 'Getting attention or apologizing' },
+                    { english: 'Where is...?', local: 'Dov\'è...?', pronunciation: 'doh-VEH', when: 'Asking for directions' },
+                    { english: 'How much?', local: 'Quanto costa?', pronunciation: 'KWAHN-toh KOH-stah', when: 'Asking prices' },
+                    { english: 'The check, please', local: 'Il conto, per favore', pronunciation: 'eel KON-toh pair fah-VOH-ray', when: 'At restaurants' },
+                    { english: 'Delicious!', local: 'Delizioso!', pronunciation: 'day-lee-TSYOH-zoh', when: 'Complimenting food' },
+                    { english: 'Do you speak English?', local: 'Parla inglese?', pronunciation: 'PAR-lah een-GLAY-zay', when: 'Starting a conversation' }
+                ],
+                French: [
+                    { english: 'Hello', local: 'Bonjour', pronunciation: 'bohn-ZHOOR', when: 'Greeting anyone (daytime)' },
+                    { english: 'Good evening', local: 'Bonsoir', pronunciation: 'bohn-SWAHR', when: 'Evening greeting' },
+                    { english: 'Thank you', local: 'Merci', pronunciation: 'mair-SEE', when: 'After receiving help' },
+                    { english: 'Please', local: 'S\'il vous plaît', pronunciation: 'seel voo PLAY', when: 'When asking for something' },
+                    { english: 'Excuse me', local: 'Excusez-moi', pronunciation: 'ex-koo-zay MWAH', when: 'Getting attention' },
+                    { english: 'Where is...?', local: 'Où est...?', pronunciation: 'oo EH', when: 'Asking for directions' },
+                    { english: 'How much?', local: 'C\'est combien?', pronunciation: 'say kohm-BYEH', when: 'Asking prices' },
+                    { english: 'The check, please', local: 'L\'addition, s\'il vous plaît', pronunciation: 'lah-dee-SYOHN seel voo PLAY', when: 'At restaurants' },
+                    { english: 'It\'s beautiful!', local: 'C\'est magnifique!', pronunciation: 'say mah-nyee-FEEK', when: 'Admiring something' },
+                    { english: 'Do you speak English?', local: 'Parlez-vous anglais?', pronunciation: 'par-lay VOO ahn-GLAY', when: 'Starting a conversation' }
+                ]
+            }
+        };
+        
+        // ============================================
+        // SVG ICONS
+        // ============================================
+        const Icon = ({ name, size = 24, color = "currentColor" }) => {
+            const icons = {
+                ArrowLeft: <path d="M19 12H5M12 19l-7-7 7-7"/>,
+                ChevronRight: <path d="m9 18 6-6-6-6"/>,
+                Send: <><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></>,
+                Map: <><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></>,
+                Settings: <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>,
+                List: <><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></>,
+                Check: <path d="M20 6 9 17l-5-5"/>,
+                X: <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>,
+                Clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
+                DollarSign: <><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
+                MapPin: <><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></>,
+                Sparkles: <><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></>,
+                Lock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+                Globe: <><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></>,
+                Book: <><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></>,
+                Volume2: <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>
+            };
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+        
+        // ============================================
+        // GOOGLE SHEETS API WITH OAUTH
+        // ============================================
+        
+        // Google OAuth configuration
+        const GOOGLE_CLIENT_ID = '861097396300-0rl42agek0mfukvnp823aj7tn91da4od.apps.googleusercontent.com';
+        const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+        
+        // Token management
+        const TokenManager = {
+            getToken() {
+                const saved = localStorage.getItem('euroPlanner_googleToken');
+                if (!saved) return null;
+                try {
+                    const token = JSON.parse(saved);
+                    // Check if token is expired (with 5 min buffer)
+                    if (token.expires_at && Date.now() > token.expires_at - 300000) {
+                        this.clearToken();
+                        return null;
+                    }
+                    return token.access_token;
+                } catch {
+                    return null;
+                }
+            },
+            
+            setToken(tokenResponse) {
+                const tokenData = {
+                    access_token: tokenResponse.access_token,
+                    expires_at: Date.now() + (tokenResponse.expires_in * 1000)
+                };
+                localStorage.setItem('euroPlanner_googleToken', JSON.stringify(tokenData));
+            },
+            
+            clearToken() {
+                localStorage.removeItem('euroPlanner_googleToken');
+            },
+            
+            isSignedIn() {
+                return !!this.getToken();
+            }
+        };
+        
+        // Google Sign-In using popup
+        const GoogleAuth = {
+            signIn() {
+                return new Promise((resolve, reject) => {
+                    const width = 500;
+                    const height = 600;
+                    const left = window.screenX + (window.outerWidth - width) / 2;
+                    const top = window.screenY + (window.outerHeight - height) / 2;
+                    
+                    // Create OAuth URL
+                    const params = new URLSearchParams({
+                        client_id: GOOGLE_CLIENT_ID,
+                        redirect_uri: window.location.origin + window.location.pathname,
+                        response_type: 'token',
+                        scope: GOOGLE_SCOPES,
+                        include_granted_scopes: 'true',
+                        state: 'europlanner'
+                    });
+                    
+                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+                    
+                    // Open popup
+                    const popup = window.open(
+                        authUrl,
+                        'Google Sign In',
+                        `width=${width},height=${height},left=${left},top=${top}`
+                    );
+                    
+                    // Listen for the redirect with token
+                    const checkPopup = setInterval(() => {
+                        try {
+                            if (popup.closed) {
+                                clearInterval(checkPopup);
+                                reject(new Error('Popup closed'));
+                                return;
+                            }
+                            
+                            // Check if we're back on our domain with a token
+                            if (popup.location.href.includes(window.location.origin)) {
+                                const hash = popup.location.hash.substring(1);
+                                const params = new URLSearchParams(hash);
+                                const accessToken = params.get('access_token');
+                                const expiresIn = params.get('expires_in');
+                                
+                                if (accessToken) {
+                                    TokenManager.setToken({
+                                        access_token: accessToken,
+                                        expires_in: parseInt(expiresIn) || 3600
+                                    });
+                                    popup.close();
+                                    clearInterval(checkPopup);
+                                    resolve(accessToken);
+                                }
+                            }
+                        } catch (e) {
+                            // Cross-origin error - popup is still on Google's domain
+                        }
+                    }, 500);
+                    
+                    // Timeout after 2 minutes
+                    setTimeout(() => {
+                        clearInterval(checkPopup);
+                        if (!popup.closed) popup.close();
+                        reject(new Error('Sign in timeout'));
+                    }, 120000);
+                });
+            },
+            
+            signOut() {
+                TokenManager.clearToken();
+            }
+        };
+        
+        const SheetsAPI = {
+            baseUrl: `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}`,
+            
+            // Get authorization header
+            getAuthHeader() {
+                const token = TokenManager.getToken();
+                if (token) {
+                    return { 'Authorization': `Bearer ${token}` };
+                }
+                return {};
+            },
+            
+            // Read data from a sheet (works with API key or OAuth)
+            async read(sheetName, range = '') {
+                const fullRange = range ? `${sheetName}!${range}` : sheetName;
+                const token = TokenManager.getToken();
+                
+                // Use OAuth token if available, otherwise API key
+                let url = `${this.baseUrl}/values/${encodeURIComponent(fullRange)}`;
+                if (!token) {
+                    url += `?key=${CONFIG.GOOGLE_API_KEY}`;
+                }
+                
+                try {
+                    const response = await fetch(url, {
+                        headers: token ? this.getAuthHeader() : {}
+                    });
+                    if (!response.ok) throw new Error(`Sheets API error: ${response.status}`);
+                    const data = await response.json();
+                    return data.values || [];
+                } catch (error) {
+                    console.error('Error reading from Sheets:', error);
+                    return null;
+                }
+            },
+            
+            // Write data to a sheet (requires OAuth)
+            async append(sheetName, values) {
+                const token = TokenManager.getToken();
+                if (!token) {
+                    console.warn('Cannot write to Sheets - not signed in');
+                    return null;
+                }
+                
+                const url = `${this.baseUrl}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=USER_ENTERED`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...this.getAuthHeader()
+                        },
+                        body: JSON.stringify({ values: [values] })
+                    });
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(`Sheets API error: ${response.status} - ${JSON.stringify(error)}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error appending to Sheets:', error);
+                    return null;
+                }
+            },
+            
+            // Update a specific range (requires OAuth)
+            async update(sheetName, range, values) {
+                const token = TokenManager.getToken();
+                if (!token) {
+                    console.warn('Cannot write to Sheets - not signed in');
+                    return null;
+                }
+                
+                const fullRange = `${sheetName}!${range}`;
+                const url = `${this.baseUrl}/values/${encodeURIComponent(fullRange)}?valueInputOption=USER_ENTERED`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...this.getAuthHeader()
+                        },
+                        body: JSON.stringify({ values })
+                    });
+                    if (!response.ok) throw new Error(`Sheets API error: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error updating Sheets:', error);
+                    return null;
+                }
+            },
+            
+            // Parse activities from sheet data
+            parseActivities(rows) {
+                if (!rows || rows.length < 2) return [];
+                const headers = rows[0];
+                return rows.slice(1).filter(row => row[0]).map(row => ({
+                    id: row[0] || '',
+                    kidId: (row[1] || '').toLowerCase(),
+                    kidName: row[1] || '',
+                    title: row[2] || '',
+                    city: row[3] || '',
+                    description: row[4] || '',
+                    estimatedCost: parseFloat(row[5]) || 0,
+                    travelMethod: row[6] || '',
+                    travelTime: row[7] || '',
+                    duration: row[8] || '',
+                    otherConsiderations: row[9] || '',
+                    status: (row[10] || 'draft').toLowerCase().replace(' ', '-'),
+                    dateSubmitted: row[11] || '',
+                    parentFeedback: row[12] || '',
+                    dateUpdated: row[13] || ''
+                }));
+            },
+            
+            // Parse user profiles from sheet data
+            parseUserProfiles(rows) {
+                if (!rows || rows.length < 2) return null;
+                const profiles = {};
+                rows.slice(1).filter(row => row[0]).forEach(row => {
+                    const name = row[0];
+                    const id = name.toLowerCase();
+                    profiles[id] = {
+                        name: name,
+                        age: parseInt(row[1]) || 11,
+                        interests: (row[2] || '').split(',').map(s => s.trim()).filter(Boolean),
+                        preferences: row[3] || '',
+                        budgetTotal: parseFloat(row[4]) || 1000,
+                        budgetRemaining: parseFloat(row[5]) || 1000,
+                        approvedActivities: parseInt(row[6]) || 0,
+                        phrasesLearned: parseInt(row[7]) || 0,
+                        emoji: id === 'abby' ? '🌟' : '⚡',
+                        color: id === 'abby' ? '#C4704F' : '#1E3A5F'
+                    };
+                });
+                return profiles;
+            },
+            
+            // Parse itinerary from sheet data
+            parseItinerary(rows) {
+                if (!rows || rows.length < 2) return null;
+                const cityCoords = {
+                    'florence': { lat: 43.7696, lng: 11.2558 },
+                    'rome': { lat: 41.9028, lng: 12.4964 },
+                    'paris': { lat: 48.8566, lng: 2.3522 },
+                    'venice': { lat: 45.4408, lng: 12.3155 },
+                    'milan': { lat: 45.4642, lng: 9.1900 },
+                    'barcelona': { lat: 41.3851, lng: 2.1734 },
+                    'amsterdam': { lat: 52.3676, lng: 4.9041 },
+                    'london': { lat: 51.5074, lng: -0.1278 }
+                };
+                const countryLanguages = {
+                    'italy': 'Italian',
+                    'france': 'French',
+                    'spain': 'Spanish',
+                    'netherlands': 'Dutch',
+                    'uk': 'English',
+                    'england': 'English'
+                };
+                return rows.slice(1).filter(row => row[0]).map(row => {
+                    const city = row[0];
+                    const country = row[1] || '';
+                    const coords = cityCoords[city.toLowerCase()] || { lat: 45, lng: 10 };
+                    return {
+                        city,
+                        country,
+                        startDate: row[2] || '',
+                        endDate: row[3] || '',
+                        accommodation: row[4] || 'TBD',
+                        address: row[5] || '',
+                        transport: row[6] || '',
+                        notes: row[7] || '',
+                        lat: coords.lat,
+                        lng: coords.lng,
+                        language: countryLanguages[country.toLowerCase()] || 'English'
+                    };
+                });
+            },
+            
+            // Convert activity to row format for sheets
+            activityToRow(activity) {
+                return [
+                    activity.id,
+                    activity.kidName,
+                    activity.title,
+                    activity.city,
+                    activity.description,
+                    activity.estimatedCost,
+                    activity.travelMethod,
+                    activity.travelTime,
+                    activity.duration,
+                    activity.otherConsiderations,
+                    activity.status.charAt(0).toUpperCase() + activity.status.slice(1).replace('-', ' '),
+                    activity.dateSubmitted,
+                    activity.parentFeedback || '',
+                    activity.dateUpdated || activity.dateSubmitted
+                ];
+            }
+        };
+        
+        // ============================================
+        // DATA STORE (with Google Sheets sync)
+        // ============================================
+        const useStore = () => {
+            const [activities, setActivities] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_activities');
+                return saved ? JSON.parse(saved) : [
+                    { id: 'SAMPLE-1', kidId: 'tyler', kidName: 'Tyler', title: 'Colosseum & Roman Forum Tour', city: 'Rome', description: 'Guided tour of ancient Roman sites with skip-the-line tickets.', estimatedCost: 85, travelMethod: 'Metro', travelTime: '20 min', duration: '3 hours', otherConsiderations: 'Book in advance. Bring water.', status: 'approved', dateSubmitted: '2026-01-15', parentFeedback: '', isSample: true },
+                    { id: 'SAMPLE-2', kidId: 'abby', kidName: 'Abby', title: 'Watercolor Painting Class', city: 'Florence', description: 'Learn to paint Tuscan landscapes. All supplies included!', estimatedCost: 65, travelMethod: 'Walking', travelTime: '15 min', duration: '2.5 hours', otherConsiderations: 'Class in English.', status: 'approved', dateSubmitted: '2026-01-18', parentFeedback: '', isSample: true }
+                ];
+            });
+            
+            const [conversations, setConversations] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_conversations');
+                return saved ? JSON.parse(saved) : { abby: [], tyler: [] };
+            });
+            
+            const [userProfiles, setUserProfiles] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_profiles');
+                return saved ? JSON.parse(saved) : CONFIG.users;
+            });
+            
+            const [itinerary, setItinerary] = useState(CONFIG.itinerary);
+            const [sheetsLoaded, setSheetsLoaded] = useState(false);
+            const [sheetsError, setSheetsError] = useState(null);
+            
+            // Load data from Google Sheets on mount
+            useEffect(() => {
+                const loadFromSheets = async () => {
+                    try {
+                        console.log('Loading data from Google Sheets...');
+                        
+                        // Load activities
+                        const activitiesData = await SheetsAPI.read(CONFIG.SHEET_NAMES.activities);
+                        if (activitiesData && activitiesData.length > 1) {
+                            const parsed = SheetsAPI.parseActivities(activitiesData);
+                            if (parsed.length > 0) {
+                                // Merge with samples
+                                const samples = activities.filter(a => a.isSample);
+                                setActivities([...samples, ...parsed.filter(a => !a.isSample)]);
+                                console.log('Loaded activities:', parsed.length);
+                            }
+                        }
+                        
+                        // Load user profiles
+                        const profilesData = await SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles);
+                        if (profilesData && profilesData.length > 1) {
+                            const parsed = SheetsAPI.parseUserProfiles(profilesData);
+                            if (parsed && Object.keys(parsed).length > 0) {
+                                setUserProfiles(prev => ({ ...prev, ...parsed }));
+                                console.log('Loaded user profiles');
+                            }
+                        }
+                        
+                        // Load itinerary
+                        const itineraryData = await SheetsAPI.read(CONFIG.SHEET_NAMES.itinerary);
+                        if (itineraryData && itineraryData.length > 1) {
+                            const parsed = SheetsAPI.parseItinerary(itineraryData);
+                            if (parsed && parsed.length > 0) {
+                                setItinerary(parsed);
+                                console.log('Loaded itinerary:', parsed.length, 'cities');
+                            }
+                        }
+                        
+                        setSheetsLoaded(true);
+                    } catch (error) {
+                        console.error('Error loading from Sheets:', error);
+                        setSheetsError(error.message);
+                        setSheetsLoaded(true); // Still mark as loaded so app works with local data
+                    }
+                };
+                
+                loadFromSheets();
+            }, []);
+            
+            // Save to localStorage as backup
+            useEffect(() => { localStorage.setItem('euroPlanner_activities', JSON.stringify(activities)); }, [activities]);
+            useEffect(() => { localStorage.setItem('euroPlanner_conversations', JSON.stringify(conversations)); }, [conversations]);
+            useEffect(() => { localStorage.setItem('euroPlanner_profiles', JSON.stringify(userProfiles)); }, [userProfiles]);
+            
+            const addActivity = async (activity) => {
+                const newActivity = { 
+                    ...activity, 
+                    id: `ACT-${Date.now()}`, 
+                    dateSubmitted: new Date().toISOString().split('T')[0],
+                    dateUpdated: new Date().toISOString().split('T')[0],
+                    status: 'submitted' 
+                };
+                setActivities(prev => [...prev, newActivity]);
+                
+                // Sync to Google Sheets
+                try {
+                    await SheetsAPI.append(CONFIG.SHEET_NAMES.activities, SheetsAPI.activityToRow(newActivity));
+                    console.log('Activity synced to Sheets:', newActivity.title);
+                } catch (error) {
+                    console.error('Error syncing activity to Sheets:', error);
+                }
+                
+                return newActivity;
+            };
+            
+            const updateActivity = (id, updates) => {
+                setActivities(prev => prev.map(a => a.id === id ? { ...a, ...updates, dateUpdated: new Date().toISOString().split('T')[0] } : a));
+                // Note: For full sync, we'd need to find and update the specific row in Sheets
+                // For now, updates are stored locally and can be manually synced
+            };
+            
+            const approveActivity = (id) => {
+                const activity = activities.find(a => a.id === id);
+                if (activity && !activity.isSample) {
+                    updateActivity(id, { status: 'approved' });
+                    setUserProfiles(prev => ({
+                        ...prev,
+                        [activity.kidId]: {
+                            ...prev[activity.kidId],
+                            budgetRemaining: prev[activity.kidId].budgetRemaining - (activity.estimatedCost * CONFIG.softParams.eurToUsdRate),
+                            approvedActivities: prev[activity.kidId].approvedActivities + 1
+                        }
+                    }));
+                }
+            };
+            
+            const addMessage = (userId, message) => {
+                setConversations(prev => ({ ...prev, [userId]: [...(prev[userId] || []), message] }));
+            };
+            
+            // Save conversation summary to Sheets when session ends
+            const saveConversationSummary = async (userId, summary) => {
+                try {
+                    const row = [
+                        userProfiles[userId]?.name || userId,
+                        new Date().toISOString().split('T')[0],
+                        summary.topics || '',
+                        summary.ideas || '',
+                        summary.notes || '',
+                        'N' // Digest not sent yet
+                    ];
+                    await SheetsAPI.append(CONFIG.SHEET_NAMES.conversations, row);
+                    console.log('Conversation summary saved to Sheets');
+                } catch (error) {
+                    console.error('Error saving conversation summary:', error);
+                }
+            };
+            
+            return { 
+                activities, 
+                conversations, 
+                userProfiles, 
+                itinerary,
+                sheetsLoaded,
+                sheetsError,
+                addActivity, 
+                updateActivity, 
+                approveActivity, 
+                addMessage, 
+                saveConversationSummary,
+                setUserProfiles 
+            };
+        };
+        
+        // ============================================
+        // CLAUDE API
+        // ============================================
+        const generateSystemPrompt = (user, userId, activities, itinerary) => {
+            const userActivities = activities.filter(a => a.kidId === userId && !a.isSample);
+            const otherActivities = activities.filter(a => a.kidId !== userId && !a.isSample);
+            const tripItinerary = itinerary || CONFIG.itinerary;
+            const cities = tripItinerary.map(i => i.city).join(', ');
+            
+            return `You are a friendly travel planning assistant helping ${user.name} (age ${user.age}) plan activities for their family's Europe trip in summer 2025.
+
+## Your Role & Boundaries
+You are ONLY a Europe trip planning assistant. You help with:
+✅ Planning activities in ${cities}
+✅ Researching things to do, see, eat
+✅ Discussing logistics (costs, timing, transportation)
+✅ Teaching relevant Italian/French phrases
+✅ Answering questions about European culture and travel
+
+You do NOT help with:
+❌ Homework, school projects, or academic questions
+❌ Personal advice unrelated to the trip
+❌ Games, stories, or entertainment not about the trip
+❌ Anything inappropriate for kids
+❌ Topics unrelated to the Europe trip
+
+If ${user.name} asks about something off-topic, be friendly but redirect:
+- "Haha, I wish I could help with that! But I'm really just your Europe trip buddy 🌍 Speaking of which - have you thought about what you want to do in [city]?"
+- "That's outside my wheelhouse! I'm all about helping you plan awesome Europe adventures. Want to explore some ideas?"
+
+## Content Safety (IMPORTANT)
+- Keep all conversations appropriate for ${user.age === 11 ? 'an 11-year-old' : 'a 14-year-old'}
+- Never discuss violent, scary, or adult content
+- Don't ask for or encourage sharing personal information (addresses, passwords, etc.)
+- If anything feels off, redirect to trip planning
+
+## Your Style
+- Warm, encouraging, genuinely excited about travel
+- Use ${user.name}'s name naturally
+- ${user.name} likes humor and jokes - be fun and playful!
+- ${user.age === 14 ? 'Casual teen language is totally fine ("that\'s sick", "no cap", "bro")' : 'Keep it friendly and fun, but age-appropriate (not babyish)'}
+- Be helpful but realistic about constraints
+
+## Session Pacing
+- After about 15-20 exchanges, gently suggest wrapping up or submitting an activity idea
+- Example: "We've covered a lot! Want to polish up one of these ideas and submit it for your parents to review? Or we can pick this up next time!"
+- Encourage breaks: "Nice planning session! Maybe take a break and come back with fresh ideas?"
+
+## Trip Details
+${tripItinerary.map(i => `- ${i.city}, ${i.country}: ${i.startDate} to ${i.endDate} (${i.transport})`).join('\n')}
+
+## About ${user.name}
+- **Interests:** ${user.interests?.join(', ') || 'Not specified'}
+- **Preferences:** ${user.preferences || 'Not specified'}
+
+## ${user.name}'s Planning Status
+- Budget: $${user.budgetRemaining?.toFixed(0) || user.budgetTotal} of $${user.budgetTotal} remaining
+- Activities approved: ${userActivities.filter(a => a.status === 'approved').length}/3 required
+- Deadline: 3 activities need parent approval by May 11, 2026
+
+## Activity Guidelines
+- Guide toward creative, outdoorsy, off-the-beaten-path activities (touristy is OK too)
+- Budget guideline: ~€100 per activity (flexible)  
+- When discussing costs, mention both euros and USD (~€1 = $1.08)
+- Include meals and transport in cost estimates
+- ${userId === 'abby' ? 'Remember: Abby wants to AVOID really long hikes and long car rides. She is good for a few hours of walking. She loves shopping, food experiences, and trying new activities she has never done.' : 'Remember: Tyler wants to AVOID long car rides. He prefers shorter walks with breaks. He loves trying new foods, sports, and learning about new places. He wants family bonding time.'}
+
+## ${user.name}'s Activities So Far
+${userActivities.length > 0 ? userActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'None yet - fresh start!'}
+
+## What ${userId === 'tyler' ? 'Abby' : 'Tyler'} Is Planning
+${otherActivities.length > 0 ? otherActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'Nothing submitted yet'}
+(Suggest combining activities if there's overlap - family bonding matters!)
+
+## Language Learning
+Naturally weave in useful Italian (Florence/Rome) or French (Paris) phrases. Both kids are interested in learning!
+
+## SUBMITTING ACTIVITIES (IMPORTANT!)
+When ${user.name} has a solid activity idea and confirms they want to submit it, you MUST format the submission EXACTLY like this (the system will automatically detect and submit it):
+
+[SUBMIT_ACTIVITY]
+Title: (activity name)
+City: (Florence, Rome, or Paris)
+Description: (2-3 sentence description)
+Cost: (number in euros, just the number)
+Travel Method: (how to get there from accommodation)
+Travel Time: (e.g., "20 minutes")
+Duration: (e.g., "2 hours")
+Considerations: (booking requirements, what to bring, best timing, etc.)
+[/SUBMIT_ACTIVITY]
+
+After outputting this block, confirm to ${user.name} that the activity has been submitted for parent review!
+
+Example of a complete submission:
+[SUBMIT_ACTIVITY]
+Title: Gelato Making Workshop
+City: Florence
+Description: Learn to make authentic Italian gelato from a local chef! Includes tasting and recipes to take home.
+Cost: 65
+Travel Method: Walking
+Travel Time: 15 minutes
+Duration: 2 hours
+Considerations: Book 2 days ahead. Wear clothes that can get messy. Class is in English.
+[/SUBMIT_ACTIVITY]
+
+Keep it fun and focused on making this Europe trip amazing! 🎉`;
+        };
+        
+        const callClaudeAPI = async (messages, systemPrompt) => {
+            if (!CONFIG.CLAUDE_API_KEY) {
+                // Demo responses when no API key
+                const responses = [
+                    `That sounds awesome! 🎉 Let me think about options...\n\nBased on your itinerary, there are some really cool possibilities. What interests you most - something outdoorsy, creative, or a mix?`,
+                    `Ooh, I love that idea! A few questions:\n\n1. Which city - Florence, Rome, or Paris?\n2. More active or chill?\n3. How much time do you want to spend?`,
+                    `Nice! Here's what I'm thinking:\n\n**Option A:** The popular version - about €50, easy to get to\n**Option B:** A hidden gem locals love - about €35, more of an adventure\n\nWhich sounds more your style?`
+                ];
+                await new Promise(r => setTimeout(r, 1000));
+                return responses[Math.floor(Math.random() * responses.length)];
+            }
+            
+            try {
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CONFIG.CLAUDE_API_KEY,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: CONFIG.CLAUDE_MODEL,
+                        max_tokens: 1024,
+                        system: systemPrompt,
+                        messages: messages.map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.text }))
+                    })
+                });
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                const data = await response.json();
+                return data.content[0].text;
+            } catch (error) {
+                console.error('Claude API error:', error);
+                return `Having trouble connecting. Error: ${error.message}`;
+            }
+        };
+        
+        // ============================================
+        // COMPONENTS
+        // ============================================
+        
+        // Welcome Screen
+        const WelcomeScreen = ({ onSelectUser, userProfiles, activities, onOpenSettings, onOpenDashboard, onOpenMap, isGoogleSignedIn, onGoogleSignIn, onGoogleSignOut, signingIn }) => (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
+                <header style={{ textAlign: 'center', paddingTop: 'var(--space-xl)', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out' }}>
+                    <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 8vw, 2.5rem)', fontWeight: 600, color: 'var(--color-navy)', letterSpacing: '-0.02em' }}>Euro Planner '26</h1>
+                    <p style={{ fontSize: '1rem', color: 'var(--color-text-light)', maxWidth: '280px', margin: '0 auto', lineHeight: 1.5 }}>Plan your European adventure with your AI travel buddy</p>
+                </header>
+                
+                {/* Google Sign-In Status */}
+                {!isGoogleSignedIn && (
+                    <div style={{ maxWidth: '400px', margin: '0 auto var(--space-md)', width: '100%', animation: 'fadeIn 0.5s ease-out' }}>
+                        <button 
+                            onClick={onGoogleSignIn} 
+                            disabled={signingIn}
+                            style={{ 
+                                width: '100%', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                gap: 'var(--space-sm)', 
+                                padding: 'var(--space-md)', 
+                                background: 'white', 
+                                border: '2px solid var(--color-border)', 
+                                borderRadius: 'var(--radius-md)', 
+                                cursor: signingIn ? 'wait' : 'pointer', 
+                                fontSize: '0.95rem', 
+                                fontWeight: 500,
+                                boxShadow: 'var(--shadow-sm)'
+                            }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                            </svg>
+                            {signingIn ? 'Signing in...' : 'Sign in with Google to save activities'}
+                        </button>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', textAlign: 'center', marginTop: 'var(--space-xs)' }}>
+                            One-time setup to sync your plans
+                        </p>
+                    </div>
+                )}
+                
+                {isGoogleSignedIn && (
+                    <div style={{ maxWidth: '400px', margin: '0 auto var(--space-md)', width: '100%', textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: '#E8F5E9', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', color: 'var(--color-success)' }}>
+                            <Icon name="Check" size={16} /> Syncing to Google Sheets
+                        </div>
+                    </div>
+                )}
+                
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
+                    <p style={{ textAlign: 'center', fontSize: '1rem', color: 'var(--color-text-light)', animation: 'fadeIn 0.6s ease-out 0.2s both' }}>Who's planning today?</p>
+                    
+                    {Object.entries(userProfiles).map(([key, user], index) => {
+                        const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
+                        return (
+                            <button key={key} onClick={() => onSelectUser(key)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none'; }}>
+                                <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{user.emoji}</div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · {approved}/3 activities</div>
+                                </div>
+                                <Icon name="ChevronRight" size={24} color="var(--color-text-light)" />
+                            </button>
+                        );
+                    })}
+                    
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', animation: 'fadeIn 0.6s ease-out 0.5s both' }}>
+                        <button onClick={onOpenMap} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-sage)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500 }}>
+                            <Icon name="Map" size={20} /> Trip Map
+                        </button>
+                        <button onClick={onOpenDashboard} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-tan)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500 }}>
+                            <Icon name="List" size={20} /> Activities
+                        </button>
+                    </div>
+                </div>
+                
+                <footer style={{ textAlign: 'center', paddingTop: 'var(--space-lg)', paddingBottom: 'var(--space-md)', animation: 'fadeIn 0.6s ease-out 0.5s both' }}>
+                    <button onClick={onOpenSettings} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', padding: 'var(--space-sm) var(--space-md)' }}>
+                        <Icon name="Settings" size={16} /> Parent Settings
+                    </button>
+                    {isGoogleSignedIn && (
+                        <button onClick={onGoogleSignOut} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.8rem', cursor: 'pointer', marginLeft: 'var(--space-md)' }}>
+                            Sign out
+                        </button>
+                    )}
+                </footer>
+            </div>
+        );
+        
+        // Chat Message
+        const ChatMessage = ({ message, isUser, isTyping }) => (
+            <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 'var(--space-md)', animation: 'slideIn 0.3s ease-out' }}>
+                <div style={{ maxWidth: '85%', padding: 'var(--space-md)', borderRadius: isUser ? 'var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)' : 'var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)', background: isUser ? 'var(--color-navy)' : 'white', color: isUser ? 'white' : 'var(--color-text)', boxShadow: 'var(--shadow-sm)', fontSize: '1rem', lineHeight: 1.5 }}>
+                    {isTyping ? (
+                        <div style={{ display: 'flex', gap: '4px', padding: '4px 8px' }}>
+                            {[0, 1, 2].map(i => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-text-light)', animation: `pulse 1s ease-in-out ${i * 0.15}s infinite` }} />)}
+                        </div>
+                    ) : (
+                        <div className="markdown-content" dangerouslySetInnerHTML={{ __html: typeof marked !== 'undefined' ? marked.parse(message || '') : message }} />
+                    )}
+                </div>
+            </div>
+        );
+        
+        // Chat Screen
+        const ChatScreen = ({ userId, user, onBack, onOpenDashboard, onOpenMap, store }) => {
+            const [messages, setMessages] = useState([]);
+            const [inputValue, setInputValue] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [started, setStarted] = useState(false);
+            const messagesEndRef = useRef(null);
+            
+            useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+            
+            useEffect(() => {
+                if (!started) {
+                    setStarted(true);
+                    const history = store.conversations[userId] || [];
+                    if (history.length > 0) setMessages(history.slice(-20));
+                    
+                    setIsLoading(true);
+                    setTimeout(async () => {
+                        const cities = (store.itinerary || CONFIG.itinerary).map(i => i.city).join(', ');
+                        const greeting = history.length > 0 
+                            ? `Welcome back, ${user.name}! 👋 Ready to keep planning? We can pick up where we left off or explore something new!`
+                            : `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
+                        const msg = { id: Date.now(), text: greeting, isUser: false };
+                        setMessages(prev => [...prev, msg]);
+                        store.addMessage(userId, msg);
+                        setIsLoading(false);
+                    }, 500);
+                }
+            }, [started, userId, user.name, store]);
+            
+            // Parse activity submission from agent response
+            const parseActivitySubmission = (text) => {
+                const match = text.match(/\[SUBMIT_ACTIVITY\]([\s\S]*?)\[\/SUBMIT_ACTIVITY\]/);
+                if (!match) return null;
+                
+                const content = match[1];
+                const getValue = (field) => {
+                    const regex = new RegExp(`${field}:\\s*(.+?)(?:\\n|$)`, 'i');
+                    const m = content.match(regex);
+                    return m ? m[1].trim() : '';
+                };
+                
+                return {
+                    title: getValue('Title'),
+                    city: getValue('City'),
+                    description: getValue('Description'),
+                    estimatedCost: parseFloat(getValue('Cost')) || 0,
+                    travelMethod: getValue('Travel Method'),
+                    travelTime: getValue('Travel Time'),
+                    duration: getValue('Duration'),
+                    otherConsiderations: getValue('Considerations')
+                };
+            };
+            
+            // Clean submission block from displayed message
+            const cleanResponseForDisplay = (text) => {
+                return text.replace(/\[SUBMIT_ACTIVITY\][\s\S]*?\[\/SUBMIT_ACTIVITY\]/g, '').trim();
+            };
+            
+            const sendMessage = async () => {
+                if (!inputValue.trim() || isLoading) return;
+                const userMsg = { id: Date.now(), text: inputValue.trim(), isUser: true };
+                setMessages(prev => [...prev, userMsg]);
+                store.addMessage(userId, userMsg);
+                setInputValue('');
+                setIsLoading(true);
+                
+                const systemPrompt = generateSystemPrompt(user, userId, store.activities, store.itinerary);
+                const response = await callClaudeAPI([...messages, userMsg], systemPrompt);
+                
+                // Check for activity submission
+                const activityData = parseActivitySubmission(response);
+                if (activityData && activityData.title) {
+                    // Submit the activity
+                    const newActivity = await store.addActivity({
+                        ...activityData,
+                        kidId: userId,
+                        kidName: user.name
+                    });
+                    console.log('Activity submitted:', newActivity);
+                }
+                
+                // Clean the response for display (remove the submission block)
+                const displayResponse = cleanResponseForDisplay(response);
+                
+                const assistantMsg = { id: Date.now() + 1, text: displayResponse, isUser: false };
+                setMessages(prev => [...prev, assistantMsg]);
+                store.addMessage(userId, assistantMsg);
+                setIsLoading(false);
+            };
+            
+            return (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
+                    <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', paddingTop: 'calc(var(--space-sm) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)', minHeight: '60px' }}>
+                        <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                            <Icon name="ArrowLeft" size={20} />
+                        </button>
+                        <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{user.emoji}</div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: '1rem' }}>{user.name}'s Planning</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>${store.userProfiles[userId]?.budgetRemaining?.toFixed(0) || user.budgetRemaining} left</div>
+                        </div>
+                        <button onClick={onOpenMap} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                            <Icon name="Map" size={20} />
+                        </button>
+                        <button onClick={onOpenDashboard} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                            <Icon name="List" size={20} />
+                        </button>
+                    </header>
+                    
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                        {messages.map(msg => <ChatMessage key={msg.id} message={msg.text} isUser={msg.isUser} />)}
+                        {isLoading && <ChatMessage isTyping />}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    
+                    <div style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} />
+                            <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Icon name="Send" size={20} />
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto' }}>
+                            {['Give me ideas', 'What cities?', 'My activities'].map((text, i) => (
+                                <button key={i} onClick={() => setInputValue(text)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                                    <Icon name={['Sparkles', 'MapPin', 'List'][i]} size={14} /> {text}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Activity Card
+        const ActivityCard = ({ activity, isAdmin, onApprove, onFeedback }) => {
+            const statusColors = { draft: { bg: 'var(--color-tan)', color: 'var(--color-text-light)' }, submitted: { bg: '#FFF3E0', color: 'var(--color-warning)' }, approved: { bg: '#E8F5E9', color: 'var(--color-success)' }, 'needs-revision': { bg: '#FFF3E0', color: 'var(--color-warning)' }, rejected: { bg: '#FFEBEE', color: 'var(--color-error)' } };
+            const status = statusColors[activity.status] || statusColors.draft;
+            const costUSD = (activity.estimatedCost * CONFIG.softParams.eurToUsdRate).toFixed(0);
+            
+            return (
+                <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-sm)' }}>
+                        <div>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '4px' }}>{activity.title}</h3>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>{activity.kidName} • {activity.city}</div>
+                        </div>
+                        <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500, background: status.bg, color: status.color }}>{activity.status.replace('-', ' ')}</span>
+                    </div>
+                    <p style={{ fontSize: '0.9rem', marginBottom: 'var(--space-md)', lineHeight: 1.5 }}>{activity.description}</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)', fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 'var(--space-md)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="DollarSign" size={14} /> €{activity.estimatedCost} (~${costUSD})</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="Clock" size={14} /> {activity.duration}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icon name="MapPin" size={14} /> {activity.travelTime}</span>
+                    </div>
+                    {activity.parentFeedback && <div style={{ background: '#FFF3E0', padding: 'var(--space-sm) var(--space-md)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}><strong>Feedback:</strong> {activity.parentFeedback}</div>}
+                    {isAdmin && activity.status === 'submitted' && (
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <button onClick={() => onApprove(activity.id)} style={{ flex: 1, padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 500 }}><Icon name="Check" size={16} /> Approve</button>
+                            <button onClick={() => onFeedback(activity.id)} style={{ flex: 1, padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-warning)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}>Feedback</button>
+                        </div>
+                    )}
+                    {activity.isSample && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontStyle: 'italic', marginTop: 'var(--space-sm)', textAlign: 'center' }}>📝 Sample activity</div>}
+                </div>
+            );
+        };
+        
+        // Dashboard
+        const DashboardScreen = ({ onBack, activities, userProfiles, isAdmin, onApprove, onFeedback }) => {
+            const [filter, setFilter] = useState('all');
+            const filtered = useMemo(() => {
+                if (filter === 'abby') return activities.filter(a => a.kidId === 'abby');
+                if (filter === 'tyler') return activities.filter(a => a.kidId === 'tyler');
+                if (filter === 'pending') return activities.filter(a => a.status === 'submitted');
+                return activities;
+            }, [activities, filter]);
+            
+            return (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
+                    <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', paddingTop: 'calc(var(--space-md) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
+                        <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}><Icon name="ArrowLeft" size={20} /></button>
+                        <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Activity Queue</h1>
+                        {isAdmin && <span style={{ background: 'var(--color-sage)', color: 'white', padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500 }}>Admin</span>}
+                    </header>
+                    
+                    <div style={{ display: 'flex', gap: 'var(--space-md)', padding: 'var(--space-md)', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
+                        {Object.entries(userProfiles).map(([key, user]) => (
+                            <div key={key} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.5rem' }}>{user.emoji}</div>
+                                <div style={{ fontWeight: 600 }}>{user.name}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0)} left</div>
+                                <div style={{ fontSize: '0.8rem', color: user.color, fontWeight: 500 }}>{activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length}/3 approved</div>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: 'var(--space-sm)', padding: 'var(--space-md)', overflowX: 'auto' }}>
+                        {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending' }, { key: 'abby', label: "Abby's" }, { key: 'tyler', label: "Tyler's" }].map(f => (
+                            <button key={f.key} onClick={() => setFilter(f.key)} style={{ padding: 'var(--space-sm) var(--space-md)', background: filter === f.key ? 'var(--color-navy)' : 'white', color: filter === f.key ? 'white' : 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap' }}>{f.label}</button>
+                        ))}
+                    </div>
+                    
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                        {filtered.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
+                                <Icon name="List" size={48} color="var(--color-border)" />
+                                <p style={{ marginTop: 'var(--space-md)' }}>No activities yet!</p>
+                            </div>
+                        ) : filtered.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Map Screen with Leaflet
+        const MapScreen = ({ onBack, activities, userProfiles, itinerary }) => {
+            const mapRef = useRef(null);
+            const mapInstanceRef = useRef(null);
+            const [selectedCity, setSelectedCity] = useState(null);
+            
+            // Use passed itinerary or fall back to CONFIG
+            const tripItinerary = itinerary || CONFIG.itinerary;
+            
+            useEffect(() => {
+                if (!mapRef.current || mapInstanceRef.current) return;
+                
+                // Initialize map centered on Europe
+                const map = L.map(mapRef.current, {
+                    center: [45.5, 10],
+                    zoom: 5,
+                    zoomControl: true
+                });
+                
+                // Add OpenStreetMap tiles
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(map);
+                
+                // Custom icon for accommodation markers
+                const createIcon = (color) => L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background: ${color}; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    popupAnchor: [0, -32]
+                });
+                
+                // Add markers for each city
+                tripItinerary.forEach((city, index) => {
+                    const marker = L.marker([city.lat, city.lng], {
+                        icon: createIcon('var(--color-terracotta)')
+                    }).addTo(map);
+                    
+                    marker.on('click', () => {
+                        setSelectedCity(city);
+                        map.flyTo([city.lat, city.lng], 12, { duration: 0.5 });
+                    });
+                    
+                    // Add city label
+                    const label = L.divIcon({
+                        className: 'city-label',
+                        html: `<div style="background: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.2);">${city.city}</div>`,
+                        iconAnchor: [-20, 16]
+                    });
+                    L.marker([city.lat, city.lng], { icon: label, interactive: false }).addTo(map);
+                });
+                
+                // Add activity markers
+                activities.filter(a => !a.isSample && a.status === 'approved').forEach(activity => {
+                    const cityInfo = CONFIG.itinerary.find(c => c.city === activity.city);
+                    if (cityInfo) {
+                        // Offset slightly so it doesn't overlap accommodation
+                        const offset = 0.01;
+                        const activityIcon = L.divIcon({
+                            className: 'activity-marker',
+                            html: `<div style="background: var(--color-success); width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✓</div>`,
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
+                        });
+                        L.marker([cityInfo.lat + offset, cityInfo.lng + offset], { icon: activityIcon })
+                            .bindPopup(`<strong>${activity.title}</strong><br/>${activity.kidName}'s activity`)
+                            .addTo(map);
+                    }
+                });
+                
+                mapInstanceRef.current = map;
+                
+                return () => {
+                    if (mapInstanceRef.current) {
+                        mapInstanceRef.current.remove();
+                        mapInstanceRef.current = null;
+                    }
+                };
+            }, [activities]);
+            
+            const cityActivities = selectedCity ? activities.filter(a => a.city === selectedCity.city && !a.isSample) : [];
+            const phrases = selectedCity ? CONFIG.phrases[selectedCity.language] || [] : [];
+            
+            return (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
+                    <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', paddingTop: 'calc(var(--space-md) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)', zIndex: 1000 }}>
+                        <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                            <Icon name="ArrowLeft" size={20} />
+                        </button>
+                        <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Trip Map</h1>
+                        <Icon name="Globe" size={24} color="var(--color-navy)" />
+                    </header>
+                    
+                    <div style={{ flex: 1, position: 'relative' }}>
+                        <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
+                        
+                        {/* City Detail Panel */}
+                        {selectedCity && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                background: 'white',
+                                borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+                                boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
+                                maxHeight: '60%',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                animation: 'slideUp 0.3s ease-out',
+                                zIndex: 1000
+                            }}>
+                                {/* Handle bar */}
+                                <div style={{ padding: 'var(--space-sm)', display: 'flex', justifyContent: 'center' }}>
+                                    <div style={{ width: '40px', height: '4px', background: 'var(--color-tan)', borderRadius: '2px' }} />
+                                </div>
+                                
+                                {/* City header */}
+                                <div style={{ padding: '0 var(--space-md) var(--space-md)', borderBottom: '1px solid var(--color-border)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div>
+                                            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{selectedCity.city}</h2>
+                                            <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem' }}>
+                                                {selectedCity.country} · {selectedCity.startDate} to {selectedCity.endDate}
+                                            </p>
+                                            <p style={{ color: 'var(--color-text-light)', fontSize: '0.85rem', marginTop: '4px' }}>
+                                                🚗 {selectedCity.transport}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => setSelectedCity(null)} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer' }}>
+                                            <Icon name="X" size={20} color="var(--color-text-light)" />
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Scrollable content */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                                    {/* Activities in this city */}
+                                    {cityActivities.length > 0 && (
+                                        <div style={{ marginBottom: 'var(--space-lg)' }}>
+                                            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                Planned Activities
+                                            </h3>
+                                            {cityActivities.map(a => (
+                                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm)', background: a.status === 'approved' ? '#E8F5E9' : 'var(--color-cream)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-xs)' }}>
+                                                    <span style={{ fontSize: '0.85rem' }}>{a.status === 'approved' ? '✅' : '⏳'}</span>
+                                                    <span style={{ fontSize: '0.9rem', flex: 1 }}>{a.title}</span>
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>{a.kidName}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Language phrases */}
+                                    <div>
+                                        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Icon name="Globe" size={14} /> {selectedCity.language} Phrases
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                            {phrases.map((phrase, i) => (
+                                                <div key={i} style={{ background: 'var(--color-cream)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                                        <span style={{ fontWeight: 600, color: 'var(--color-navy)' }}>{phrase.local}</span>
+                                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>{phrase.english}</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.85rem', color: 'var(--color-terracotta)', fontStyle: 'italic' }}>
+                                                        {phrase.pronunciation}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', marginTop: '4px' }}>
+                                                        💡 {phrase.when}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Instructions when no city selected */}
+                        {!selectedCity && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 'var(--space-lg)',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                background: 'white',
+                                padding: 'var(--space-sm) var(--space-md)',
+                                borderRadius: 'var(--radius-full)',
+                                boxShadow: 'var(--shadow-md)',
+                                fontSize: '0.9rem',
+                                color: 'var(--color-text-light)',
+                                whiteSpace: 'nowrap',
+                                zIndex: 1000
+                            }}>
+                                👆 Tap a city to see details & phrases
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+        
+        // Password Modal
+        const PasswordModal = ({ onSuccess, onCancel }) => {
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState(false);
+            
+            const checkPassword = () => {
+                if (password === CONFIG.adminPassword) {
+                    onSuccess();
+                } else {
+                    setError(true);
+                    setPassword('');
+                }
+            };
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                checkPassword();
+            };
+            
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    checkPassword();
+                }
+            };
+            
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', zIndex: 1000 }}>
+                    <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', width: '100%', maxWidth: '320px' }}>
+                        <div style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
+                            <Icon name="Lock" size={32} color="var(--color-navy)" />
+                            <h2 style={{ marginTop: 'var(--space-md)', fontSize: '1.25rem' }}>Parent Access</h2>
+                        </div>
+                        <form onSubmit={handleSubmit}>
+                            <input 
+                                type="password" 
+                                value={password} 
+                                onChange={(e) => { setPassword(e.target.value); setError(false); }} 
+                                onKeyDown={handleKeyDown}
+                                placeholder="Password" 
+                                autoFocus 
+                                style={{ width: '100%', padding: 'var(--space-md)', border: `2px solid ${error ? 'var(--color-error)' : 'var(--color-border)'}`, borderRadius: 'var(--radius-md)', fontSize: '1rem', marginBottom: 'var(--space-md)' }} 
+                            />
+                            {error && <p style={{ color: 'var(--color-error)', fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>Incorrect password</p>}
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                <button type="button" onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+                                <button type="submit" onClick={checkPassword} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Enter</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Feedback Modal
+        const FeedbackModal = ({ activity, onSubmit, onCancel }) => {
+            const [feedback, setFeedback] = useState('');
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', zIndex: 1000 }}>
+                    <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', width: '100%', maxWidth: '400px' }}>
+                        <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-sm)' }}>Feedback for {activity?.kidName}</h2>
+                        <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', marginBottom: 'var(--space-lg)' }}>"{activity?.title}"</p>
+                        <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="What changes would help?" rows={4} autoFocus style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'vertical', marginBottom: 'var(--space-md)' }} />
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+                            <button onClick={() => onSubmit(feedback)} disabled={!feedback.trim()} style={{ flex: 1, padding: 'var(--space-md)', background: feedback.trim() ? 'var(--color-warning)' : 'var(--color-tan)', color: feedback.trim() ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: feedback.trim() ? 'pointer' : 'not-allowed', fontWeight: 500 }}>Send</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // ============================================
+        // MAIN APP
+        // ============================================
+        const App = () => {
+            const [screen, setScreen] = useState('welcome');
+            const [currentUser, setCurrentUser] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showPasswordModal, setShowPasswordModal] = useState(false);
+            const [pendingAction, setPendingAction] = useState(null);
+            const [feedbackActivity, setFeedbackActivity] = useState(null);
+            const [previousScreen, setPreviousScreen] = useState('welcome');
+            const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(TokenManager.isSignedIn());
+            const [signingIn, setSigningIn] = useState(false);
+            const store = useStore();
+            
+            // Check for OAuth redirect on mount
+            useEffect(() => {
+                const hash = window.location.hash;
+                if (hash.includes('access_token')) {
+                    const params = new URLSearchParams(hash.substring(1));
+                    const accessToken = params.get('access_token');
+                    const expiresIn = params.get('expires_in');
+                    if (accessToken) {
+                        TokenManager.setToken({
+                            access_token: accessToken,
+                            expires_in: parseInt(expiresIn) || 3600
+                        });
+                        setIsGoogleSignedIn(true);
+                        // Clean up URL
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                }
+            }, []);
+            
+            const handleGoogleSignIn = async () => {
+                setSigningIn(true);
+                try {
+                    await GoogleAuth.signIn();
+                    setIsGoogleSignedIn(true);
+                } catch (error) {
+                    console.error('Sign in failed:', error);
+                    alert('Sign in failed. Please try again.');
+                } finally {
+                    setSigningIn(false);
+                }
+            };
+            
+            const handleGoogleSignOut = () => {
+                GoogleAuth.signOut();
+                setIsGoogleSignedIn(false);
+            };
+            
+            const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat'); };
+            const handleBack = () => {
+                if (screen === 'chat') { setScreen('welcome'); setCurrentUser(null); }
+                else if (screen === 'dashboard') { setScreen(currentUser ? 'chat' : 'welcome'); }
+                else if (screen === 'map') { setScreen(previousScreen); }
+            };
+            const handleOpenSettings = () => { setPendingAction({ type: 'settings' }); setShowPasswordModal(true); };
+            const handleOpenDashboard = () => setScreen('dashboard');
+            const handleOpenMap = () => { setPreviousScreen(screen); setScreen('map'); };
+            const handlePasswordSuccess = () => { setShowPasswordModal(false); setIsAdmin(true); if (pendingAction?.type === 'settings') setScreen('dashboard'); else if (pendingAction?.type === 'approve') store.approveActivity(pendingAction.activityId); setPendingAction(null); };
+            const handleApprove = (id) => { if (isAdmin) store.approveActivity(id); else { setPendingAction({ type: 'approve', activityId: id }); setShowPasswordModal(true); } };
+            const handleFeedback = (id) => setFeedbackActivity(store.activities.find(a => a.id === id));
+            const handleSubmitFeedback = (feedback) => { if (feedbackActivity) store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
+            
+            return (
+                <div style={{ height: '100%' }}>
+                    {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} isGoogleSignedIn={isGoogleSignedIn} onGoogleSignIn={handleGoogleSignIn} onGoogleSignOut={handleGoogleSignOut} signingIn={signingIn} />}
+                    {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
+                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} isAdmin={isAdmin} onApprove={handleApprove} onFeedback={handleFeedback} />}
+                    {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
+                    {showPasswordModal && <PasswordModal onSuccess={handlePasswordSuccess} onCancel={() => { setShowPasswordModal(false); setPendingAction(null); }} />}
+                    {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
+                </div>
+            );
+        };
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
