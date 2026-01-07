@@ -1424,6 +1424,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [previousScreen, setPreviousScreen] = useState('welcome');
             const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(TokenManager.isSignedIn());
             const [signingIn, setSigningIn] = useState(false);
+            const [isOAuthPopup, setIsOAuthPopup] = useState(false);
             const store = useStore();
             
             // Check for OAuth redirect on mount
@@ -1438,12 +1439,34 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             access_token: accessToken,
                             expires_in: parseInt(expiresIn) || 3600
                         });
+                        
+                        // If we're in a popup, close it and let the opener know
+                        if (window.opener && window.opener !== window) {
+                            setIsOAuthPopup(true);
+                            // The popup monitoring in GoogleAuth.signIn() will detect the token
+                            // Just show a brief message then close
+                            setTimeout(() => window.close(), 500);
+                            return;
+                        }
+                        
                         setIsGoogleSignedIn(true);
                         // Clean up URL
                         window.history.replaceState({}, document.title, window.location.pathname);
                     }
                 }
             }, []);
+            
+            // If this is an OAuth popup, show a simple closing message
+            if (isOAuthPopup) {
+                return (
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-cream)', fontFamily: 'var(--font-body)' }}>
+                        <div style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
+                            <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>✅</div>
+                            <p style={{ fontSize: '1.1rem', color: 'var(--color-text)' }}>Signed in! Closing...</p>
+                        </div>
+                    </div>
+                );
+            }
             
             const handleGoogleSignIn = async () => {
                 setSigningIn(true);
