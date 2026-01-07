@@ -19,6 +19,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     
     <style>
         :root {
@@ -89,6 +90,12 @@
                 phrases: 'Language Phrases',
                 params: 'Soft Parameters'
             },
+            
+            // EmailJS
+            EMAILJS_SERVICE_ID: 'service_3uu6sr7',
+            EMAILJS_TEMPLATE_ID: 'template_q5foa71',
+            EMAILJS_PUBLIC_KEY: 'vp0WzqrRRXnzh_y58',
+            PARENT_EMAILS: ['katieheindel@gmail.com', 'talentonian@gmail.com'],
             
             // Default user data (will be overwritten by Google Sheets)
             users: {
@@ -495,6 +502,51 @@
                     activity.parentFeedback || '',
                     activity.dateUpdated || activity.dateSubmitted
                 ];
+            }
+        };
+        
+        // ============================================
+        // EMAIL SERVICE
+        // ============================================
+        const EmailService = {
+            initialized: false,
+            
+            init() {
+                if (this.initialized || typeof emailjs === 'undefined') return;
+                emailjs.init(CONFIG.EMAILJS_PUBLIC_KEY);
+                this.initialized = true;
+            },
+            
+            async sendDigest(kidName, sessionSummary, activitiesSubmitted, budgetStatus, toEmail) {
+                this.init();
+                
+                try {
+                    const result = await emailjs.send(
+                        CONFIG.EMAILJS_SERVICE_ID,
+                        CONFIG.EMAILJS_TEMPLATE_ID,
+                        {
+                            to_email: toEmail,
+                            kid_name: kidName,
+                            session_summary: sessionSummary || 'Had a planning chat',
+                            activities_submitted: activitiesSubmitted || 'None this session',
+                            budget_status: budgetStatus || 'See app for details'
+                        }
+                    );
+                    console.log('Email sent successfully:', result);
+                    return true;
+                } catch (error) {
+                    console.error('Email send failed:', error);
+                    return false;
+                }
+            },
+            
+            async sendDigestToBothParents(kidName, sessionSummary, activitiesSubmitted, budgetStatus) {
+                const results = await Promise.all(
+                    CONFIG.PARENT_EMAILS.map(email => 
+                        this.sendDigest(kidName, sessionSummary, activitiesSubmitted, budgetStatus, email)
+                    )
+                );
+                return results.every(r => r);
             }
         };
         
@@ -924,9 +976,44 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [inputValue, setInputValue] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [started, setStarted] = useState(false);
+            const [sessionActivities, setSessionActivities] = useState([]);
             const messagesEndRef = useRef(null);
             
             useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+            
+            // Send email digest when leaving chat
+            const sendSessionDigest = async () => {
+                if (messages.length < 3) return; // Don't send if barely any conversation
+                
+                // Build session summary from messages
+                const userMessages = messages.filter(m => m.isUser).map(m => m.text);
+                const sessionSummary = userMessages.length > 0 
+                    ? `Discussed: ${userMessages.slice(-5).join(', ').substring(0, 200)}...`
+                    : 'Brief planning session';
+                
+                // Activities submitted this session
+                const activitiesText = sessionActivities.length > 0
+                    ? sessionActivities.map(a => `• ${a.title} in ${a.city} (€${a.estimatedCost})`).join('\n')
+                    : 'No new activities submitted';
+                
+                // Budget status
+                const profile = store.userProfiles[userId];
+                const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
+                
+                // Send to both parents
+                await EmailService.sendDigestToBothParents(
+                    user.name,
+                    sessionSummary,
+                    activitiesText,
+                    budgetText
+                );
+            };
+            
+            // Wrap onBack to send digest
+            const handleBack = async () => {
+                await sendSessionDigest();
+                onBack();
+            };
             
             useEffect(() => {
                 if (!started) {
@@ -998,6 +1085,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         kidName: user.name
                     });
                     console.log('Activity submitted:', newActivity);
+                    // Track for session digest
+                    setSessionActivities(prev => [...prev, newActivity]);
                 }
                 
                 // Clean the response for display (remove the submission block)
@@ -1012,7 +1101,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             return (
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
                     <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', paddingTop: 'calc(var(--space-sm) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)', minHeight: '60px' }}>
-                        <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                        <button onClick={handleBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
                             <Icon name="ArrowLeft" size={20} />
                         </button>
                         <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{user.emoji}</div>
