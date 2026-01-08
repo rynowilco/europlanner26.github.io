@@ -1198,7 +1198,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         };
         
         // Dashboard
-        const DashboardScreen = ({ onBack, activities, userProfiles, isAdmin, onApprove, onFeedback }) => {
+        const DashboardScreen = ({ onBack, activities, userProfiles, isAdmin, onApprove, onFeedback, onResetCache }) => {
             const [filter, setFilter] = useState('all');
             const filtered = useMemo(() => {
                 if (filter === 'abby') return activities.filter(a => a.kidId === 'abby');
@@ -1206,6 +1206,15 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 if (filter === 'pending') return activities.filter(a => a.status === 'submitted');
                 return activities;
             }, [activities, filter]);
+            
+            const handleResetCache = () => {
+                if (confirm('This will clear all cached data and reload from Google Sheets. Continue?')) {
+                    localStorage.removeItem('euroPlanner_activities');
+                    localStorage.removeItem('euroPlanner_conversations');
+                    localStorage.removeItem('euroPlanner_profiles');
+                    window.location.reload();
+                }
+            };
             
             return (
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
@@ -1240,6 +1249,14 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             </div>
                         ) : filtered.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
                     </div>
+                    
+                    {isAdmin && (
+                        <footer style={{ padding: 'var(--space-md)', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center' }}>
+                            <button onClick={handleResetCache} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.8rem', cursor: 'pointer' }}>
+                                Reset cached data
+                            </button>
+                        </footer>
+                    )}
                 </div>
             );
         };
