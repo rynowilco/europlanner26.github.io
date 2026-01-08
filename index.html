@@ -1251,8 +1251,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     </div>
                     
                     {isAdmin && (
-                        <footer style={{ padding: 'var(--space-md)', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center' }}>
-                            <button onClick={handleResetCache} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <footer style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center', flexShrink: 0 }}>
+                            <button onClick={handleResetCache} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.85rem', cursor: 'pointer', padding: 'var(--space-sm) var(--space-md)' }}>
                                 Reset cached data
                             </button>
                         </footer>
