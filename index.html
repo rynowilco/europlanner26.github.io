@@ -1004,6 +1004,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [inputValue, setInputValue] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [started, setStarted] = useState(false);
+            const [sessionActivities, setSessionActivities] = useState([]);
             const messagesEndRef = useRef(null);
             
             useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -1019,6 +1020,39 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     `• ${activity.title} in ${activity.city} (€${activity.estimatedCost})\n\n${activity.description}`,
                     budgetText
                 );
+            };
+            
+            // Send session summary email when leaving chat
+            const sendSessionSummary = async () => {
+                // Only send if there were meaningful messages (more than just the greeting)
+                const userMessages = messages.filter(m => m.isUser);
+                if (userMessages.length < 1) return;
+                
+                const profile = store.userProfiles[userId];
+                const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
+                
+                // Build summary of what was discussed
+                const topicsDiscussed = userMessages.map(m => m.text).slice(-5).join('\n• ');
+                
+                // Activities submitted this session
+                const activitiesText = sessionActivities.length > 0
+                    ? sessionActivities.map(a => `• ${a.title} in ${a.city} (€${a.estimatedCost})`).join('\n')
+                    : 'No new activities submitted this session';
+                
+                const sessionSummary = `Topics discussed:\n• ${topicsDiscussed}`;
+                
+                await EmailService.sendDigestToBothParents(
+                    user.name,
+                    sessionSummary,
+                    activitiesText,
+                    budgetText
+                );
+            };
+            
+            // Handle back button with session summary
+            const handleBack = async () => {
+                await sendSessionSummary();
+                onBack();
             };
             
             useEffect(() => {
@@ -1107,6 +1141,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         kidName: user.name
                     });
                     console.log('Activity submitted:', newActivity);
+                    // Track for session summary
+                    setSessionActivities(prev => [...prev, newActivity]);
                     // Send email to parents
                     await sendActivityEmail(newActivity);
                 }
@@ -1123,7 +1159,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             return (
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
                     <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', paddingTop: 'calc(var(--space-sm) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)', minHeight: '60px' }}>
-                        <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
+                        <button onClick={handleBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
                             <Icon name="ArrowLeft" size={20} />
                         </button>
                         <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{user.emoji}</div>
