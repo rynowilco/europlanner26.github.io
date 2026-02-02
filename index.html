@@ -76,7 +76,7 @@
         // ============================================
         const CONFIG = {
             // Claude API
-            CLAUDE_API_KEY: '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',
+            CLAUDE_API_KEY: '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',
             CLAUDE_MODEL: 'claude-sonnet-4-20250514',
             
             // Google Sheets API
@@ -357,7 +357,9 @@
             async append(sheetName, values) {
                 const token = TokenManager.getToken();
                 if (!token) {
-                    console.warn('Cannot write to Sheets - not signed in');
+                    console.warn('Cannot write to Sheets - not signed in with Google');
+                    // Show a console message that helps debugging
+                    console.log('To sync activities: Sign in with Google on the Welcome screen');
                     return null;
                 }
                 
@@ -373,8 +375,15 @@
                     });
                     if (!response.ok) {
                         const error = await response.json();
+                        console.error('Sheets API Error Details:', error);
+                        // Check if it's a token expiration issue
+                        if (response.status === 401 || response.status === 403) {
+                            console.warn('Google token may be expired - user should sign in again');
+                            TokenManager.clearToken(); // Clear the bad token
+                        }
                         throw new Error(`Sheets API error: ${response.status} - ${JSON.stringify(error)}`);
                     }
+                    console.log('✅ Successfully synced to Google Sheets');
                     return await response.json();
                 } catch (error) {
                     console.error('Error appending to Sheets:', error);
@@ -668,6 +677,10 @@
                 };
                 setActivities(prev => [...prev, newActivity]);
                 
+                // Check if signed in to Google before attempting sync
+                const isSignedIn = TokenManager.isSignedIn();
+                console.log('Adding activity:', newActivity.title, '| Google signed in:', isSignedIn);
+                
                 // Sync to Google Sheets
                 try {
                     await SheetsAPI.append(CONFIG.SHEET_NAMES.activities, SheetsAPI.activityToRow(newActivity));
@@ -874,11 +887,30 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         messages: messages.map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.text }))
                     })
                 });
-                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                
+                if (!response.ok) {
+                    // Get detailed error info for debugging
+                    let errorDetail = '';
+                    try {
+                        const errorData = await response.json();
+                        errorDetail = JSON.stringify(errorData);
+                        console.error('API Error Details:', errorData);
+                    } catch (e) {
+                        errorDetail = await response.text();
+                    }
+                    throw new Error(`API error ${response.status}: ${errorDetail}`);
+                }
+                
                 const data = await response.json();
                 return data.content[0].text;
             } catch (error) {
                 console.error('Claude API error:', error);
+                // Provide more helpful error message
+                if (error.message.includes('401')) {
+                    return `Oops! There's an authentication issue with the AI. Parents might need to check the API key. (Error: 401 Unauthorized)`;
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    return `Hmm, can't reach the AI right now. Check your internet connection and try again!`;
+                }
                 return `Having trouble connecting. Error: ${error.message}`;
             }
         };
@@ -1049,9 +1081,11 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 );
             };
             
-            // Handle back button with session summary
-            const handleBack = async () => {
-                await sendSessionSummary();
+            // Handle back button with AUTOMATIC session summary (no popup, no confirmation)
+            const handleBack = () => {
+                // Send session summary in the background - don't wait for it
+                sendSessionSummary().catch(err => console.log('Session summary send error (non-blocking):', err));
+                // Immediately navigate back
                 onBack();
             };
             
