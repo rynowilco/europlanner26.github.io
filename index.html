@@ -603,9 +603,16 @@
                 return saved ? JSON.parse(saved) : [];
             });
             
-            const [conversations, setConversations] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_conversations');
-                return saved ? JSON.parse(saved) : { abby: [], tyler: [] };
+            // Store session summaries instead of full conversation history
+            const [sessionSummaries, setSessionSummaries] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_sessionSummaries');
+                return saved ? JSON.parse(saved) : { abby: null, tyler: null };
+            });
+            
+            // Track last activity time for idle detection
+            const [lastActivity, setLastActivity] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_lastActivity');
+                return saved ? JSON.parse(saved) : { abby: null, tyler: null };
             });
             
             const [userProfiles, setUserProfiles] = useState(() => {
@@ -668,7 +675,8 @@
             
             // Save to localStorage as backup
             useEffect(() => { localStorage.setItem('euroPlanner_activities', JSON.stringify(activities)); }, [activities]);
-            useEffect(() => { localStorage.setItem('euroPlanner_conversations', JSON.stringify(conversations)); }, [conversations]);
+            useEffect(() => { localStorage.setItem('euroPlanner_sessionSummaries', JSON.stringify(sessionSummaries)); }, [sessionSummaries]);
+            useEffect(() => { localStorage.setItem('euroPlanner_lastActivity', JSON.stringify(lastActivity)); }, [lastActivity]);
             useEffect(() => { localStorage.setItem('euroPlanner_profiles', JSON.stringify(userProfiles)); }, [userProfiles]);
             
             const addActivity = async (activity) => {
@@ -717,12 +725,43 @@
                 }
             };
             
-            const addMessage = (userId, message) => {
-                setConversations(prev => ({ ...prev, [userId]: [...(prev[userId] || []), message] }));
+            // Update last activity timestamp
+            const updateLastActivity = (userId) => {
+                setLastActivity(prev => ({ ...prev, [userId]: Date.now() }));
+            };
+            
+            // Check if session has expired (1 hour idle)
+            const isSessionExpired = (userId) => {
+                const lastTime = lastActivity[userId];
+                if (!lastTime) return false;
+                const oneHour = 60 * 60 * 1000;
+                return Date.now() - lastTime > oneHour;
+            };
+            
+            // Save session summary when ending a chat
+            const saveSessionSummary = (userId, summary) => {
+                setSessionSummaries(prev => ({
+                    ...prev,
+                    [userId]: {
+                        summary,
+                        timestamp: Date.now(),
+                        date: new Date().toLocaleDateString()
+                    }
+                }));
+            };
+            
+            // Get session summary for a user
+            const getSessionSummary = (userId) => {
+                return sessionSummaries[userId];
+            };
+            
+            // Clear session summary after user continues or starts fresh
+            const clearSessionSummary = (userId) => {
+                setSessionSummaries(prev => ({ ...prev, [userId]: null }));
             };
             
             // Save conversation summary to Sheets when session ends
-            const saveConversationSummary = async (userId, summary) => {
+            const saveConversationSummaryToSheets = async (userId, summary) => {
                 try {
                     const row = [
                         userProfiles[userId]?.name || userId,
@@ -741,7 +780,8 @@
             
             return { 
                 activities, 
-                conversations, 
+                sessionSummaries,
+                lastActivity,
                 userProfiles, 
                 itinerary,
                 sheetsLoaded,
@@ -749,10 +789,15 @@
                 addActivity, 
                 updateActivity, 
                 approveActivity, 
-                addMessage, 
-                saveConversationSummary,
+                updateLastActivity,
+                isSessionExpired,
+                saveSessionSummary,
+                getSessionSummary,
+                clearSessionSummary,
+                saveConversationSummaryToSheets,
                 setUserProfiles 
             };
+        };
         };
         
         // ============================================
@@ -1055,9 +1100,29 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [isLoading, setIsLoading] = useState(false);
             const [started, setStarted] = useState(false);
             const [sessionActivities, setSessionActivities] = useState([]);
+            const [showResumePrompt, setShowResumePrompt] = useState(false);
+            const [previousSummary, setPreviousSummary] = useState(null);
             const messagesEndRef = useRef(null);
+            const idleTimerRef = useRef(null);
             
             useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+            
+            // Reset idle timer on any activity
+            const resetIdleTimer = () => {
+                store.updateLastActivity(userId);
+                if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+                // Set idle timeout for 1 hour
+                idleTimerRef.current = setTimeout(() => {
+                    handleSessionEnd('idle');
+                }, 60 * 60 * 1000);
+            };
+            
+            // Cleanup idle timer on unmount
+            useEffect(() => {
+                return () => {
+                    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+                };
+            }, []);
             
             // Send email digest when activity is submitted
             const sendActivityEmail = async (activity) => {
@@ -1072,46 +1137,95 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 );
             };
             
-            // Send session summary email when leaving chat
-            const sendSessionSummary = async () => {
-                // Only send if there were meaningful messages (more than just the greeting)
+            // Generate summary from current session messages
+            const generateSessionSummary = () => {
                 const userMessages = messages.filter(m => m.isUser);
-                if (userMessages.length < 1) return;
+                const assistantMessages = messages.filter(m => !m.isUser);
                 
-                const profile = store.userProfiles[userId];
-                const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
+                if (userMessages.length === 0) return null;
                 
-                // Build summary of what was discussed
-                const topicsDiscussed = userMessages.map(m => m.text).slice(-5).join('\n• ');
+                // Get topics discussed (from user messages)
+                const topics = userMessages.map(m => m.text).slice(-5);
                 
-                // Activities submitted this session
-                const activitiesText = sessionActivities.length > 0
-                    ? sessionActivities.map(a => `• ${a.title} in ${a.city} (€${a.estimatedCost})`).join('\n')
-                    : 'No new activities submitted this session';
+                // Get activities submitted this session
+                const activitiesSubmitted = sessionActivities.map(a => `${a.title} in ${a.city}`);
                 
-                const sessionSummary = `Topics discussed:\n• ${topicsDiscussed}`;
-                
-                await EmailService.sendDigestToBothParents(
-                    user.name,
-                    sessionSummary,
-                    activitiesText,
-                    budgetText
+                // Get last few exchanges for context
+                const recentContext = messages.slice(-4).map(m => 
+                    m.isUser ? `You asked: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"` 
+                             : `We discussed: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"`
                 );
+                
+                return {
+                    topics,
+                    activitiesSubmitted,
+                    recentContext,
+                    messageCount: messages.length
+                };
             };
             
-            // Handle back button with AUTOMATIC session summary (no popup, no confirmation)
+            // Handle session end (back button or idle)
+            const handleSessionEnd = (reason) => {
+                const summary = generateSessionSummary();
+                if (summary && summary.messageCount > 1) {
+                    store.saveSessionSummary(userId, summary);
+                    
+                    // Send email summary
+                    const profile = store.userProfiles[userId];
+                    const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
+                    const topicsText = summary.topics.join('\n• ');
+                    const activitiesText = summary.activitiesSubmitted.length > 0
+                        ? summary.activitiesSubmitted.map(a => `• ${a}`).join('\n')
+                        : 'No new activities submitted this session';
+                    
+                    EmailService.sendDigestToBothParents(
+                        user.name,
+                        `Topics discussed:\n• ${topicsText}`,
+                        activitiesText,
+                        budgetText
+                    ).catch(err => console.log('Email send error:', err));
+                }
+                
+                if (reason === 'back') {
+                    onBack();
+                }
+            };
+            
+            // Handle back button
             const handleBack = () => {
-                // Send session summary in the background - don't wait for it
-                sendSessionSummary().catch(err => console.log('Session summary send error (non-blocking):', err));
-                // Immediately navigate back
-                onBack();
+                handleSessionEnd('back');
+            };
+            
+            // Handle resuming previous session
+            const handleResume = () => {
+                setShowResumePrompt(false);
+                store.clearSessionSummary(userId);
+                
+                // Ask Claude to summarize and continue
+                const summaryText = previousSummary.recentContext.join('\n');
+                const resumeMsg = { id: Date.now(), text: `Last time we chatted, here's what we covered:\n\n${summaryText}\n\nWant to pick up where we left off, or explore something new?`, isUser: false };
+                setMessages([resumeMsg]);
+                resetIdleTimer();
+            };
+            
+            // Handle starting fresh
+            const handleStartFresh = () => {
+                setShowResumePrompt(false);
+                store.clearSessionSummary(userId);
+                
+                const cities = (store.itinerary || CONFIG.itinerary).map(i => i.city).join(', ');
+                const freshMsg = { id: Date.now(), text: `Hey ${user.name}! 👋 Fresh start! Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`, isUser: false };
+                setMessages([freshMsg]);
+                resetIdleTimer();
             };
             
             useEffect(() => {
                 if (!started) {
                     setStarted(true);
-                    const history = store.conversations[userId] || [];
-                    if (history.length > 0) setMessages(history.slice(-20));
+                    
+                    // Check for previous session summary or expired session
+                    const existingSummary = store.getSessionSummary(userId);
+                    const sessionExpired = store.isSessionExpired(userId);
                     
                     // Check for activities needing revision
                     const needsRevision = store.activities.filter(a => 
@@ -1121,24 +1235,29 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     setIsLoading(true);
                     setTimeout(async () => {
                         const cities = (store.itinerary || CONFIG.itinerary).map(i => i.city).join(', ');
-                        let greeting = '';
                         
                         if (needsRevision.length > 0) {
-                            // Alert about feedback
+                            // Alert about feedback - priority over resume
                             const feedbackItems = needsRevision.map(a => 
                                 `**${a.title}**: "${a.parentFeedback}"`
                             ).join('\n\n');
-                            greeting = `Hey ${user.name}! 👋 Quick heads up - your parents left some feedback on ${needsRevision.length === 1 ? 'an activity' : 'some activities'}:\n\n${feedbackItems}\n\nWant to work on revising ${needsRevision.length === 1 ? 'it' : 'one of them'}, or explore something new?`;
-                        } else if (history.length > 0) {
-                            greeting = `Welcome back, ${user.name}! 👋 Ready to keep planning? We can pick up where we left off or explore something new!`;
+                            const greeting = `Hey ${user.name}! 👋 Quick heads up - your parents left some feedback on ${needsRevision.length === 1 ? 'an activity' : 'some activities'}:\n\n${feedbackItems}\n\nWant to work on revising ${needsRevision.length === 1 ? 'it' : 'one of them'}, or explore something new?`;
+                            const msg = { id: Date.now(), text: greeting, isUser: false };
+                            setMessages([msg]);
+                            store.clearSessionSummary(userId);
+                        } else if (existingSummary) {
+                            // Has previous session - show resume prompt
+                            setPreviousSummary(existingSummary.summary);
+                            setShowResumePrompt(true);
                         } else {
-                            greeting = `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
+                            // Fresh start
+                            const greeting = `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
+                            const msg = { id: Date.now(), text: greeting, isUser: false };
+                            setMessages([msg]);
                         }
                         
-                        const msg = { id: Date.now(), text: greeting, isUser: false };
-                        setMessages(prev => [...prev, msg]);
-                        store.addMessage(userId, msg);
                         setIsLoading(false);
+                        resetIdleTimer();
                     }, 500);
                 }
             }, [started, userId, user.name, store]);
@@ -1174,9 +1293,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             const sendMessage = async () => {
                 if (!inputValue.trim() || isLoading) return;
+                resetIdleTimer(); // Reset idle timer on activity
+                
                 const userMsg = { id: Date.now(), text: inputValue.trim(), isUser: true };
                 setMessages(prev => [...prev, userMsg]);
-                store.addMessage(userId, userMsg);
                 setInputValue('');
                 setIsLoading(true);
                 
@@ -1204,7 +1324,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 
                 const assistantMsg = { id: Date.now() + 1, text: displayResponse, isUser: false };
                 setMessages(prev => [...prev, assistantMsg]);
-                store.addMessage(userId, assistantMsg);
                 setIsLoading(false);
             };
             
@@ -1227,27 +1346,53 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         </button>
                     </header>
                     
-                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
-                        {messages.map(msg => <ChatMessage key={msg.id} message={msg.text} isUser={msg.isUser} />)}
-                        {isLoading && <ChatMessage isTyping />}
-                        <div ref={messagesEndRef} />
-                    </div>
+                    {/* Resume prompt overlay */}
+                    {showResumePrompt && (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-xl)', background: 'var(--color-cream)' }}>
+                            <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', maxWidth: '400px', width: '100%', boxShadow: 'var(--shadow-lg)', textAlign: 'center' }}>
+                                <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>👋</div>
+                                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>Welcome back, {user.name}!</h2>
+                                <p style={{ color: 'var(--color-text-light)', marginBottom: 'var(--space-lg)', fontSize: '0.95rem' }}>
+                                    You had a planning session on {previousSummary?.date || 'recently'}. Want to pick up where you left off?
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                    <button onClick={handleResume} style={{ padding: 'var(--space-md)', background: user.color, color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 500 }}>
+                                        Continue where I left off
+                                    </button>
+                                    <button onClick={handleStartFresh} style={{ padding: 'var(--space-md)', background: 'var(--color-cream)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 500 }}>
+                                        Start fresh
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     
-                    <div style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)' }}>
-                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                            <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} />
-                            <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icon name="Send" size={20} />
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto' }}>
-                            {['Give me ideas', 'What cities?', 'My activities'].map((text, i) => (
-                                <button key={i} onClick={() => setInputValue(text)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-                                    <Icon name={['Sparkles', 'MapPin', 'List'][i]} size={14} /> {text}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    {/* Regular chat view */}
+                    {!showResumePrompt && (
+                        <>
+                            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                                {messages.map(msg => <ChatMessage key={msg.id} message={msg.text} isUser={msg.isUser} />)}
+                                {isLoading && <ChatMessage isTyping />}
+                                <div ref={messagesEndRef} />
+                            </div>
+                            
+                            <div style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)' }}>
+                                <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                    <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} />
+                                    <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Icon name="Send" size={20} />
+                                    </button>
+                                </div>
+                                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto' }}>
+                                    {['Give me ideas', 'What cities?', 'My activities'].map((text, i) => (
+                                        <button key={i} onClick={() => setInputValue(text)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                                            <Icon name={['Sparkles', 'MapPin', 'List'][i]} size={14} /> {text}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             );
         };
@@ -1299,6 +1444,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 if (confirm('This will clear all cached data and reload from Google Sheets. Continue?')) {
                     localStorage.removeItem('euroPlanner_activities');
                     localStorage.removeItem('euroPlanner_conversations');
+                    localStorage.removeItem('euroPlanner_sessionSummaries');
+                    localStorage.removeItem('euroPlanner_lastActivity');
                     localStorage.removeItem('euroPlanner_profiles');
                     window.location.reload();
                 }
