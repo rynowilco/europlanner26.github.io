@@ -480,8 +480,13 @@
                     'barcelona': { lat: 41.3851, lng: 2.1734 },
                     'amsterdam': { lat: 52.3676, lng: 4.9041 },
                     'london': { lat: 51.5074, lng: -0.1278 },
+                    // Germany
+                    'frankfurt': { lat: 50.1109, lng: 8.6821 },
                     // Switzerland
                     'iseltwald': { lat: 46.7167, lng: 7.9667 },
+                    'basel': { lat: 47.5596, lng: 7.5886 },
+                    'lucerne': { lat: 47.0502, lng: 8.3093 },
+                    'bern': { lat: 46.9480, lng: 7.4474 },
                     // Italy - Cinque Terre & Tuscany
                     'riomaggiore': { lat: 44.0961, lng: 9.7378 },
                     'noce': { lat: 43.0833, lng: 11.7833 },
@@ -494,7 +499,7 @@
                     'innbrücke': { lat: 47.2800, lng: 11.4500 },
                     'innsbruck': { lat: 47.2692, lng: 11.4041 },
                     'ampass': { lat: 47.2667, lng: 11.4667 },
-                    // Kids Choice placeholder (default to middle of route)
+                    // Legacy placeholder
                     'train day - kids choice': { lat: 46.0, lng: 9.0 }
                 };
                 const countryLanguages = {
@@ -504,14 +509,42 @@
                     'netherlands': 'Dutch',
                     'uk': 'English',
                     'england': 'English',
+                    'germany': 'German',
                     'switzerland': 'German',
                     'austria': 'German',
                     'switzerland/italy': 'Italian'
                 };
-                return rows.slice(1).filter(row => row[0]).map(row => {
+                
+                // Track transfer day count to position them uniquely on the map
+                let transferCount = 0;
+                
+                return rows.slice(1).filter(row => row[0]).map((row, index, allRows) => {
                     const city = row[0];
                     const country = row[1] || '';
-                    const coords = cityCoords[city.toLowerCase()] || { lat: 45, lng: 10 };
+                    const cityLower = city.toLowerCase();
+                    
+                    // Check if this is a transfer day
+                    const isTransfer = cityLower.includes('transfer') || cityLower.includes('kids choice');
+                    
+                    let coords;
+                    if (isTransfer) {
+                        // For transfer days, position them between the previous and next destinations
+                        const prevCity = index > 0 ? allRows[index - 1][0].toLowerCase() : null;
+                        const nextCity = index < allRows.length - 1 ? allRows[index + 1][0].toLowerCase() : null;
+                        
+                        const prevCoords = prevCity && cityCoords[prevCity] ? cityCoords[prevCity] : { lat: 48, lng: 8 };
+                        const nextCoords = nextCity && cityCoords[nextCity] ? cityCoords[nextCity] : { lat: 46, lng: 10 };
+                        
+                        // Position at midpoint between prev and next
+                        coords = {
+                            lat: (prevCoords.lat + nextCoords.lat) / 2,
+                            lng: (prevCoords.lng + nextCoords.lng) / 2
+                        };
+                        transferCount++;
+                    } else {
+                        coords = cityCoords[cityLower] || { lat: 45, lng: 10 };
+                    }
+                    
                     return {
                         city,
                         country,
@@ -523,7 +556,8 @@
                         notes: row[7] || '',
                         lat: coords.lat,
                         lng: coords.lng,
-                        language: countryLanguages[country.toLowerCase()] || 'English'
+                        language: countryLanguages[country.toLowerCase()] || 'English',
+                        isTransfer: isTransfer
                     };
                 });
             },
@@ -1521,18 +1555,22 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 }).addTo(map);
                 
                 // Custom icon for accommodation markers
-                const createIcon = (color) => L.divIcon({
+                const createIcon = (color, isTransfer = false) => L.divIcon({
                     className: 'custom-marker',
-                    html: `<div style="background: ${color}; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32],
+                    html: isTransfer 
+                        ? `<div style="background: var(--color-gold); width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px;">🚂</div>`
+                        : `<div style="background: ${color}; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: isTransfer ? [28, 28] : [32, 32],
+                    iconAnchor: isTransfer ? [14, 14] : [16, 32],
                     popupAnchor: [0, -32]
                 });
                 
                 // Add markers for each city
                 tripItinerary.forEach((city, index) => {
+                    const isTransfer = city.isTransfer || city.city.toLowerCase().includes('transfer') || city.city.toLowerCase().includes('kids choice');
+                    
                     const marker = L.marker([city.lat, city.lng], {
-                        icon: createIcon('var(--color-terracotta)')
+                        icon: createIcon('var(--color-terracotta)', isTransfer)
                     }).addTo(map);
                     
                     marker.on('click', () => {
@@ -1541,9 +1579,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     });
                     
                     // Add city label
+                    const labelText = isTransfer ? `${city.city}` : city.city;
                     const label = L.divIcon({
                         className: 'city-label',
-                        html: `<div style="background: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.2);">${city.city}</div>`,
+                        html: `<div style="background: ${isTransfer ? 'var(--color-gold)' : 'white'}; color: ${isTransfer ? 'white' : 'inherit'}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.2);">${labelText}</div>`,
                         iconAnchor: [-20, 16]
                     });
                     L.marker([city.lat, city.lng], { icon: label, interactive: false }).addTo(map);
