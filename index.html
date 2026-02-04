@@ -639,6 +639,12 @@
                 return saved ? JSON.parse(saved) : [];
             });
             
+            // Saved ideas (shared between kids)
+            const [savedIdeas, setSavedIdeas] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_savedIdeas');
+                return saved ? JSON.parse(saved) : [];
+            });
+            
             // Store session summaries instead of full conversation history
             const [sessionSummaries, setSessionSummaries] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_sessionSummaries');
@@ -650,6 +656,9 @@
                 const saved = localStorage.getItem('euroPlanner_lastActivity');
                 return saved ? JSON.parse(saved) : { abby: null, tyler: null };
             });
+            
+            // Track idea being refined (for chat context)
+            const [refiningIdea, setRefiningIdea] = useState(null);
             
             const [userProfiles, setUserProfiles] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_profiles');
@@ -711,9 +720,57 @@
             
             // Save to localStorage as backup
             useEffect(() => { localStorage.setItem('euroPlanner_activities', JSON.stringify(activities)); }, [activities]);
+            useEffect(() => { localStorage.setItem('euroPlanner_savedIdeas', JSON.stringify(savedIdeas)); }, [savedIdeas]);
             useEffect(() => { localStorage.setItem('euroPlanner_sessionSummaries', JSON.stringify(sessionSummaries)); }, [sessionSummaries]);
             useEffect(() => { localStorage.setItem('euroPlanner_lastActivity', JSON.stringify(lastActivity)); }, [lastActivity]);
             useEffect(() => { localStorage.setItem('euroPlanner_profiles', JSON.stringify(userProfiles)); }, [userProfiles]);
+            
+            // Saved Ideas management
+            const addSavedIdea = (idea) => {
+                const newIdea = {
+                    ...idea,
+                    id: `IDEA-${Date.now()}`,
+                    dateSaved: new Date().toISOString().split('T')[0],
+                    dateUpdated: new Date().toISOString().split('T')[0]
+                };
+                setSavedIdeas(prev => [...prev, newIdea]);
+                console.log('Idea saved:', newIdea.title);
+                return newIdea;
+            };
+            
+            const updateSavedIdea = (id, updates) => {
+                setSavedIdeas(prev => prev.map(idea => 
+                    idea.id === id ? { ...idea, ...updates, dateUpdated: new Date().toISOString().split('T')[0] } : idea
+                ));
+            };
+            
+            const deleteSavedIdea = (id) => {
+                setSavedIdeas(prev => prev.filter(idea => idea.id !== id));
+            };
+            
+            const convertIdeaToActivity = async (ideaId) => {
+                const idea = savedIdeas.find(i => i.id === ideaId);
+                if (!idea) return null;
+                
+                // Create activity from idea
+                const newActivity = await addActivity({
+                    title: idea.title,
+                    city: idea.city,
+                    description: idea.notes || idea.description || '',
+                    estimatedCost: idea.estimatedCost || 0,
+                    travelMethod: idea.travelMethod || 'TBD',
+                    travelTime: idea.travelTime || 'TBD',
+                    duration: idea.duration || 'TBD',
+                    otherConsiderations: idea.considerations || '',
+                    kidId: idea.kidId,
+                    kidName: idea.kidName
+                });
+                
+                // Remove the idea since it's now submitted
+                deleteSavedIdea(ideaId);
+                
+                return newActivity;
+            };
             
             const addActivity = async (activity) => {
                 const newActivity = { 
@@ -816,15 +873,22 @@
             
             return { 
                 activities, 
+                savedIdeas,
                 sessionSummaries,
                 lastActivity,
+                refiningIdea,
                 userProfiles, 
                 itinerary,
                 sheetsLoaded,
                 sheetsError,
                 addActivity, 
                 updateActivity, 
-                approveActivity, 
+                approveActivity,
+                addSavedIdea,
+                updateSavedIdea,
+                deleteSavedIdea,
+                convertIdeaToActivity,
+                setRefiningIdea,
                 updateLastActivity,
                 isSessionExpired,
                 saveSessionSummary,
@@ -928,6 +992,22 @@ ${otherActivities.length > 0 ? otherActivities.map(a => `- "${a.title}" in ${a.c
 
 ## Language Learning
 Naturally weave in useful German (Switzerland/Austria), Italian (Italy), or French phrases. Both kids are interested in learning languages!
+
+## SAVING IDEAS FOR LATER
+When discussing an idea that ${user.name} seems interested in but isn't ready to submit yet, PROACTIVELY offer to save it:
+- "That sounds cool! Want me to save this idea for later, or are you ready to submit it for your parents to review?"
+- "Nice find! Should I bookmark this so you can think about it more?"
+
+When ${user.name} wants to save an idea (says "save it", "bookmark that", "save for later", etc.), output this block:
+
+[SAVE_IDEA]
+Title: (short catchy name)
+City: (location)
+Notes: (key details, why it's interesting, rough cost estimate if known)
+Cost: (estimated euros, just the number, or 0 if unknown)
+[/SAVE_IDEA]
+
+After saving, confirm: "Got it! I saved that to your ideas list. You can check it out later in the Dashboard, or we can keep exploring!"
 
 ## SUBMITTING ACTIVITIES (IMPORTANT!)
 When ${user.name} has a solid activity idea and confirms they want to submit it, you MUST format the submission EXACTLY like this (the system will automatically detect and submit it):
@@ -1267,11 +1347,23 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         a.kidId === userId && a.status === 'needs-revision' && !a.isSample
                     );
                     
+                    // Check if we're refining an idea
+                    const refiningIdea = store.refiningIdea;
+                    
                     setIsLoading(true);
                     setTimeout(async () => {
                         const cities = (store.itinerary || CONFIG.itinerary).map(i => i.city).join(', ');
                         
-                        if (needsRevision.length > 0) {
+                        if (refiningIdea && refiningIdea.kidId === userId) {
+                            // Refining a saved idea
+                            const ideaDetails = refiningIdea.notes ? `\n\nHere's what we had:\n• **${refiningIdea.title}** in ${refiningIdea.city}\n• Notes: ${refiningIdea.notes}${refiningIdea.estimatedCost ? `\n• Estimated cost: ~€${refiningIdea.estimatedCost}` : ''}` : '';
+                            const greeting = `Hey ${user.name}! 👋 You wanted to revisit your saved idea for **${refiningIdea.title}**.${ideaDetails}\n\nWhat would you like to explore or change about this idea? We can dig into more details, adjust the plan, or get it ready to submit!`;
+                            const msg = { id: Date.now(), text: greeting, isUser: false };
+                            setMessages([msg]);
+                            store.clearSessionSummary(userId);
+                            // Clear the refining idea after starting the chat
+                            store.setRefiningIdea(null);
+                        } else if (needsRevision.length > 0) {
                             // Alert about feedback - priority over resume
                             const feedbackItems = needsRevision.map(a => 
                                 `**${a.title}**: "${a.parentFeedback}"`
@@ -1321,9 +1413,32 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 };
             };
             
-            // Clean submission block from displayed message
+            // Parse saved idea from agent response
+            const parseIdeaSave = (text) => {
+                const match = text.match(/\[SAVE_IDEA\]([\s\S]*?)\[\/SAVE_IDEA\]/);
+                if (!match) return null;
+                
+                const content = match[1];
+                const getValue = (field) => {
+                    const regex = new RegExp(`${field}:\\s*(.+?)(?:\\n|$)`, 'i');
+                    const m = content.match(regex);
+                    return m ? m[1].trim() : '';
+                };
+                
+                return {
+                    title: getValue('Title'),
+                    city: getValue('City'),
+                    notes: getValue('Notes'),
+                    estimatedCost: parseFloat(getValue('Cost')) || 0
+                };
+            };
+            
+            // Clean submission/save blocks from displayed message
             const cleanResponseForDisplay = (text) => {
-                return text.replace(/\[SUBMIT_ACTIVITY\][\s\S]*?\[\/SUBMIT_ACTIVITY\]/g, '').trim();
+                return text
+                    .replace(/\[SUBMIT_ACTIVITY\][\s\S]*?\[\/SUBMIT_ACTIVITY\]/g, '')
+                    .replace(/\[SAVE_IDEA\][\s\S]*?\[\/SAVE_IDEA\]/g, '')
+                    .trim();
             };
             
             const sendMessage = async () => {
@@ -1354,7 +1469,19 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     await sendActivityEmail(newActivity);
                 }
                 
-                // Clean the response for display (remove the submission block)
+                // Check for saved idea
+                const ideaData = parseIdeaSave(response);
+                if (ideaData && ideaData.title) {
+                    // Save the idea
+                    const newIdea = store.addSavedIdea({
+                        ...ideaData,
+                        kidId: userId,
+                        kidName: user.name
+                    });
+                    console.log('Idea saved:', newIdea);
+                }
+                
+                // Clean the response for display (remove the submission/save blocks)
                 const displayResponse = cleanResponseForDisplay(response);
                 
                 const assistantMsg = { id: Date.now() + 1, text: displayResponse, isUser: false };
@@ -1465,9 +1592,49 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             );
         };
         
+        // Idea Card Component
+        const IdeaCard = ({ idea, isOwner, onRefine, onSubmit, onDelete, userProfiles }) => {
+            const user = userProfiles[idea.kidId];
+            const costUSD = idea.estimatedCost ? (idea.estimatedCost * CONFIG.softParams.eurToUsdRate).toFixed(0) : '?';
+            
+            return (
+                <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', borderLeft: `4px solid ${user?.color || 'var(--color-gold)'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-sm)' }}>
+                        <div>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '4px' }}>{idea.title}</h3>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                                {user?.emoji} {idea.kidName} • {idea.city}
+                            </div>
+                        </div>
+                        {idea.estimatedCost > 0 && (
+                            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-sage)' }}>~€{idea.estimatedCost}</span>
+                        )}
+                    </div>
+                    {idea.notes && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 'var(--space-md)', lineHeight: 1.4 }}>{idea.notes}</p>
+                    )}
+                    {isOwner && (
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <button onClick={() => onRefine(idea)} style={{ flex: 1, padding: '8px 12px', background: 'var(--color-cream)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                <Icon name="Edit2" size={14} /> Refine
+                            </button>
+                            <button onClick={() => onSubmit(idea.id)} style={{ flex: 1, padding: '8px 12px', background: 'var(--color-sage)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                <Icon name="Send" size={14} /> Submit
+                            </button>
+                            <button onClick={() => onDelete(idea.id)} style={{ padding: '8px', background: 'none', color: 'var(--color-text-light)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Icon name="Trash2" size={14} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
         // Dashboard
-        const DashboardScreen = ({ onBack, activities, userProfiles, isAdmin, onApprove, onFeedback, onResetCache }) => {
+        const DashboardScreen = ({ onBack, activities, savedIdeas, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea }) => {
             const [filter, setFilter] = useState('all');
+            const [activeTab, setActiveTab] = useState('ideas'); // 'ideas' or 'activities'
+            
             const filtered = useMemo(() => {
                 if (filter === 'abby') return activities.filter(a => a.kidId === 'abby');
                 if (filter === 'tyler') return activities.filter(a => a.kidId === 'tyler');
@@ -1475,9 +1642,13 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 return activities;
             }, [activities, filter]);
             
+            const abbyIdeas = savedIdeas.filter(i => i.kidId === 'abby');
+            const tylerIdeas = savedIdeas.filter(i => i.kidId === 'tyler');
+            
             const handleResetCache = () => {
                 if (confirm('This will clear all cached data and reload from Google Sheets. Continue?')) {
                     localStorage.removeItem('euroPlanner_activities');
+                    localStorage.removeItem('euroPlanner_savedIdeas');
                     localStorage.removeItem('euroPlanner_conversations');
                     localStorage.removeItem('euroPlanner_sessionSummaries');
                     localStorage.removeItem('euroPlanner_lastActivity');
@@ -1490,10 +1661,21 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
                     <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', paddingTop: 'calc(var(--space-md) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
                         <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}><Icon name="ArrowLeft" size={20} /></button>
-                        <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Activity Queue</h1>
+                        <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Planning Hub</h1>
                         {isAdmin && <span style={{ background: 'var(--color-sage)', color: 'white', padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500 }}>Admin</span>}
                     </header>
                     
+                    {/* Tab switcher */}
+                    <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
+                        <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.95rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <Icon name="Lightbulb" size={18} /> Saved Ideas ({savedIdeas.length})
+                        </button>
+                        <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.95rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <Icon name="CheckSquare" size={18} /> Submitted ({activities.filter(a => !a.isSample).length})
+                        </button>
+                    </div>
+                    
+                    {/* Budget summary */}
                     <div style={{ display: 'flex', gap: 'var(--space-md)', padding: 'var(--space-md)', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
                         {Object.entries(userProfiles).map(([key, user]) => (
                             <div key={key} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
@@ -1505,20 +1687,84 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         ))}
                     </div>
                     
-                    <div style={{ display: 'flex', gap: 'var(--space-sm)', padding: 'var(--space-md)', overflowX: 'auto' }}>
-                        {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending' }, { key: 'abby', label: "Abby's" }, { key: 'tyler', label: "Tyler's" }].map(f => (
-                            <button key={f.key} onClick={() => setFilter(f.key)} style={{ padding: 'var(--space-sm) var(--space-md)', background: filter === f.key ? 'var(--color-navy)' : 'white', color: filter === f.key ? 'white' : 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap' }}>{f.label}</button>
-                        ))}
-                    </div>
+                    {/* Ideas Tab */}
+                    {activeTab === 'ideas' && (
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                            {savedIdeas.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
+                                    <Icon name="Lightbulb" size={48} color="var(--color-border)" />
+                                    <p style={{ marginTop: 'var(--space-md)' }}>No saved ideas yet!</p>
+                                    <p style={{ fontSize: '0.85rem' }}>Chat with the assistant and say "save that idea" to bookmark things for later.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Abby's Ideas */}
+                                    {abbyIdeas.length > 0 && (
+                                        <div style={{ marginBottom: 'var(--space-lg)' }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontSize: '1.25rem' }}>⚽</span> Abby's Ideas ({abbyIdeas.length})
+                                            </h3>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                                {abbyIdeas.map(idea => (
+                                                    <IdeaCard 
+                                                        key={idea.id} 
+                                                        idea={idea} 
+                                                        isOwner={currentUserId === 'abby' || isAdmin}
+                                                        onRefine={onRefineIdea}
+                                                        onSubmit={onSubmitIdea}
+                                                        onDelete={onDeleteIdea}
+                                                        userProfiles={userProfiles}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Tyler's Ideas */}
+                                    {tylerIdeas.length > 0 && (
+                                        <div style={{ marginBottom: 'var(--space-lg)' }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontSize: '1.25rem' }}>🏈</span> Tyler's Ideas ({tylerIdeas.length})
+                                            </h3>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                                {tylerIdeas.map(idea => (
+                                                    <IdeaCard 
+                                                        key={idea.id} 
+                                                        idea={idea} 
+                                                        isOwner={currentUserId === 'tyler' || isAdmin}
+                                                        onRefine={onRefineIdea}
+                                                        onSubmit={onSubmitIdea}
+                                                        onDelete={onDeleteIdea}
+                                                        userProfiles={userProfiles}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
                     
-                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                        {filtered.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
-                                <Icon name="List" size={48} color="var(--color-border)" />
-                                <p style={{ marginTop: 'var(--space-md)' }}>No activities yet!</p>
+                    {/* Activities Tab */}
+                    {activeTab === 'activities' && (
+                        <>
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)', padding: 'var(--space-md)', overflowX: 'auto' }}>
+                                {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending' }, { key: 'abby', label: "Abby's" }, { key: 'tyler', label: "Tyler's" }].map(f => (
+                                    <button key={f.key} onClick={() => setFilter(f.key)} style={{ padding: 'var(--space-sm) var(--space-md)', background: filter === f.key ? 'var(--color-navy)' : 'white', color: filter === f.key ? 'white' : 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap' }}>{f.label}</button>
+                                ))}
                             </div>
-                        ) : filtered.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
-                    </div>
+                            
+                            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                                {filtered.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
+                                        <Icon name="List" size={48} color="var(--color-border)" />
+                                        <p style={{ marginTop: 'var(--space-md)' }}>No activities yet!</p>
+                                    </div>
+                                ) : filtered.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
+                            </div>
+                        </>
+                    )}
                     
                     {isAdmin && (
                         <footer style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center', flexShrink: 0 }}>
@@ -1892,7 +2138,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat'); };
             const handleBack = () => {
-                if (screen === 'chat') { setScreen('welcome'); setCurrentUser(null); }
+                if (screen === 'chat') { setScreen('welcome'); setCurrentUser(null); store.setRefiningIdea(null); }
                 else if (screen === 'dashboard') { setScreen(currentUser ? 'chat' : 'welcome'); }
                 else if (screen === 'map') { setScreen(previousScreen); }
             };
@@ -1904,11 +2150,29 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const handleFeedback = (id) => setFeedbackActivity(store.activities.find(a => a.id === id));
             const handleSubmitFeedback = (feedback) => { if (feedbackActivity) store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
             
+            // Idea management handlers
+            const handleRefineIdea = (idea) => {
+                store.setRefiningIdea(idea);
+                setCurrentUser(idea.kidId);
+                setScreen('chat');
+            };
+            const handleSubmitIdea = async (ideaId) => {
+                const activity = await store.convertIdeaToActivity(ideaId);
+                if (activity) {
+                    alert(`"${activity.title}" has been submitted for parent review!`);
+                }
+            };
+            const handleDeleteIdea = (ideaId) => {
+                if (confirm('Delete this saved idea?')) {
+                    store.deleteSavedIdea(ideaId);
+                }
+            };
+            
             return (
                 <div style={{ height: '100%' }}>
                     {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} isGoogleSignedIn={isGoogleSignedIn} onGoogleSignIn={handleGoogleSignIn} onGoogleSignOut={handleGoogleSignOut} signingIn={signingIn} />}
                     {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
-                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} isAdmin={isAdmin} onApprove={handleApprove} onFeedback={handleFeedback} />}
+                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} />}
                     {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
                     {showPasswordModal && <PasswordModal onSuccess={handlePasswordSuccess} onCancel={() => { setShowPasswordModal(false); setPendingAction(null); }} />}
                     {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
