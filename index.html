@@ -1236,10 +1236,11 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [sessionActivities, setSessionActivities] = useState([]);
             const [showResumePrompt, setShowResumePrompt] = useState(false);
             const [previousSummary, setPreviousSummary] = useState(null);
+            const [pendingActivity, setPendingActivity] = useState(null); // Activity awaiting confirmation
             const messagesEndRef = useRef(null);
             const idleTimerRef = useRef(null);
             
-            useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+            useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, pendingActivity]);
             
             // Reset idle timer on any activity
             const resetIdleTimer = () => {
@@ -1472,47 +1473,29 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 const systemPrompt = generateSystemPrompt(user, userId, store.activities, store.itinerary);
                 const response = await callClaudeAPI([...messages, userMsg], systemPrompt);
                 
-                // DEBUG: Log the full response to see what we're getting
-                console.log('=== AGENT RESPONSE ===');
-                console.log(response);
-                console.log('=== END RESPONSE ===');
-                
                 // Check for activity submission
                 const activityData = parseActivitySubmission(response);
-                console.log('Parsed activity data:', activityData);
                 
                 if (activityData && activityData.title) {
-                    // Submit the activity
-                    console.log('✅ Activity detected! Submitting:', activityData.title);
-                    const newActivity = await store.addActivity({
+                    // Show confirmation card instead of auto-submitting
+                    console.log('Activity detected - showing confirmation:', activityData.title);
+                    setPendingActivity({
                         ...activityData,
                         kidId: userId,
                         kidName: user.name
                     });
-                    console.log('Activity submitted:', newActivity);
-                    // Track for session summary
-                    setSessionActivities(prev => [...prev, newActivity]);
-                    // Send email to parents
-                    await sendActivityEmail(newActivity);
-                } else {
-                    console.log('No [SUBMIT_ACTIVITY] block found in response');
                 }
                 
-                // Check for saved idea
+                // Check for saved idea (these still auto-save since they're just bookmarks)
                 const ideaData = parseIdeaSave(response);
-                console.log('Parsed idea data:', ideaData);
                 
                 if (ideaData && ideaData.title) {
-                    // Save the idea
-                    console.log('✅ Idea detected! Saving:', ideaData.title);
-                    const newIdea = store.addSavedIdea({
+                    console.log('Idea detected - saving:', ideaData.title);
+                    store.addSavedIdea({
                         ...ideaData,
                         kidId: userId,
                         kidName: user.name
                     });
-                    console.log('Idea saved:', newIdea);
-                } else {
-                    console.log('No [SAVE_IDEA] block found in response');
                 }
                 
                 // Clean the response for display (remove the submission/save blocks)
@@ -1521,6 +1504,38 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 const assistantMsg = { id: Date.now() + 1, text: displayResponse, isUser: false };
                 setMessages(prev => [...prev, assistantMsg]);
                 setIsLoading(false);
+            };
+            
+            // Handle confirming the pending activity submission
+            const handleConfirmActivity = async () => {
+                if (!pendingActivity) return;
+                
+                console.log('✅ User confirmed activity submission:', pendingActivity.title);
+                const newActivity = await store.addActivity(pendingActivity);
+                console.log('Activity submitted:', newActivity);
+                
+                // Track for session summary
+                setSessionActivities(prev => [...prev, newActivity]);
+                
+                // Send email to parents
+                await sendActivityEmail(newActivity);
+                
+                // Clear the pending activity
+                setPendingActivity(null);
+                
+                // Add a confirmation message to the chat
+                const confirmMsg = { 
+                    id: Date.now(), 
+                    text: `✅ **${newActivity.title}** has been submitted for parent review! You can check its status in the Dashboard.`, 
+                    isUser: false 
+                };
+                setMessages(prev => [...prev, confirmMsg]);
+            };
+            
+            // Handle dismissing the pending activity (keep planning)
+            const handleKeepPlanning = () => {
+                console.log('User chose to keep planning, dismissing confirmation card');
+                setPendingActivity(null);
             };
             
             return (
@@ -1569,19 +1584,104 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
                                 {messages.map(msg => <ChatMessage key={msg.id} message={msg.text} isUser={msg.isUser} />)}
                                 {isLoading && <ChatMessage isTyping />}
+                                
+                                {/* Activity Confirmation Card */}
+                                {pendingActivity && (
+                                    <div style={{ 
+                                        background: 'linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)', 
+                                        borderRadius: 'var(--radius-lg)', 
+                                        padding: 'var(--space-lg)', 
+                                        marginTop: 'var(--space-md)',
+                                        border: '2px solid var(--color-success)',
+                                        boxShadow: 'var(--shadow-md)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                                            <Icon name="CheckCircle" size={24} color="var(--color-success)" />
+                                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-success)' }}>Ready to Submit?</h3>
+                                        </div>
+                                        
+                                        <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
+                                            <h4 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 'var(--space-xs)' }}>{pendingActivity.title}</h4>
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)' }}>📍 {pendingActivity.city}</p>
+                                            <p style={{ fontSize: '0.9rem', marginBottom: 'var(--space-md)', lineHeight: 1.5 }}>{pendingActivity.description}</p>
+                                            
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-md)', fontSize: '0.85rem', color: 'var(--color-text-light)' }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Icon name="DollarSign" size={14} /> €{pendingActivity.estimatedCost} (~${(pendingActivity.estimatedCost * CONFIG.softParams.eurToUsdRate).toFixed(0)})
+                                                </span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Icon name="Clock" size={14} /> {pendingActivity.duration}
+                                                </span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Icon name="Navigation" size={14} /> {pendingActivity.travelMethod} ({pendingActivity.travelTime})
+                                                </span>
+                                            </div>
+                                            
+                                            {pendingActivity.otherConsiderations && (
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', marginTop: 'var(--space-sm)', fontStyle: 'italic' }}>
+                                                    💡 {pendingActivity.otherConsiderations}
+                                                </p>
+                                            )}
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                            <button 
+                                                onClick={handleConfirmActivity}
+                                                style={{ 
+                                                    flex: 1, 
+                                                    padding: 'var(--space-md)', 
+                                                    background: 'var(--color-success)', 
+                                                    color: 'white', 
+                                                    border: 'none', 
+                                                    borderRadius: 'var(--radius-md)', 
+                                                    cursor: 'pointer', 
+                                                    fontSize: '1rem', 
+                                                    fontWeight: 600,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: 'var(--space-sm)'
+                                                }}
+                                            >
+                                                <Icon name="Send" size={18} /> Submit for Review
+                                            </button>
+                                            <button 
+                                                onClick={handleKeepPlanning}
+                                                style={{ 
+                                                    flex: 1, 
+                                                    padding: 'var(--space-md)', 
+                                                    background: 'white', 
+                                                    color: 'var(--color-text)', 
+                                                    border: '1px solid var(--color-border)', 
+                                                    borderRadius: 'var(--radius-md)', 
+                                                    cursor: 'pointer', 
+                                                    fontSize: '1rem', 
+                                                    fontWeight: 500,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: 'var(--space-sm)'
+                                                }}
+                                            >
+                                                <Icon name="Edit2" size={18} /> Keep Planning
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div ref={messagesEndRef} />
                             </div>
                             
                             <div style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)' }}>
                                 <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                                    <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} />
-                                    <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} disabled={!!pendingActivity} />
+                                    <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading || !!pendingActivity} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() && !pendingActivity ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading && !pendingActivity ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Icon name="Send" size={20} />
                                     </button>
                                 </div>
                                 <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto' }}>
                                     {['Give me ideas', 'What cities?', 'My activities'].map((text, i) => (
-                                        <button key={i} onClick={() => setInputValue(text)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                                        <button key={i} onClick={() => setInputValue(text)} disabled={!!pendingActivity} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: pendingActivity ? 'not-allowed' : 'pointer', opacity: pendingActivity ? 0.5 : 1 }}>
                                             <Icon name={['Sparkles', 'MapPin', 'List'][i]} size={14} /> {text}
                                         </button>
                                     ))}
