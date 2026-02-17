@@ -1305,6 +1305,13 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 if (summary && summary.messageCount > 1) {
                     store.saveSessionSummary(userId, summary);
                     
+                    // Save to Google Sheets
+                    store.saveConversationSummaryToSheets(userId, {
+                        topics: summary.topics.join(', '),
+                        ideas: summary.activitiesSubmitted.join(', '),
+                        notes: summary.recentContext.join(' | ')
+                    }).catch(err => console.log('Sheets save error:', err));
+                    
                     // Send email summary
                     const profile = store.userProfiles[userId];
                     const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
