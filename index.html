@@ -1009,33 +1009,52 @@ Cost: (estimated euros, just the number, or 0 if unknown)
 
 After saving, confirm: "Got it! I saved that to your ideas list. You can check it out later in the Dashboard, or we can keep exploring!"
 
-## SUBMITTING ACTIVITIES (IMPORTANT!)
-When ${user.name} has a solid activity idea and confirms they want to submit it, you MUST format the submission EXACTLY like this (the system will automatically detect and submit it):
+## SUBMITTING ACTIVITIES (CRITICAL - READ CAREFULLY!)
+When ${user.name} describes an activity they want to do and provides enough details (or when you have enough info to fill in reasonable defaults), you MUST output the submission block. DO NOT just describe the activity - you must OUTPUT THE BLOCK for it to be saved!
+
+Trigger phrases that mean "submit this":
+- "I want to submit..."
+- "Let's do this one"
+- "Submit this activity"
+- "Add this to my list"
+- "I want to do this"
+- "Book this" / "Plan this"
+- Any clear indication they've decided on an activity
+
+When submitting, output this EXACT format (the app parses this automatically):
 
 [SUBMIT_ACTIVITY]
 Title: (activity name)
 City: (city or stop name - can be a transfer day stop too!)
 Description: (2-3 sentence description)
-Cost: (number in euros, just the number)
-Travel Method: (how to get there from accommodation)
+Cost: (number in euros, just the number like 65, not €65)
+Travel Method: (how to get there - Walking, Train, Bus, etc.)
 Travel Time: (e.g., "20 minutes")
 Duration: (e.g., "2 hours")
 Considerations: (booking requirements, what to bring, best timing, etc.)
 [/SUBMIT_ACTIVITY]
 
-After outputting this block, confirm to ${user.name} that the activity has been submitted for parent review!
+IMPORTANT: 
+- The [SUBMIT_ACTIVITY] and [/SUBMIT_ACTIVITY] tags MUST be on their own lines
+- Fill in ALL fields, even if you need to make reasonable estimates
+- After the block, confirm: "I've submitted that for your parents to review!"
 
-Example of a complete submission:
+Example conversation:
+Kid: "I want to submit an activity for Rhine Falls. It's about 20 euros and takes 2 hours."
+You: "Awesome choice! Submitting Rhine Falls now...
+
 [SUBMIT_ACTIVITY]
-Title: Gelato Making Workshop
-City: Florence
-Description: Learn to make authentic Italian gelato from a local chef! Includes tasting and recipes to take home.
-Cost: 65
-Travel Method: Walking
-Travel Time: 15 minutes
+Title: Rhine Falls Visit
+City: Transfer - Kids Choice
+Description: Visit Europe's largest waterfall! Walk along the viewing platforms and feel the mist from the thundering water.
+Cost: 20
+Travel Method: Train
+Travel Time: 30 minutes from main station
 Duration: 2 hours
-Considerations: Book 2 days ahead. Wear clothes that can get messy. Class is in English.
+Considerations: Bring a rain jacket - you'll get misty! Best viewed in morning for photos.
 [/SUBMIT_ACTIVITY]
+
+Done! I've submitted Rhine Falls for your parents to review. 🌊 They'll see it in the Activity Queue!"
 
 Keep it fun and focused on making this Europe trip amazing! 🎉`;
         };
@@ -1453,10 +1472,18 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 const systemPrompt = generateSystemPrompt(user, userId, store.activities, store.itinerary);
                 const response = await callClaudeAPI([...messages, userMsg], systemPrompt);
                 
+                // DEBUG: Log the full response to see what we're getting
+                console.log('=== AGENT RESPONSE ===');
+                console.log(response);
+                console.log('=== END RESPONSE ===');
+                
                 // Check for activity submission
                 const activityData = parseActivitySubmission(response);
+                console.log('Parsed activity data:', activityData);
+                
                 if (activityData && activityData.title) {
                     // Submit the activity
+                    console.log('✅ Activity detected! Submitting:', activityData.title);
                     const newActivity = await store.addActivity({
                         ...activityData,
                         kidId: userId,
@@ -1467,18 +1494,25 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     setSessionActivities(prev => [...prev, newActivity]);
                     // Send email to parents
                     await sendActivityEmail(newActivity);
+                } else {
+                    console.log('No [SUBMIT_ACTIVITY] block found in response');
                 }
                 
                 // Check for saved idea
                 const ideaData = parseIdeaSave(response);
+                console.log('Parsed idea data:', ideaData);
+                
                 if (ideaData && ideaData.title) {
                     // Save the idea
+                    console.log('✅ Idea detected! Saving:', ideaData.title);
                     const newIdea = store.addSavedIdea({
                         ...ideaData,
                         kidId: userId,
                         kidName: user.name
                     });
                     console.log('Idea saved:', newIdea);
+                } else {
+                    console.log('No [SAVE_IDEA] block found in response');
                 }
                 
                 // Clean the response for display (remove the submission/save blocks)
