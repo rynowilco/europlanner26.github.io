@@ -1505,11 +1505,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     .trim();
             };
             
-            const sendMessage = async () => {
-                if (!inputValue.trim() || isLoading) return;
+            const sendMessage = async (overrideText) => {
+                const text = typeof overrideText === 'string' ? overrideText : inputValue;
+                if (!text.trim() || isLoading) return;
                 resetIdleTimer(); // Reset idle timer on activity
                 
-                const userMsg = { id: Date.now(), text: inputValue.trim(), isUser: true };
+                const userMsg = { id: Date.now(), text: text.trim(), isUser: true };
                 setMessages(prev => [...prev, userMsg]);
                 setInputValue('');
                 setIsLoading(true);
@@ -1723,10 +1724,15 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                         <Icon name="Send" size={20} />
                                     </button>
                                 </div>
-                                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto' }}>
-                                    {['Give me ideas', 'What cities?', 'My activities'].map((text, i) => (
-                                        <button key={i} onClick={() => setInputValue(text)} disabled={!!pendingActivity} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: pendingActivity ? 'not-allowed' : 'pointer', opacity: pendingActivity ? 0.5 : 1 }}>
-                                            <Icon name={['Sparkles', 'MapPin', 'List'][i]} size={14} /> {text}
+                                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto', paddingBottom: '2px' }}>
+                                    {[
+                                        { label: 'Give me Ideas', icon: 'Sparkles', prompt: 'Give me some activity ideas for this trip based on my interests!' },
+                                        { label: "What's the Plan", icon: 'Calendar', prompt: "What's the full trip plan? Walk me through the cities, transfer days, and dates." },
+                                        { label: 'My Activities', icon: 'List', prompt: 'Show me all the activities I have submitted or that have been approved so far.' },
+                                        { label: 'All Activities', icon: 'Users', prompt: 'Show me all approved activities for the whole family so I can see what everyone is doing and avoid conflicts.' }
+                                    ].map(({ label, icon, prompt }, i) => (
+                                        <button key={i} onClick={() => { sendMessage(prompt); }} disabled={!!pendingActivity || isLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: (pendingActivity || isLoading) ? 'not-allowed' : 'pointer', opacity: (pendingActivity || isLoading) ? 0.5 : 1 }}>
+                                            <Icon name={icon} size={14} /> {label}
                                         </button>
                                     ))}
                                 </div>
