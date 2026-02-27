@@ -109,7 +109,7 @@
                     name: 'Abby', 
                     age: 11, 
                     emoji: '⚽', 
-                    color: '#C4704F', 
+                    color: '#D64F8A', 
                     interests: ['trying new foods', 'shopping', 'learning languages', 'swimming', 'culture', 'sports', 'baking', 'fashion', 'makeup & skincare'],
                     preferences: 'Likes humor and jokes. Good for a few hours of walking. Sticks to familiar foods but wants to try cool food spots. Wants to avoid: long car rides, really long hikes. Perfect day: finding cool food spots, shopping, trying a new activity she has never done before.',
                     budgetTotal: 1000, 
@@ -121,13 +121,39 @@
                     name: 'Tyler', 
                     age: 14, 
                     emoji: '🏈', 
-                    color: '#1E3A5F', 
+                    color: '#C0392B', 
                     interests: ['seeing the world', 'food', 'human interaction', 'playing sports', 'learning on Duolingo', 'family bonding'],
                     preferences: 'Likes humor and jokes. Will try almost anything food-wise! Prefers shorter walks with breaks. Wants to avoid: long car rides. Perfect day: bonding with family, learning about a new place. Fun fact he knows: you don\'t tip in Europe.',
                     budgetTotal: 1000, 
                     budgetRemaining: 1000, 
                     approvedActivities: 0, 
                     phrasesLearned: 0 
+                },
+                ryan: {
+                    name: 'Ryan',
+                    age: 50,
+                    emoji: '👨‍🍳',
+                    color: '#2E6DA4',
+                    interests: ['seafood', 'sardines', 'fresh fish markets', 'hiking', 'cultural experiences', 'local food scenes', 'family bonding'],
+                    preferences: 'Loves a good laugh and dark humor. Obsessed with seafood — especially sardines, anchovies, and anything from the sea. Into hiking and soaking up local culture. Wants the family to have an epic, memorable trip. Adult — no need to tone anything down.',
+                    budgetTotal: 1000,
+                    budgetRemaining: 1000,
+                    approvedActivities: 0,
+                    phrasesLearned: 0,
+                    isParent: true
+                },
+                mom: {
+                    name: 'Mom',
+                    age: 48,
+                    emoji: '🧜‍♀️',
+                    color: '#2E8B57',
+                    interests: ['swimming', 'water activities', 'aquatic adventures', 'hiking', 'cultural experiences', 'local markets', 'family bonding'],
+                    preferences: 'Fun, loves to laugh, not easily offended. Obsessed with any water activity — swimming, lakes, rivers, waterfalls, coastal towns, you name it. Also loves hiking and cultural experiences. Adult — keep it real and fun.',
+                    budgetTotal: 1000,
+                    budgetRemaining: 1000,
+                    approvedActivities: 0,
+                    phrasesLearned: 0,
+                    isParent: true
                 }
             },
             parentEmails: ['katieheindel@gmail.com', 'talentonian@gmail.com'],
@@ -451,6 +477,8 @@
             parseUserProfiles(rows) {
                 if (!rows || rows.length < 2) return null;
                 const profiles = {};
+                const emojiMap = { abby: '⚽', tyler: '🏈', ryan: '👨‍🍳', mom: '🧜‍♀️' };
+                const colorMap = { abby: '#D64F8A', tyler: '#C0392B', ryan: '#2E6DA4', mom: '#2E8B57' };
                 rows.slice(1).filter(row => row[0]).forEach(row => {
                     const name = row[0];
                     const id = name.toLowerCase();
@@ -463,8 +491,9 @@
                         budgetRemaining: parseFloat(row[5]) || 1000,
                         approvedActivities: parseInt(row[6]) || 0,
                         phrasesLearned: parseInt(row[7]) || 0,
-                        emoji: id === 'abby' ? '⚽' : '🏈',
-                        color: id === 'abby' ? '#C4704F' : '#1E3A5F'
+                        emoji: emojiMap[id] || '👤',
+                        color: colorMap[id] || '#666666',
+                        isParent: id === 'ryan' || id === 'mom'
                     };
                 });
                 return profiles;
@@ -648,13 +677,13 @@
             // Store session summaries instead of full conversation history
             const [sessionSummaries, setSessionSummaries] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_sessionSummaries');
-                return saved ? JSON.parse(saved) : { abby: null, tyler: null };
+                return saved ? JSON.parse(saved) : { abby: null, tyler: null, ryan: null, mom: null };
             });
             
             // Track last activity time for idle detection
             const [lastActivity, setLastActivity] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_lastActivity');
-                return saved ? JSON.parse(saved) : { abby: null, tyler: null };
+                return saved ? JSON.parse(saved) : { abby: null, tyler: null, ryan: null, mom: null };
             });
             
             // Track idea being refined (for chat context)
@@ -907,6 +936,7 @@
             const otherActivities = activities.filter(a => a.kidId !== userId && !a.isSample);
             const tripItinerary = itinerary || CONFIG.itinerary;
             const cities = tripItinerary.map(i => i.city).join(', ');
+            const isParent = user.isParent || false;
             
             return `You are a friendly travel planning assistant helping ${user.name} (age ${user.age}) plan activities for their family's Europe trip in summer 2026.
 
@@ -923,24 +953,28 @@ You do NOT help with:
 ❌ Homework, school projects, or academic questions
 ❌ Personal advice unrelated to the trip
 ❌ Games, stories, or entertainment not about the trip
-❌ Anything inappropriate for kids
-❌ Topics unrelated to the Europe trip
+${isParent ? '' : '❌ Anything inappropriate for kids\n'}❌ Topics unrelated to the Europe trip
 
 If ${user.name} asks about something off-topic, be friendly but redirect:
 - "Haha, I wish I could help with that! But I'm really just your Europe trip buddy 🌍 Speaking of which - have you thought about what you want to do in [city]?"
-- "That's outside my wheelhouse! I'm all about helping you plan awesome Europe adventures. Want to explore some ideas?"
 
-## Content Safety (IMPORTANT)
+${isParent ? `## Tone & Style (ADULT MODE 🔞)
+- ${user.name} is an adult who likes to laugh and doesn't scare easily
+- Feel free to curse occasionally, use sexual innuendo, and be irreverent — keep it fun, not cringe
+- Dark humor and sarcasm welcome
+- Be direct, witty, and treat ${user.name} like a fellow adult making fun happen for their family
+- No need to sanitize anything — if a sardine joke wants to come out, let it breathe
+` : `## Content Safety (IMPORTANT)
 - Keep all conversations appropriate for ${user.age === 11 ? 'an 11-year-old' : 'a 14-year-old'}
 - Never discuss violent, scary, or adult content
 - Don't ask for or encourage sharing personal information (addresses, passwords, etc.)
 - If anything feels off, redirect to trip planning
-
+`}
 ## Your Style
 - Warm, encouraging, genuinely excited about travel
 - Use ${user.name}'s name naturally
 - ${user.name} likes humor and jokes - be fun and playful!
-- ${user.age === 14 ? 'Casual teen language is totally fine ("that\'s sick", "no cap", "bro")' : 'Keep it friendly and fun, but age-appropriate (not babyish)'}
+- ${isParent ? 'Adult humor, cursing, and innuendo are encouraged and welcome' : user.age === 14 ? 'Casual teen language is totally fine ("that\'s sick", "no cap", "bro")' : 'Keep it friendly and fun, but age-appropriate (not babyish)'}
 - Be helpful but realistic about constraints
 
 ## Session Pacing
@@ -981,17 +1015,17 @@ Be proactive about suggesting transfer day discoveries - this is where ${user.na
 - Budget guideline: ~€100 per activity (flexible)  
 - When discussing costs, mention both euros and USD (~€1 = $1.08)
 - Include meals and transport in cost estimates
-- ${userId === 'abby' ? 'Remember: Abby wants to AVOID really long hikes and long car rides. She is good for a few hours of walking. She loves shopping, food experiences, and trying new activities she has never done.' : 'Remember: Tyler wants to AVOID long car rides. He prefers shorter walks with breaks. He loves trying new foods, sports, and learning about new places. He wants family bonding time.'}
+- ${userId === 'abby' ? 'Remember: Abby wants to AVOID really long hikes and long car rides. She is good for a few hours of walking. She loves shopping, food experiences, and trying new activities she has never done.' : userId === 'tyler' ? 'Remember: Tyler wants to AVOID long car rides. He prefers shorter walks with breaks. He loves trying new foods, sports, and learning about new places. He wants family bonding time.' : userId === 'ryan' ? 'Remember: Ryan is all about seafood (especially sardines and anchovies), hiking, and cultural experiences. If there\'s a fish market nearby, he needs to know about it.' : 'Remember: Mom is obsessed with water — swimming, lakes, rivers, waterfalls, coastal towns. Also loves hiking and culture. If there\'s a body of water nearby, she\'s already in it.'}
 
 ## ${user.name}'s Activities So Far
 ${userActivities.length > 0 ? userActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'None yet - fresh start!'}
 
-## What ${userId === 'tyler' ? 'Abby' : 'Tyler'} Is Planning
+## What the Rest of the Family Is Planning
 ${otherActivities.length > 0 ? otherActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'Nothing submitted yet'}
 (Suggest combining activities if there's overlap - family bonding matters!)
 
 ## Language Learning
-Naturally weave in useful German (Switzerland/Austria), Italian (Italy), or French phrases. Both kids are interested in learning languages!
+Naturally weave in useful German (Switzerland/Austria), Italian (Italy), or French phrases. The whole family is interested in learning languages!
 
 ## SAVING IDEAS FOR LATER
 When discussing an idea that ${user.name} seems interested in but isn't ready to submit yet, PROACTIVELY offer to save it:
@@ -1038,23 +1072,6 @@ IMPORTANT:
 - The [SUBMIT_ACTIVITY] and [/SUBMIT_ACTIVITY] tags MUST be on their own lines
 - Fill in ALL fields, even if you need to make reasonable estimates
 - After the block, confirm: "I've submitted that for your parents to review!"
-
-Example conversation:
-Kid: "I want to submit an activity for Rhine Falls. It's about 20 euros and takes 2 hours."
-You: "Awesome choice! Submitting Rhine Falls now...
-
-[SUBMIT_ACTIVITY]
-Title: Rhine Falls Visit
-City: Transfer - Kids Choice
-Description: Visit Europe's largest waterfall! Walk along the viewing platforms and feel the mist from the thundering water.
-Cost: 20
-Travel Method: Train
-Travel Time: 30 minutes from main station
-Duration: 2 hours
-Considerations: Bring a rain jacket - you'll get misty! Best viewed in morning for photos.
-[/SUBMIT_ACTIVITY]
-
-Done! I've submitted Rhine Falls for your parents to review. 🌊 They'll see it in the Activity Queue!"
 
 Keep it fun and focused on making this Europe trip amazing! 🎉`;
         };
@@ -1172,7 +1189,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
                     <p style={{ textAlign: 'center', fontSize: '1rem', color: 'var(--color-text-light)', animation: 'fadeIn 0.6s ease-out 0.2s both' }}>Who's planning today?</p>
                     
-                    {Object.entries(userProfiles).map(([key, user], index) => {
+                    {/* Kids section */}
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-sm)' }}>The Kids</div>
+                    {Object.entries(userProfiles).filter(([key]) => !userProfiles[key].isParent).map(([key, user], index) => {
                         const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
                         return (
                             <button key={key} onClick={() => onSelectUser(key)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s' }}
@@ -1182,6 +1201,24 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
                                     <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · {approved}/3 activities</div>
+                                </div>
+                                <Icon name="ChevronRight" size={24} color="var(--color-text-light)" />
+                            </button>
+                        );
+                    })}
+                    
+                    {/* Parents section */}
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-md)' }}>The Parents</div>
+                    {Object.entries(userProfiles).filter(([key]) => userProfiles[key].isParent).map(([key, user], index) => {
+                        const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
+                        return (
+                            <button key={key} onClick={() => onSelectUser(key)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none'; }}>
+                                <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{user.emoji}</div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · {approved} activities</div>
                                 </div>
                                 <Icon name="ChevronRight" size={24} color="var(--color-text-light)" />
                             </button>
