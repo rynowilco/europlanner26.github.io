@@ -1277,24 +1277,61 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const messagesEndRef = useRef(null);
             const idleTimerRef = useRef(null);
             
+            // Keep a ref to latest messages/sessionActivities so closures (timers, event listeners) always have fresh data
+            const messagesRef = useRef(messages);
+            const sessionActivitiesRef = useRef(sessionActivities);
+            useEffect(() => { messagesRef.current = messages; }, [messages]);
+            useEffect(() => { sessionActivitiesRef.current = sessionActivities; }, [sessionActivities]);
+            
             useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, pendingActivity]);
             
             // Reset idle timer on any activity
             const resetIdleTimer = () => {
                 store.updateLastActivity(userId);
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-                // Set idle timeout for 1 hour
+                // Save after 15 minutes of inactivity
                 idleTimerRef.current = setTimeout(() => {
-                    handleSessionEnd('idle');
-                }, 60 * 60 * 1000);
+                    saveSessionToSheets('idle');
+                }, 15 * 60 * 1000);
             };
             
-            // Cleanup idle timer on unmount
+            // Core save function — uses refs so it's always fresh regardless of when it's called
+            const saveSessionToSheets = (reason) => {
+                const currentMessages = messagesRef.current;
+                const currentActivities = sessionActivitiesRef.current;
+                const userMessages = currentMessages.filter(m => m.isUser);
+                if (userMessages.length === 0) return;
+                
+                const topics = userMessages.map(m => m.text).slice(-5);
+                const activitiesSubmitted = currentActivities.map(a => `${a.title} in ${a.city}`);
+                const recentContext = currentMessages.slice(-4).map(m =>
+                    m.isUser ? `You asked: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"`
+                             : `We discussed: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"`
+                );
+                
+                const summary = { topics, activitiesSubmitted, recentContext, messageCount: currentMessages.length };
+                store.saveSessionSummary(userId, summary);
+                store.saveConversationSummaryToSheets(userId, {
+                    topics: `[${reason}] ` + topics.join(', '),
+                    ideas: activitiesSubmitted.join(', '),
+                    notes: recentContext.join(' | ')
+                }).catch(err => console.log('Sheets save error:', err));
+            };
+            
+            // Save on unmount (back button, app close, tab switch away)
             useEffect(() => {
-                return () => {
-                    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+                const handleVisibilityChange = () => {
+                    if (document.visibilityState === 'hidden') {
+                        saveSessionToSheets('visibility-hidden');
+                    }
                 };
-            }, []);
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                return () => {
+                    document.removeEventListener('visibilitychange', handleVisibilityChange);
+                    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+                    saveSessionToSheets('unmount');
+                };
+            }, []); // eslint-disable-line
             
             // Send email digest when activity is submitted
             const sendActivityEmail = async (activity) => {
@@ -1311,52 +1348,31 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             // Generate summary from current session messages
             const generateSessionSummary = () => {
-                const userMessages = messages.filter(m => m.isUser);
-                const assistantMessages = messages.filter(m => !m.isUser);
-                
+                const userMessages = messagesRef.current.filter(m => m.isUser);
+                const assistantMessages = messagesRef.current.filter(m => !m.isUser);
                 if (userMessages.length === 0) return null;
-                
-                // Get topics discussed (from user messages)
                 const topics = userMessages.map(m => m.text).slice(-5);
-                
-                // Get activities submitted this session
-                const activitiesSubmitted = sessionActivities.map(a => `${a.title} in ${a.city}`);
-                
-                // Get last few exchanges for context
-                const recentContext = messages.slice(-4).map(m => 
-                    m.isUser ? `You asked: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"` 
+                const activitiesSubmitted = sessionActivitiesRef.current.map(a => `${a.title} in ${a.city}`);
+                const recentContext = messagesRef.current.slice(-4).map(m =>
+                    m.isUser ? `You asked: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"`
                              : `We discussed: "${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}"`
                 );
-                
-                return {
-                    topics,
-                    activitiesSubmitted,
-                    recentContext,
-                    messageCount: messages.length
-                };
+                return { topics, activitiesSubmitted, recentContext, messageCount: messagesRef.current.length };
             };
             
             // Handle session end (back button or idle)
             const handleSessionEnd = (reason) => {
+                saveSessionToSheets(reason);
+                
+                // Send email summary
                 const summary = generateSessionSummary();
-                if (summary && summary.messageCount > 1) {
-                    store.saveSessionSummary(userId, summary);
-                    
-                    // Save to Google Sheets
-                    store.saveConversationSummaryToSheets(userId, {
-                        topics: summary.topics.join(', '),
-                        ideas: summary.activitiesSubmitted.join(', '),
-                        notes: summary.recentContext.join(' | ')
-                    }).catch(err => console.log('Sheets save error:', err));
-                    
-                    // Send email summary
+                if (summary) {
                     const profile = store.userProfiles[userId];
                     const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
                     const topicsText = summary.topics.join('\n• ');
                     const activitiesText = summary.activitiesSubmitted.length > 0
                         ? summary.activitiesSubmitted.map(a => `• ${a}`).join('\n')
                         : 'No new activities submitted this session';
-                    
                     EmailService.sendDigestToBothParents(
                         user.name,
                         `Topics discussed:\n• ${topicsText}`,
@@ -1365,9 +1381,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     ).catch(err => console.log('Email send error:', err));
                 }
                 
-                if (reason === 'back') {
-                    onBack();
-                }
+                if (reason === 'back') onBack();
             };
             
             // Handle back button
