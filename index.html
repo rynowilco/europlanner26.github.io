@@ -807,23 +807,46 @@
                     id: `ACT-${Date.now()}`, 
                     dateSubmitted: new Date().toISOString().split('T')[0],
                     dateUpdated: new Date().toISOString().split('T')[0],
-                    status: 'submitted' 
+                    status: 'submitted',
+                    syncedToSheets: false
                 };
                 setActivities(prev => [...prev, newActivity]);
                 
-                // Check if signed in to Google before attempting sync
                 const isSignedIn = TokenManager.isSignedIn();
                 console.log('Adding activity:', newActivity.title, '| Google signed in:', isSignedIn);
                 
-                // Sync to Google Sheets
-                try {
-                    await SheetsAPI.append(CONFIG.SHEET_NAMES.activities, SheetsAPI.activityToRow(newActivity));
-                    console.log('Activity synced to Sheets:', newActivity.title);
-                } catch (error) {
-                    console.error('Error syncing activity to Sheets:', error);
+                if (isSignedIn) {
+                    try {
+                        await SheetsAPI.append(CONFIG.SHEET_NAMES.activities, SheetsAPI.activityToRow(newActivity));
+                        console.log('Activity synced to Sheets:', newActivity.title);
+                        setActivities(prev => prev.map(a => a.id === newActivity.id ? { ...a, syncedToSheets: true } : a));
+                    } catch (error) {
+                        console.error('Error syncing activity to Sheets:', error);
+                    }
+                } else {
+                    console.warn('Activity saved locally only - will sync when signed in:', newActivity.title);
                 }
                 
                 return newActivity;
+            };
+            
+            // Flush any locally-saved unsynced activities to Sheets
+            const syncUnsyncedActivities = async (currentActivities) => {
+                const unsynced = (currentActivities || []).filter(a => !a.syncedToSheets && !a.isSample);
+                if (unsynced.length === 0) return 0;
+                console.log(`Syncing ${unsynced.length} unsynced activities to Sheets...`);
+                let synced = 0;
+                for (const activity of unsynced) {
+                    try {
+                        await SheetsAPI.append(CONFIG.SHEET_NAMES.activities, SheetsAPI.activityToRow(activity));
+                        setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, syncedToSheets: true } : a));
+                        synced++;
+                    } catch (error) {
+                        console.error('Failed to sync activity:', activity.title, error);
+                    }
+                }
+                console.log(`Synced ${synced}/${unsynced.length} activities`);
+                return synced;
             };
             
             const updateActivity = (id, updates) => {
@@ -924,6 +947,7 @@
                 getSessionSummary,
                 clearSessionSummary,
                 saveConversationSummaryToSheets,
+                syncUnsyncedActivities,
                 setUserProfiles 
             };
         };
@@ -1144,7 +1168,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         // ============================================
         
         // Welcome Screen
-        const WelcomeScreen = ({ onSelectUser, userProfiles, activities, onOpenSettings, onOpenDashboard, onOpenMap, isGoogleSignedIn, onGoogleSignIn, onGoogleSignOut, signingIn }) => (
+        const WelcomeScreen = ({ onSelectUser, userProfiles, activities, onOpenSettings, onOpenDashboard, onOpenMap, isGoogleSignedIn, onGoogleSignIn, onGoogleSignOut, signingIn, syncMessage }) => (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
                 <header style={{ textAlign: 'center', paddingTop: 'var(--space-xl)', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out' }}>
                     <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
@@ -1190,29 +1214,36 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 
                 {isGoogleSignedIn && (
                     <div style={{ maxWidth: '400px', margin: '0 auto var(--space-md)', width: '100%', textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: '#E8F5E9', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', color: 'var(--color-success)' }}>
-                            <Icon name="Check" size={16} /> Syncing to Google Sheets
-                        </div>
+                        {syncMessage ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: syncMessage.startsWith('✅') ? '#E8F5E9' : '#FFF3E0', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', color: syncMessage.startsWith('✅') ? 'var(--color-success)' : 'var(--color-warning)' }}>
+                                {syncMessage}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: '#E8F5E9', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', color: 'var(--color-success)' }}>
+                                <Icon name="Check" size={16} /> Syncing to Google Sheets
+                            </div>
+                        )}
                     </div>
                 )}
                 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
-                    <p style={{ textAlign: 'center', fontSize: '1rem', color: 'var(--color-text-light)', animation: 'fadeIn 0.6s ease-out 0.2s both' }}>Who's planning today?</p>
+                    <p style={{ textAlign: 'center', fontSize: '1rem', color: 'var(--color-text-light)', animation: 'fadeIn 0.6s ease-out 0.2s both' }}>{isGoogleSignedIn ? "Who's planning today?" : "Sign in to start planning"}</p>
                     
                     {/* Kids section */}
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-sm)' }}>The Kids</div>
                     {Object.entries(userProfiles).filter(([key]) => !userProfiles[key].isParent).map(([key, user], index) => {
                         const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
+                        const locked = !isGoogleSignedIn;
                         return (
-                            <button key={key} onClick={() => onSelectUser(key)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                            <button key={key} onClick={() => !locked && onSelectUser(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
+                                onMouseEnter={(e) => { if (!locked) { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
                                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none'; }}>
-                                <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{user.emoji}</div>
+                                <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · {approved}/3 activities</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{locked ? 'Sign in to plan' : `$${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · ${approved}/3 activities`}</div>
                                 </div>
-                                <Icon name="ChevronRight" size={24} color="var(--color-text-light)" />
+                                <Icon name={locked ? 'Lock' : 'ChevronRight'} size={24} color="var(--color-text-light)" />
                             </button>
                         );
                     })}
@@ -1221,16 +1252,17 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-md)' }}>The Parents</div>
                     {Object.entries(userProfiles).filter(([key]) => userProfiles[key].isParent).map(([key, user], index) => {
                         const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
+                        const locked = !isGoogleSignedIn;
                         return (
-                            <button key={key} onClick={() => onSelectUser(key)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                            <button key={key} onClick={() => !locked && onSelectUser(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
+                                onMouseEnter={(e) => { if (!locked) { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
                                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none'; }}>
-                                <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{user.emoji}</div>
+                                <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · {approved} activities</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{locked ? 'Sign in to plan' : `$${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · ${approved} activities`}</div>
                                 </div>
-                                <Icon name="ChevronRight" size={24} color="var(--color-text-light)" />
+                                <Icon name={locked ? 'Lock' : 'ChevronRight'} size={24} color="var(--color-text-light)" />
                             </button>
                         );
                     })}
@@ -2282,6 +2314,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [previousScreen, setPreviousScreen] = useState('welcome');
             const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(TokenManager.isSignedIn());
             const [signingIn, setSigningIn] = useState(false);
+            const [syncMessage, setSyncMessage] = useState(null);
             const [isOAuthPopup, setIsOAuthPopup] = useState(false);
             const store = useStore();
             
@@ -2331,6 +2364,14 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 try {
                     await GoogleAuth.signIn();
                     setIsGoogleSignedIn(true);
+                    // Flush any locally-cached unsynced activities
+                    const unsynced = store.activities.filter(a => !a.syncedToSheets && !a.isSample);
+                    if (unsynced.length > 0) {
+                        setSyncMessage('Syncing activities...');
+                        const count = await store.syncUnsyncedActivities(store.activities);
+                        setSyncMessage(count > 0 ? '✅ Synced ' + count + (count === 1 ? ' activity' : ' activities') + ' to Google Sheets!' : null);
+                        setTimeout(() => setSyncMessage(null), 4000);
+                    }
                 } catch (error) {
                     console.error('Sign in failed:', error);
                     alert('Sign in failed. Please try again.');
@@ -2378,7 +2419,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             return (
                 <div style={{ height: '100%' }}>
-                    {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} isGoogleSignedIn={isGoogleSignedIn} onGoogleSignIn={handleGoogleSignIn} onGoogleSignOut={handleGoogleSignOut} signingIn={signingIn} />}
+                    {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} isGoogleSignedIn={isGoogleSignedIn} onGoogleSignIn={handleGoogleSignIn} onGoogleSignOut={handleGoogleSignOut} signingIn={signingIn} syncMessage={syncMessage} />}
                     {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
                     {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} />}
                     {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
