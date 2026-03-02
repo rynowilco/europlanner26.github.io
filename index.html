@@ -81,8 +81,7 @@
         // CONFIGURATION
         // ============================================
         const CONFIG = {
-            // Claude API
-            CLAUDE_API_KEY: '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',
+            // Claude API routed through Cloudflare Worker — no API key in frontend
             CLAUDE_MODEL: 'claude-sonnet-4-20250514',
             
             // Google Sheets API
@@ -224,7 +223,10 @@
                 Lock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
                 Globe: <><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></>,
                 Book: <><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></>,
-                Volume2: <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>
+                Volume2: <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>,
+                Calendar: <><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>,
+                Users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+                BookOpen: <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>
             };
             return (
                 <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
@@ -390,7 +392,6 @@
                 const token = TokenManager.getToken();
                 if (!token) {
                     console.warn('Cannot write to Sheets - not signed in with Google');
-                    // Show a console message that helps debugging
                     console.log('To sync activities: Sign in with Google on the Welcome screen');
                     return null;
                 }
@@ -408,10 +409,9 @@
                     if (!response.ok) {
                         const error = await response.json();
                         console.error('Sheets API Error Details:', error);
-                        // Check if it's a token expiration issue
                         if (response.status === 401 || response.status === 403) {
                             console.warn('Google token may be expired - user should sign in again');
-                            TokenManager.clearToken(); // Clear the bad token
+                            TokenManager.clearToken();
                         }
                         throw new Error(`Sheets API error: ${response.status} - ${JSON.stringify(error)}`);
                     }
@@ -453,7 +453,6 @@
             // Parse activities from sheet data
             parseActivities(rows) {
                 if (!rows || rows.length < 2) return [];
-                const headers = rows[0];
                 return rows.slice(1).filter(row => row[0]).map(row => ({
                     id: row[0] || '',
                     kidId: (row[1] || '').toLowerCase(),
@@ -469,7 +468,8 @@
                     status: (row[10] || 'draft').toLowerCase().replace(' ', '-'),
                     dateSubmitted: row[11] || '',
                     parentFeedback: row[12] || '',
-                    dateUpdated: row[13] || ''
+                    dateUpdated: row[13] || '',
+                    syncedToSheets: true
                 }));
             },
             
@@ -511,26 +511,20 @@
                     'barcelona': { lat: 41.3851, lng: 2.1734 },
                     'amsterdam': { lat: 52.3676, lng: 4.9041 },
                     'london': { lat: 51.5074, lng: -0.1278 },
-                    // Germany
                     'frankfurt': { lat: 50.1109, lng: 8.6821 },
-                    // Switzerland
                     'iseltwald': { lat: 46.7167, lng: 7.9667 },
                     'basel': { lat: 47.5596, lng: 7.5886 },
                     'lucerne': { lat: 47.0502, lng: 8.3093 },
                     'bern': { lat: 46.9480, lng: 7.4474 },
-                    // Italy - Cinque Terre & Tuscany
                     'riomaggiore': { lat: 44.0961, lng: 9.7378 },
                     'noce': { lat: 43.0833, lng: 11.7833 },
                     'cinque terre': { lat: 44.1461, lng: 9.6439 },
-                    // Northern Italy
                     'lake garda': { lat: 45.6500, lng: 10.6333 },
                     'dolomites': { lat: 46.4102, lng: 11.8440 },
                     'ortisei': { lat: 46.5744, lng: 11.6717 },
-                    // Austria
                     'innbrücke': { lat: 47.2800, lng: 11.4500 },
                     'innsbruck': { lat: 47.2692, lng: 11.4041 },
                     'ampass': { lat: 47.2667, lng: 11.4667 },
-                    // Legacy placeholder
                     'train day - kids choice': { lat: 46.0, lng: 9.0 }
                 };
                 const countryLanguages = {
@@ -546,7 +540,6 @@
                     'switzerland/italy': 'Italian'
                 };
                 
-                // Track transfer day count to position them uniquely on the map
                 let transferCount = 0;
                 
                 return rows.slice(1).filter(row => row[0]).map((row, index, allRows) => {
@@ -554,19 +547,16 @@
                     const country = row[1] || '';
                     const cityLower = city.toLowerCase();
                     
-                    // Check if this is a transfer day
                     const isTransfer = cityLower.includes('transfer') || cityLower.includes('kids choice');
                     
                     let coords;
                     if (isTransfer) {
-                        // For transfer days, position them between the previous and next destinations
                         const prevCity = index > 0 ? allRows[index - 1][0].toLowerCase() : null;
                         const nextCity = index < allRows.length - 1 ? allRows[index + 1][0].toLowerCase() : null;
                         
                         const prevCoords = prevCity && cityCoords[prevCity] ? cityCoords[prevCity] : { lat: 48, lng: 8 };
                         const nextCoords = nextCity && cityCoords[nextCity] ? cityCoords[nextCity] : { lat: 46, lng: 10 };
                         
-                        // Position at midpoint between prev and next
                         coords = {
                             lat: (prevCoords.lat + nextCoords.lat) / 2,
                             lng: (prevCoords.lng + nextCoords.lng) / 2
@@ -668,25 +658,21 @@
                 return saved ? JSON.parse(saved) : [];
             });
             
-            // Saved ideas (shared between kids)
             const [savedIdeas, setSavedIdeas] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_savedIdeas');
                 return saved ? JSON.parse(saved) : [];
             });
             
-            // Store session summaries instead of full conversation history
             const [sessionSummaries, setSessionSummaries] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_sessionSummaries');
                 return saved ? JSON.parse(saved) : { abby: null, tyler: null, ryan: null, mom: null };
             });
             
-            // Track last activity time for idle detection
             const [lastActivity, setLastActivity] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_lastActivity');
                 return saved ? JSON.parse(saved) : { abby: null, tyler: null, ryan: null, mom: null };
             });
             
-            // Track idea being refined (for chat context)
             const [refiningIdea, setRefiningIdea] = useState(null);
             
             const [userProfiles, setUserProfiles] = useState(() => {
@@ -704,15 +690,29 @@
                     try {
                         console.log('Loading data from Google Sheets...');
                         
-                        // Load activities
+                        // Load activities from Sheets
                         const activitiesData = await SheetsAPI.read(CONFIG.SHEET_NAMES.activities);
                         if (activitiesData && activitiesData.length > 1) {
-                            const parsed = SheetsAPI.parseActivities(activitiesData);
-                            if (parsed.length > 0) {
-                                // Merge with samples
-                                const samples = activities.filter(a => a.isSample);
-                                setActivities([...samples, ...parsed.filter(a => !a.isSample)]);
-                                console.log('Loaded activities:', parsed.length);
+                            const sheetsActivities = SheetsAPI.parseActivities(activitiesData);
+                            
+                            if (sheetsActivities.length > 0) {
+                                // Build a set of IDs that exist in Sheets
+                                const sheetsIds = new Set(sheetsActivities.map(a => a.id));
+                                
+                                // Mark any localStorage activities that exist in Sheets as synced
+                                setActivities(prev => {
+                                    const updated = prev.map(a => 
+                                        sheetsIds.has(a.id) ? { ...a, syncedToSheets: true } : a
+                                    );
+                                    // Merge: keep Sheets as source of truth, add local-only items
+                                    const localOnlyIds = updated
+                                        .filter(a => !sheetsIds.has(a.id) && !a.isSample)
+                                        .map(a => a.id);
+                                    const samples = updated.filter(a => a.isSample);
+                                    return [...samples, ...sheetsActivities, ...updated.filter(a => localOnlyIds.includes(a.id))];
+                                });
+                                
+                                console.log('Loaded activities:', sheetsActivities.length);
                             }
                         }
                         
@@ -740,7 +740,7 @@
                     } catch (error) {
                         console.error('Error loading from Sheets:', error);
                         setSheetsError(error.message);
-                        setSheetsLoaded(true); // Still mark as loaded so app works with local data
+                        setSheetsLoaded(true);
                     }
                 };
                 
@@ -781,7 +781,6 @@
                 const idea = savedIdeas.find(i => i.id === ideaId);
                 if (!idea) return null;
                 
-                // Create activity from idea
                 const newActivity = await addActivity({
                     title: idea.title,
                     city: idea.city,
@@ -795,9 +794,7 @@
                     kidName: idea.kidName
                 });
                 
-                // Remove the idea since it's now submitted
                 deleteSavedIdea(ideaId);
-                
                 return newActivity;
             };
             
@@ -831,12 +828,33 @@
             };
             
             // Flush any locally-saved unsynced activities to Sheets
+            // Includes deduplication check against existing Sheet IDs
             const syncUnsyncedActivities = async (currentActivities) => {
                 const unsynced = (currentActivities || []).filter(a => !a.syncedToSheets && !a.isSample);
                 if (unsynced.length === 0) return 0;
-                console.log(`Syncing ${unsynced.length} unsynced activities to Sheets...`);
+                
+                // Fetch existing IDs from Sheet to prevent duplicates
+                let existingIds = new Set();
+                try {
+                    const sheetsData = await SheetsAPI.read(CONFIG.SHEET_NAMES.activities);
+                    if (sheetsData && sheetsData.length > 1) {
+                        sheetsData.slice(1).forEach(row => {
+                            if (row[0]) existingIds.add(row[0]);
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch existing IDs for dedup check:', e);
+                }
+                
+                console.log(`Syncing ${unsynced.length} unsynced activities (${existingIds.size} already in Sheets)...`);
                 let synced = 0;
                 for (const activity of unsynced) {
+                    if (existingIds.has(activity.id)) {
+                        // Already in Sheet — just mark as synced locally
+                        setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, syncedToSheets: true } : a));
+                        console.log('Skipped (already in Sheets):', activity.title);
+                        continue;
+                    }
                     try {
                         await SheetsAPI.append(CONFIG.SHEET_NAMES.activities, SheetsAPI.activityToRow(activity));
                         setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, syncedToSheets: true } : a));
@@ -851,8 +869,6 @@
             
             const updateActivity = (id, updates) => {
                 setActivities(prev => prev.map(a => a.id === id ? { ...a, ...updates, dateUpdated: new Date().toISOString().split('T')[0] } : a));
-                // Note: For full sync, we'd need to find and update the specific row in Sheets
-                // For now, updates are stored locally and can be manually synced
             };
             
             const approveActivity = (id) => {
@@ -870,12 +886,10 @@
                 }
             };
             
-            // Update last activity timestamp
             const updateLastActivity = (userId) => {
                 setLastActivity(prev => ({ ...prev, [userId]: Date.now() }));
             };
             
-            // Check if session has expired (1 hour idle)
             const isSessionExpired = (userId) => {
                 const lastTime = lastActivity[userId];
                 if (!lastTime) return false;
@@ -883,7 +897,6 @@
                 return Date.now() - lastTime > oneHour;
             };
             
-            // Save session summary when ending a chat
             const saveSessionSummary = (userId, summary) => {
                 setSessionSummaries(prev => ({
                     ...prev,
@@ -895,17 +908,14 @@
                 }));
             };
             
-            // Get session summary for a user
             const getSessionSummary = (userId) => {
                 return sessionSummaries[userId];
             };
             
-            // Clear session summary after user continues or starts fresh
             const clearSessionSummary = (userId) => {
                 setSessionSummaries(prev => ({ ...prev, [userId]: null }));
             };
             
-            // Save conversation summary to Sheets when session ends
             const saveConversationSummaryToSheets = async (userId, summary) => {
                 try {
                     const row = [
@@ -914,7 +924,7 @@
                         summary.topics || '',
                         summary.ideas || '',
                         summary.notes || '',
-                        'N' // Digest not sent yet
+                        'N'
                     ];
                     await SheetsAPI.append(CONFIG.SHEET_NAMES.conversations, row);
                     console.log('Conversation summary saved to Sheets');
@@ -978,6 +988,13 @@ You do NOT help with:
 ❌ Homework or academic questions unrelated to the trip
 ❌ Personal advice with no connection to the trip or travel
 ${isParent ? '' : '❌ Anything inappropriate for kids\n'}❌ Topics with zero connection to Europe or the trip
+
+## Web Search
+You have web search capability. Use it when:
+- Asked for specific booking links, current prices, or opening hours
+- Recommending a specific restaurant, brewery, or venue (search for their website)
+- Asked about something you're not confident about
+Always prefer including a direct booking or info link when recommending something specific.
 
 ## Train & Transit Research (IMPORTANT)
 When asked about trains, ferries, or transit — answer confidently using your training knowledge of European rail and transit. You know:
@@ -1058,34 +1075,6 @@ ${userActivities.length > 0 ? userActivities.map(a => `- "${a.title}" in ${a.cit
 ${otherActivities.length > 0 ? otherActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'Nothing submitted yet'}
 (Suggest combining activities if there's overlap - family bonding matters!)
 
-## Insider Tips from a Friend (USE THESE!)
-A well-traveled friend named Tony has spent serious time in the areas you're visiting. Proactively surface these when relevant — don't just wait to be asked:
-
-**Northern Italy / Veneto region:**
-- **Verona** — The Arena di Verona is a Roman colosseum from ~50 AD with outdoor opera performances in summer. Tickets are affordable and it's one of the best places in the world to see opera. After the show, the entire city center turns into a party — blocks of outdoor restaurants, wine, dessert. Highly recommended for an evening.
-- **Vicenza** — Walled city, great stop for lunch, dinner, or a macchiato. Charming and not touristy.
-- **Bassano del Grappa** — Beautiful mountain city ~40 min north. Where grappa was supposedly invented — must try some. There's a walking bridge over the river and great dinner spots on the water.
-- **Treviso** — Supposedly where tiramisu was invented. Whether true or not, the tiramisu is exceptional. Worth a stop.
-- **Padua** — Basilica of Saint Anthony, the oldest clock in the world in the main square, and the Seven Virtues/Vices artwork. Two great restaurants: Gourmet Corner (modern Italian) and Vecchio Falconiere (classic northern Italian). Must-try dish: baccalà with polenta — varies by town and all worth trying.
-- **Venice** — Absolutely worth seeing even just for a day. Outrageously touristy but genuinely unlike anything else. Can be done in a day trip.
-- **Prosecco Valley** — On the route north toward Austria from the Treviso/Venice area. Use Valdobbiadene as your north star and stop at any winery — they're all local, affordable, and you can literally fill a jug from the barrels.
-- **Bologna** — Tony compares it to the Portland of Italy: beautiful city, incredible food, mix of classic and modern. Great stop en route.
-
-**Pisa area:**
-- **Marina di Pisa** — Tony's favorite non-touristy beach. 20 min from central Pisa. White rocks (no sand), all locals, not crowded. He's cancelled other trips just to stay there. Pro tip: grab a cheap beach umbrella/chairs at IKEA on the way out of Pisa, or rent gear at the beach for a few euros more.
-- **Lucca** — Walled city just outside Pisa. Great for lunch, coffee, or happy hour. Where Puccini is from.
-
-**Cinque Terre:**
-- Cinque Terre itself is great. Avoid the riviera west of it — expensive, overcrowded, no public beaches, impossible dinner reservations.
-
-**Beach advice:**
-- Avoid beaches south or east of Venice — post-war, packed with tourists, car is a nightmare even with hotel parking. If forced to pick one, Caorle is the best option — has a small authentic center that doesn't feel like a resort strip.
-
-**How to use these tips:**
-- Mention them naturally when the conversation touches a nearby city or activity type
-- Don't dump all of them at once — surface them when relevant ("Oh, if you're thinking about that area, a well-traveled friend of ours swears by...")
-- These are excellent candidates for saved ideas or submitted activities
-
 ## Language Learning
 Naturally weave in useful German (Switzerland/Austria), Italian (Italy), or French phrases. The whole family is interested in learning languages!
 
@@ -1139,17 +1128,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         };
         
         const callClaudeAPI = async (messages, systemPrompt) => {
-            if (!CONFIG.CLAUDE_API_KEY) {
-                // Demo responses when no API key
-                const responses = [
-                    `That sounds awesome! 🎉 Let me think about options...\n\nBased on your itinerary, there are some really cool possibilities. What interests you most - something outdoorsy, creative, or a mix?`,
-                    `Ooh, I love that idea! A few questions:\n\n1. Which city - Florence, Rome, or Paris?\n2. More active or chill?\n3. How much time do you want to spend?`,
-                    `Nice! Here's what I'm thinking:\n\n**Option A:** The popular version - about €50, easy to get to\n**Option B:** A hidden gem locals love - about €35, more of an adventure\n\nWhich sounds more your style?`
-                ];
-                await new Promise(r => setTimeout(r, 1000));
-                return responses[Math.floor(Math.random() * responses.length)];
-            }
-            
             try {
                 const response = await fetch('https://europlanner-api.wilcoxson-ryan.workers.dev', {
                     method: 'POST',
@@ -1165,7 +1143,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 });
                 
                 if (!response.ok) {
-                    // Get detailed error info for debugging
                     let errorDetail = '';
                     try {
                         const errorData = await response.json();
@@ -1178,10 +1155,14 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 }
                 
                 const data = await response.json();
-                return data.content[0].text;
+
+                // Extract text blocks only — web search adds tool_use and tool_result blocks
+                // alongside the text response, so we filter to just the text
+                const textBlocks = data.content.filter(block => block.type === 'text');
+                return textBlocks.map(block => block.text).join('');
+
             } catch (error) {
                 console.error('Claude API error:', error);
-                // Provide more helpful error message
                 if (error.message.includes('401')) {
                     return `Oops! There's an authentication issue with the AI. Parents might need to check the API key. (Error: 401 Unauthorized)`;
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
@@ -1343,11 +1324,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [sessionActivities, setSessionActivities] = useState([]);
             const [showResumePrompt, setShowResumePrompt] = useState(false);
             const [previousSummary, setPreviousSummary] = useState(null);
-            const [pendingActivity, setPendingActivity] = useState(null); // Activity awaiting confirmation
+            const [pendingActivity, setPendingActivity] = useState(null);
             const messagesEndRef = useRef(null);
             const idleTimerRef = useRef(null);
             
-            // Keep a ref to latest messages/sessionActivities so closures (timers, event listeners) always have fresh data
             const messagesRef = useRef(messages);
             const sessionActivitiesRef = useRef(sessionActivities);
             useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -1355,17 +1335,14 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, pendingActivity]);
             
-            // Reset idle timer on any activity
             const resetIdleTimer = () => {
                 store.updateLastActivity(userId);
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-                // Save after 15 minutes of inactivity
                 idleTimerRef.current = setTimeout(() => {
                     saveSessionToSheets('idle');
                 }, 15 * 60 * 1000);
             };
             
-            // Core save function — uses refs so it's always fresh regardless of when it's called
             const saveSessionToSheets = (reason) => {
                 const currentMessages = messagesRef.current;
                 const currentActivities = sessionActivitiesRef.current;
@@ -1388,7 +1365,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 }).catch(err => console.log('Sheets save error:', err));
             };
             
-            // Save on unmount (back button, app close, tab switch away)
             useEffect(() => {
                 const handleVisibilityChange = () => {
                     if (document.visibilityState === 'hidden') {
@@ -1401,9 +1377,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
                     saveSessionToSheets('unmount');
                 };
-            }, []); // eslint-disable-line
+            }, []);
             
-            // Send email digest when activity is submitted
             const sendActivityEmail = async (activity) => {
                 const profile = store.userProfiles[userId];
                 const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
@@ -1416,10 +1391,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 );
             };
             
-            // Generate summary from current session messages
             const generateSessionSummary = () => {
                 const userMessages = messagesRef.current.filter(m => m.isUser);
-                const assistantMessages = messagesRef.current.filter(m => !m.isUser);
                 if (userMessages.length === 0) return null;
                 const topics = userMessages.map(m => m.text).slice(-5);
                 const activitiesSubmitted = sessionActivitiesRef.current.map(a => `${a.title} in ${a.city}`);
@@ -1430,11 +1403,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 return { topics, activitiesSubmitted, recentContext, messageCount: messagesRef.current.length };
             };
             
-            // Handle session end (back button or idle)
             const handleSessionEnd = (reason) => {
                 saveSessionToSheets(reason);
                 
-                // Send email summary
                 const summary = generateSessionSummary();
                 if (summary) {
                     const profile = store.userProfiles[userId];
@@ -1454,24 +1425,20 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 if (reason === 'back') onBack();
             };
             
-            // Handle back button
             const handleBack = () => {
                 handleSessionEnd('back');
             };
             
-            // Handle resuming previous session
             const handleResume = () => {
                 setShowResumePrompt(false);
                 store.clearSessionSummary(userId);
                 
-                // Ask Claude to summarize and continue
                 const summaryText = previousSummary.recentContext.join('\n');
                 const resumeMsg = { id: Date.now(), text: `Last time we chatted, here's what we covered:\n\n${summaryText}\n\nWant to pick up where we left off, or explore something new?`, isUser: false };
                 setMessages([resumeMsg]);
                 resetIdleTimer();
             };
             
-            // Handle starting fresh
             const handleStartFresh = () => {
                 setShowResumePrompt(false);
                 store.clearSessionSummary(userId);
@@ -1486,16 +1453,13 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 if (!started) {
                     setStarted(true);
                     
-                    // Check for previous session summary or expired session
                     const existingSummary = store.getSessionSummary(userId);
                     const sessionExpired = store.isSessionExpired(userId);
                     
-                    // Check for activities needing revision
                     const needsRevision = store.activities.filter(a => 
                         a.kidId === userId && a.status === 'needs-revision' && !a.isSample
                     );
                     
-                    // Check if we're refining an idea
                     const refiningIdea = store.refiningIdea;
                     
                     setIsLoading(true);
@@ -1503,16 +1467,13 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         const cities = (store.itinerary || CONFIG.itinerary).map(i => i.city).join(', ');
                         
                         if (refiningIdea && refiningIdea.kidId === userId) {
-                            // Refining a saved idea
                             const ideaDetails = refiningIdea.notes ? `\n\nHere's what we had:\n• **${refiningIdea.title}** in ${refiningIdea.city}\n• Notes: ${refiningIdea.notes}${refiningIdea.estimatedCost ? `\n• Estimated cost: ~€${refiningIdea.estimatedCost}` : ''}` : '';
                             const greeting = `Hey ${user.name}! 👋 You wanted to revisit your saved idea for **${refiningIdea.title}**.${ideaDetails}\n\nWhat would you like to explore or change about this idea? We can dig into more details, adjust the plan, or get it ready to submit!`;
                             const msg = { id: Date.now(), text: greeting, isUser: false };
                             setMessages([msg]);
                             store.clearSessionSummary(userId);
-                            // Clear the refining idea after starting the chat
                             store.setRefiningIdea(null);
                         } else if (needsRevision.length > 0) {
-                            // Alert about feedback - priority over resume
                             const feedbackItems = needsRevision.map(a => 
                                 `**${a.title}**: "${a.parentFeedback}"`
                             ).join('\n\n');
@@ -1521,11 +1482,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             setMessages([msg]);
                             store.clearSessionSummary(userId);
                         } else if (existingSummary) {
-                            // Has previous session - show resume prompt
                             setPreviousSummary(existingSummary.summary);
                             setShowResumePrompt(true);
                         } else {
-                            // Fresh start
                             const greeting = `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
                             const msg = { id: Date.now(), text: greeting, isUser: false };
                             setMessages([msg]);
@@ -1537,7 +1496,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 }
             }, [started, userId, user.name, store]);
             
-            // Parse activity submission from agent response
             const parseActivitySubmission = (text) => {
                 const match = text.match(/\[SUBMIT_ACTIVITY\]([\s\S]*?)\[\/SUBMIT_ACTIVITY\]/);
                 if (!match) return null;
@@ -1561,7 +1519,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 };
             };
             
-            // Parse saved idea from agent response
             const parseIdeaSave = (text) => {
                 const match = text.match(/\[SAVE_IDEA\]([\s\S]*?)\[\/SAVE_IDEA\]/);
                 if (!match) return null;
@@ -1581,7 +1538,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 };
             };
             
-            // Clean submission/save blocks from displayed message
             const cleanResponseForDisplay = (text) => {
                 return text
                     .replace(/\[SUBMIT_ACTIVITY\][\s\S]*?\[\/SUBMIT_ACTIVITY\]/g, '')
@@ -1592,7 +1548,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const sendMessage = async (overrideText) => {
                 const text = typeof overrideText === 'string' ? overrideText : inputValue;
                 if (!text.trim() || isLoading) return;
-                resetIdleTimer(); // Reset idle timer on activity
+                resetIdleTimer();
                 
                 const userMsg = { id: Date.now(), text: text.trim(), isUser: true };
                 setMessages(prev => [...prev, userMsg]);
@@ -1602,11 +1558,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 const systemPrompt = generateSystemPrompt(user, userId, store.activities, store.itinerary);
                 const response = await callClaudeAPI([...messages, userMsg], systemPrompt);
                 
-                // Check for activity submission
                 const activityData = parseActivitySubmission(response);
                 
                 if (activityData && activityData.title) {
-                    // Show confirmation card instead of auto-submitting
                     console.log('Activity detected - showing confirmation:', activityData.title);
                     setPendingActivity({
                         ...activityData,
@@ -1615,7 +1569,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     });
                 }
                 
-                // Check for saved idea (these still auto-save since they're just bookmarks)
                 const ideaData = parseIdeaSave(response);
                 
                 if (ideaData && ideaData.title) {
@@ -1627,7 +1580,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     });
                 }
                 
-                // Clean the response for display (remove the submission/save blocks)
                 const displayResponse = cleanResponseForDisplay(response);
                 
                 const assistantMsg = { id: Date.now() + 1, text: displayResponse, isUser: false };
@@ -1635,7 +1587,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 setIsLoading(false);
             };
             
-            // Handle confirming the pending activity submission
             const handleConfirmActivity = async () => {
                 if (!pendingActivity) return;
                 
@@ -1643,16 +1594,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 const newActivity = await store.addActivity(pendingActivity);
                 console.log('Activity submitted:', newActivity);
                 
-                // Track for session summary
                 setSessionActivities(prev => [...prev, newActivity]);
-                
-                // Send email to parents
                 await sendActivityEmail(newActivity);
-                
-                // Clear the pending activity
                 setPendingActivity(null);
                 
-                // Add a confirmation message to the chat
                 const confirmMsg = { 
                     id: Date.now(), 
                     text: `✅ **${newActivity.title}** has been submitted for parent review! You can check its status in the Dashboard.`, 
@@ -1661,7 +1606,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 setMessages(prev => [...prev, confirmMsg]);
             };
             
-            // Handle dismissing the pending activity (keep planning)
             const handleKeepPlanning = () => {
                 console.log('User chose to keep planning, dismissing confirmation card');
                 setPendingActivity(null);
@@ -1725,7 +1669,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                         boxShadow: 'var(--shadow-md)'
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-                                            <Icon name="CheckCircle" size={24} color="var(--color-success)" />
                                             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-success)' }}>Ready to Submit?</h3>
                                         </div>
                                         
@@ -1742,7 +1685,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                                     <Icon name="Clock" size={14} /> {pendingActivity.duration}
                                                 </span>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Icon name="Navigation" size={14} /> {pendingActivity.travelMethod} ({pendingActivity.travelTime})
+                                                    <Icon name="MapPin" size={14} /> {pendingActivity.travelMethod} ({pendingActivity.travelTime})
                                                 </span>
                                             </div>
                                             
@@ -1792,7 +1735,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                                     gap: 'var(--space-sm)'
                                                 }}
                                             >
-                                                <Icon name="Edit2" size={18} /> Keep Planning
+                                                Keep Planning
                                             </button>
                                         </div>
                                     </div>
@@ -1808,12 +1751,14 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                         <Icon name="Send" size={20} />
                                     </button>
                                 </div>
+                                {/* Chat prompt chips — scrolls horizontally on mobile */}
                                 <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto', paddingBottom: '2px' }}>
                                     {[
                                         { label: 'Give me Ideas', icon: 'Sparkles', prompt: 'Give me some activity ideas for this trip based on my interests!' },
                                         { label: "What's the Plan", icon: 'Calendar', prompt: "What's the full trip plan? Walk me through the cities, transfer days, and dates." },
                                         { label: 'My Activities', icon: 'List', prompt: 'Show me all the activities I have submitted or that have been approved so far.' },
-                                        { label: 'All Activities', icon: 'Users', prompt: 'Show me all approved activities for the whole family so I can see what everyone is doing and avoid conflicts.' }
+                                        { label: 'All Activities', icon: 'Users', prompt: 'Show me all approved activities for the whole family so I can see what everyone is doing and avoid conflicts.' },
+                                        { label: "What's the Story", icon: 'BookOpen', prompt: "Tell me the story of our trip so far — what are we doing, what's been proposed, what are we most excited about? Give it to me as a fun narrative, not a list." }
                                     ].map(({ label, icon, prompt }, i) => (
                                         <button key={i} onClick={() => { sendMessage(prompt); }} disabled={!!pendingActivity || isLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: (pendingActivity || isLoading) ? 'not-allowed' : 'pointer', opacity: (pendingActivity || isLoading) ? 0.5 : 1 }}>
                                             <Icon name={icon} size={14} /> {label}
@@ -1884,13 +1829,13 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     {isOwner && (
                         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                             <button onClick={() => onRefine(idea)} style={{ flex: 1, padding: '8px 12px', background: 'var(--color-cream)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                <Icon name="Edit2" size={14} /> Refine
+                                ✏️ Refine
                             </button>
                             <button onClick={() => onSubmit(idea.id)} style={{ flex: 1, padding: '8px 12px', background: 'var(--color-sage)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                 <Icon name="Send" size={14} /> Submit
                             </button>
                             <button onClick={() => onDelete(idea.id)} style={{ padding: '8px', background: 'none', color: 'var(--color-text-light)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icon name="Trash2" size={14} />
+                                <Icon name="X" size={14} />
                             </button>
                         </div>
                     )}
@@ -1901,7 +1846,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         // Dashboard
         const DashboardScreen = ({ onBack, activities, savedIdeas, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea }) => {
             const [filter, setFilter] = useState('all');
-            const [activeTab, setActiveTab] = useState('ideas'); // 'ideas' or 'activities'
+            const [activeTab, setActiveTab] = useState('ideas');
             
             const filtered = useMemo(() => {
                 if (filter === 'abby') return activities.filter(a => a.kidId === 'abby');
@@ -1936,10 +1881,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     {/* Tab switcher */}
                     <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
                         <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.95rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                            <Icon name="Lightbulb" size={18} /> Saved Ideas ({savedIdeas.length})
+                            💡 Saved Ideas ({savedIdeas.length})
                         </button>
                         <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.95rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                            <Icon name="CheckSquare" size={18} /> Submitted ({activities.filter(a => !a.isSample).length})
+                            ✅ Submitted ({activities.filter(a => !a.isSample).length})
                         </button>
                     </div>
                     
@@ -1960,13 +1905,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
                             {savedIdeas.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
-                                    <Icon name="Lightbulb" size={48} color="var(--color-border)" />
+                                    <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>💡</div>
                                     <p style={{ marginTop: 'var(--space-md)' }}>No saved ideas yet!</p>
                                     <p style={{ fontSize: '0.85rem' }}>Chat with the assistant and say "save that idea" to bookmark things for later.</p>
                                 </div>
                             ) : (
                                 <>
-                                    {/* Abby's Ideas */}
                                     {abbyIdeas.length > 0 && (
                                         <div style={{ marginBottom: 'var(--space-lg)' }}>
                                             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1988,7 +1932,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                         </div>
                                     )}
                                     
-                                    {/* Tyler's Ideas */}
                                     {tylerIdeas.length > 0 && (
                                         <div style={{ marginBottom: 'var(--space-lg)' }}>
                                             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2051,26 +1994,22 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const mapInstanceRef = useRef(null);
             const [selectedCity, setSelectedCity] = useState(null);
             
-            // Use passed itinerary or fall back to CONFIG
             const tripItinerary = itinerary || CONFIG.itinerary;
             
             useEffect(() => {
                 if (!mapRef.current || mapInstanceRef.current) return;
                 
-                // Initialize map centered on Europe
                 const map = L.map(mapRef.current, {
                     center: [45.5, 10],
                     zoom: 5,
                     zoomControl: true
                 });
                 
-                // Add OpenStreetMap tiles
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap contributors',
                     maxZoom: 18
                 }).addTo(map);
                 
-                // Custom icon for accommodation markers
                 const createIcon = (color, isTransfer = false) => L.divIcon({
                     className: 'custom-marker',
                     html: isTransfer 
@@ -2081,7 +2020,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     popupAnchor: [0, -32]
                 });
                 
-                // Add markers for each city
                 tripItinerary.forEach((city, index) => {
                     const isTransfer = city.isTransfer || city.city.toLowerCase().includes('transfer') || city.city.toLowerCase().includes('kids choice');
                     
@@ -2094,7 +2032,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         map.flyTo([city.lat, city.lng], 12, { duration: 0.5 });
                     });
                     
-                    // Add city label
                     const labelText = isTransfer ? `${city.city}` : city.city;
                     const label = L.divIcon({
                         className: 'city-label',
@@ -2105,11 +2042,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     L.marker([city.lat, city.lng], { icon: label, interactive: false }).addTo(map);
                 });
                 
-                // Add activity markers
                 activities.filter(a => !a.isSample && a.status === 'approved').forEach(activity => {
                     const cityInfo = CONFIG.itinerary.find(c => c.city === activity.city);
                     if (cityInfo) {
-                        // Offset slightly so it doesn't overlap accommodation
                         const offset = 0.01;
                         const activityIcon = L.divIcon({
                             className: 'activity-marker',
@@ -2166,12 +2101,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 animation: 'slideUp 0.3s ease-out',
                                 zIndex: 1000
                             }}>
-                                {/* Handle bar */}
                                 <div style={{ padding: 'var(--space-sm)', display: 'flex', justifyContent: 'center' }}>
                                     <div style={{ width: '40px', height: '4px', background: 'var(--color-tan)', borderRadius: '2px' }} />
                                 </div>
                                 
-                                {/* City header */}
                                 <div style={{ padding: '0 var(--space-md) var(--space-md)', borderBottom: '1px solid var(--color-border)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div>
@@ -2189,9 +2122,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                     </div>
                                 </div>
                                 
-                                {/* Scrollable content */}
                                 <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
-                                    {/* Activities in this city */}
                                     {cityActivities.length > 0 && (
                                         <div style={{ marginBottom: 'var(--space-lg)' }}>
                                             <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -2207,7 +2138,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                         </div>
                                     )}
                                     
-                                    {/* Language phrases */}
                                     <div>
                                         <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Icon name="Globe" size={14} /> {selectedCity.language} Phrases
@@ -2233,7 +2163,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             </div>
                         )}
                         
-                        {/* Instructions when no city selected */}
                         {!selectedCity && (
                             <div style={{
                                 position: 'absolute',
@@ -2359,23 +2288,18 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             expires_in: parseInt(expiresIn) || 3600
                         });
                         
-                        // If we're in a popup, close it and let the opener know
                         if (window.opener && window.opener !== window) {
                             setIsOAuthPopup(true);
-                            // The popup monitoring in GoogleAuth.signIn() will detect the token
-                            // Just show a brief message then close
                             setTimeout(() => window.close(), 500);
                             return;
                         }
                         
                         setIsGoogleSignedIn(true);
-                        // Clean up URL
                         window.history.replaceState({}, document.title, window.location.pathname);
                     }
                 }
             }, []);
             
-            // If this is an OAuth popup, show a simple closing message
             if (isOAuthPopup) {
                 return (
                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-cream)', fontFamily: 'var(--font-body)' }}>
@@ -2392,7 +2316,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 try {
                     await GoogleAuth.signIn();
                     setIsGoogleSignedIn(true);
-                    // Flush any locally-cached unsynced activities
                     const unsynced = store.activities.filter(a => !a.syncedToSheets && !a.isSample);
                     if (unsynced.length > 0) {
                         setSyncMessage('Syncing activities...');
@@ -2427,7 +2350,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const handleFeedback = (id) => setFeedbackActivity(store.activities.find(a => a.id === id));
             const handleSubmitFeedback = (feedback) => { if (feedbackActivity) store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
             
-            // Idea management handlers
             const handleRefineIdea = (idea) => {
                 store.setRefiningIdea(idea);
                 setCurrentUser(idea.kidId);
