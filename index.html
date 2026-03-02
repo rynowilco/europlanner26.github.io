@@ -828,31 +828,37 @@
             };
             
             // Flush any locally-saved unsynced activities to Sheets
-            // Includes deduplication check against existing Sheet IDs
+            // Deduplicates by ID (primary) and by kidName+title (fallback for legacy activities)
             const syncUnsyncedActivities = async (currentActivities) => {
                 const unsynced = (currentActivities || []).filter(a => !a.syncedToSheets && !a.isSample);
                 if (unsynced.length === 0) return 0;
                 
-                // Fetch existing IDs from Sheet to prevent duplicates
+                // Fetch existing rows from Sheet for dedup
                 let existingIds = new Set();
+                let existingTitleKeys = new Set(); // "kidname|title" fallback
                 try {
                     const sheetsData = await SheetsAPI.read(CONFIG.SHEET_NAMES.activities);
                     if (sheetsData && sheetsData.length > 1) {
                         sheetsData.slice(1).forEach(row => {
                             if (row[0]) existingIds.add(row[0]);
+                            if (row[1] && row[2]) existingTitleKeys.add(row[1].toLowerCase() + '|' + row[2].toLowerCase());
                         });
                     }
                 } catch (e) {
                     console.warn('Could not fetch existing IDs for dedup check:', e);
                 }
                 
-                console.log(`Syncing ${unsynced.length} unsynced activities (${existingIds.size} already in Sheets)...`);
+                console.log('Dedup: ' + existingIds.size + ' IDs, ' + existingTitleKeys.size + ' title keys in Sheet');
+                console.log('Attempting to sync ' + unsynced.length + ' local activities');
+                
                 let synced = 0;
+                let skipped = 0;
                 for (const activity of unsynced) {
-                    if (existingIds.has(activity.id)) {
-                        // Already in Sheet — just mark as synced locally
+                    const titleKey = activity.kidName.toLowerCase() + '|' + activity.title.toLowerCase();
+                    if (existingIds.has(activity.id) || existingTitleKeys.has(titleKey)) {
                         setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, syncedToSheets: true } : a));
-                        console.log('Skipped (already in Sheets):', activity.title);
+                        console.log('Skipped duplicate:', activity.title);
+                        skipped++;
                         continue;
                     }
                     try {
@@ -863,7 +869,7 @@
                         console.error('Failed to sync activity:', activity.title, error);
                     }
                 }
-                console.log(`Synced ${synced}/${unsynced.length} activities`);
+                console.log('Sync complete: ' + synced + ' new, ' + skipped + ' duplicates skipped');
                 return synced;
             };
             
@@ -1155,20 +1161,37 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 }
                 
                 const data = await response.json();
+                
+                // Log full response shape for debugging
+                console.log('API response stop_reason:', data.stop_reason);
+                console.log('API response content types:', data.content?.map(b => b.type));
 
-                // Extract text blocks only — web search adds tool_use and tool_result blocks
-                // alongside the text response, so we filter to just the text
+                // Guard: API may return an error object instead of content array
+                if (!data || !data.content || !Array.isArray(data.content)) {
+                    console.error('Unexpected API response structure:', JSON.stringify(data));
+                    // Surface the real error message if present
+                    const msg = data?.error?.message || data?.message || JSON.stringify(data);
+                    return `Something went wrong with the AI connection: ${msg}`;
+                }
+
+                // Extract text blocks only — web search adds tool_use / tool_result blocks
                 const textBlocks = data.content.filter(block => block.type === 'text');
+                
+                if (textBlocks.length === 0) {
+                    console.error('No text blocks in response. Full content:', JSON.stringify(data.content));
+                    return `I got a response but couldn't read it (no text blocks). Check the browser console for details.`;
+                }
+                
                 return textBlocks.map(block => block.text).join('');
 
             } catch (error) {
                 console.error('Claude API error:', error);
                 if (error.message.includes('401')) {
-                    return `Oops! There's an authentication issue with the AI. Parents might need to check the API key. (Error: 401 Unauthorized)`;
+                    return `Authentication issue with the AI. (Error: 401 Unauthorized)`;
                 } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    return `Hmm, can't reach the AI right now. Check your internet connection and try again!`;
+                    return `Can't reach the AI right now. Check your internet connection and try again.`;
                 }
-                return `Having trouble connecting. Error: ${error.message}`;
+                return `Connection error: ${error.message}`;
             }
         };
         
@@ -1557,6 +1580,15 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 
                 const systemPrompt = generateSystemPrompt(user, userId, store.activities, store.itinerary);
                 const response = await callClaudeAPI([...messages, userMsg], systemPrompt);
+                
+                // Guard: if response is null/undefined, show error and bail
+                if (!response) {
+                    console.error("callClaudeAPI returned null/undefined");
+                    setMessages(prev => [...prev, { id: Date.now() + 1, text: "Sorry, something went wrong. Please try again.", isUser: false }]);
+                    setIsLoading(false);
+                    return;
+                }
+
                 
                 const activityData = parseActivitySubmission(response);
                 
