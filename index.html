@@ -1079,6 +1079,7 @@ Be proactive about suggesting transfer day discoveries - this is where ${user.na
 
 ## Activity Guidelines
 - Guide toward creative, outdoorsy, off-the-beaten-path activities (touristy is OK too)
+- **CITY FIELD RULE (IMPORTANT):** In the [SUBMIT_ACTIVITY] City field, always use the exact city name from the trip itinerary (e.g. "Basel", "Florence", "Rome"). Never append qualifiers like "(Transfer Day)", "- Day Trip", "Near", etc. If an activity is near a city or part of a transfer day, still use just the plain city name so it shows up correctly on the trip map.
 - Budget guideline: ~€100 per activity (flexible)  
 - When discussing costs, mention both euros and USD (~€1 = $1.08)
 - Include meals and transport in cost estimates
@@ -2132,7 +2133,15 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 };
             }, [activities]);
             
-            const cityActivities = selectedCity ? activities.filter(a => a.city === selectedCity.city && !a.isSample) : [];
+            // Fuzzy city match: catches "Basel (Transfer Day)", "Near Florence", etc.
+            // Checks if either string contains the other (case-insensitive)
+            const cityMatchesSafe = (activityCity, markerCity) => {
+                if (!activityCity || !markerCity) return false;
+                const a = activityCity.toLowerCase();
+                const b = markerCity.toLowerCase();
+                return a === b || a.includes(b) || b.includes(a);
+            };
+            const cityActivities = selectedCity ? activities.filter(a => cityMatchesSafe(a.city, selectedCity.city) && !a.isSample) : [];
             const phrases = selectedCity ? CONFIG.phrases[selectedCity.language] || [] : [];
             
             return (
