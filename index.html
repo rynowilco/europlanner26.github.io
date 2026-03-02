@@ -76,6 +76,16 @@
     
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+        // Configure marked.js to open all links in a new tab
+        if (typeof marked !== 'undefined') {
+            const renderer = new marked.Renderer();
+            renderer.link = (href, title, text) => {
+                const titleAttr = title ? ' title="' + title + '"' : '';
+                return '<a href="' + href + '"' + titleAttr + ' target="_blank" rel="noopener noreferrer">' + text + '</a>';
+            };
+            marked.setOptions({ renderer });
+        }
         
         // ============================================
         // CONFIGURATION
@@ -2030,68 +2040,90 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             useEffect(() => {
                 if (!mapRef.current || mapInstanceRef.current) return;
-                
+
+                // Initialize with a neutral center — fitBounds will override immediately
                 const map = L.map(mapRef.current, {
-                    center: [45.5, 10],
+                    center: [46, 10],
                     zoom: 5,
-                    zoomControl: true
+                    zoomControl: false
                 });
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors',
-                    maxZoom: 18
+
+                // Move zoom controls to bottom-right for cleaner mobile layout
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+                // CartoDB Positron — clean, minimal, free
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19
                 }).addTo(map);
-                
-                const createIcon = (color, isTransfer = false) => L.divIcon({
+
+                // Auto-fit bounds to itinerary destinations (exclude transfer days from bounds calc)
+                const mainCities = tripItinerary.filter(c => !c.isTransfer);
+                if (mainCities.length > 1) {
+                    const bounds = L.latLngBounds(mainCities.map(c => [c.lat, c.lng]));
+                    map.fitBounds(bounds, { padding: [48, 48] });
+                }
+
+                // Red dashed route polyline connecting all stops in order
+                const routeCoords = tripItinerary.map(c => [c.lat, c.lng]);
+                L.polyline(routeCoords, {
+                    color: '#E53935',
+                    weight: 2.5,
+                    dashArray: '8, 8',
+                    opacity: 0.65
+                }).addTo(map);
+
+                const createIcon = (isTransfer = false) => L.divIcon({
                     className: 'custom-marker',
-                    html: isTransfer 
-                        ? `<div style="background: var(--color-gold); width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px;">🚂</div>`
-                        : `<div style="background: ${color}; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
-                    iconSize: isTransfer ? [28, 28] : [32, 32],
-                    iconAnchor: isTransfer ? [14, 14] : [16, 32],
+                    html: isTransfer
+                        ? '<div style="background: var(--color-gold); width: 26px; height: 26px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; font-size: 13px;">🚂</div>'
+                        : '<div style="background: var(--color-terracotta); width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.25);"></div>',
+                    iconSize: isTransfer ? [26, 26] : [30, 30],
+                    iconAnchor: isTransfer ? [13, 13] : [15, 30],
                     popupAnchor: [0, -32]
                 });
-                
-                tripItinerary.forEach((city, index) => {
+
+                tripItinerary.forEach((city) => {
                     const isTransfer = city.isTransfer || city.city.toLowerCase().includes('transfer') || city.city.toLowerCase().includes('kids choice');
-                    
+
                     const marker = L.marker([city.lat, city.lng], {
-                        icon: createIcon('var(--color-terracotta)', isTransfer)
+                        icon: createIcon(isTransfer)
                     }).addTo(map);
-                    
+
                     marker.on('click', () => {
                         setSelectedCity(city);
-                        map.flyTo([city.lat, city.lng], 12, { duration: 0.5 });
+                        map.flyTo([city.lat, city.lng], 12, { duration: 0.4 });
                     });
-                    
-                    const labelText = isTransfer ? `${city.city}` : city.city;
+
+                    // City name label
                     const label = L.divIcon({
-                        className: 'city-label',
-                        html: `<div style="background: ${isTransfer ? 'var(--color-gold)' : 'white'}; color: ${isTransfer ? 'white' : 'inherit'}; padding: 4px 8px; border-radius: 4px; font-size: ${isTransfer ? '10px' : '12px'}; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.2); display: inline-block; min-width: max-content;">${labelText}</div>`,
-                        iconAnchor: [-20, 16],
-                        className: 'city-label-container'
+                        className: 'city-label-container',
+                        html: '<div style="background: ' + (isTransfer ? 'var(--color-gold)' : 'white') + '; color: ' + (isTransfer ? 'white' : 'var(--color-text)') + '; padding: 3px 7px; border-radius: 4px; font-size: ' + (isTransfer ? '10px' : '11px') + '; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.18); display: inline-block;">' + city.city + '</div>',
+                        iconAnchor: [-18, 14]
                     });
                     L.marker([city.lat, city.lng], { icon: label, interactive: false }).addTo(map);
                 });
-                
+
+                // Small dots for approved activities
                 activities.filter(a => !a.isSample && a.status === 'approved').forEach(activity => {
-                    const cityInfo = CONFIG.itinerary.find(c => c.city === activity.city);
+                    const cityInfo = tripItinerary.find(c => c.city === activity.city);
                     if (cityInfo) {
-                        const offset = 0.01;
-                        const activityIcon = L.divIcon({
+                        const dot = L.divIcon({
                             className: 'activity-marker',
-                            html: `<div style="background: var(--color-success); width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">✓</div>`,
-                            iconSize: [24, 24],
-                            iconAnchor: [12, 12]
+                            html: '<div style="background: var(--color-success); width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);"></div>',
+                            iconSize: [10, 10],
+                            iconAnchor: [5, 5]
                         });
-                        L.marker([cityInfo.lat + offset, cityInfo.lng + offset], { icon: activityIcon })
-                            .bindPopup(`<strong>${activity.title}</strong><br/>${activity.kidName}'s activity`)
+                        const offset = 0.018;
+                        L.marker([cityInfo.lat + offset, cityInfo.lng + offset], { icon: dot })
+                            .bindPopup('<strong>' + activity.title + '</strong><br/>' + activity.kidName)
                             .addTo(map);
                     }
                 });
-                
+
                 mapInstanceRef.current = map;
-                
+
                 return () => {
                     if (mapInstanceRef.current) {
                         mapInstanceRef.current.remove();
@@ -2160,13 +2192,20 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                             <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                                 Planned Activities
                                             </h3>
-                                            {cityActivities.map(a => (
-                                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm)', background: a.status === 'approved' ? '#E8F5E9' : 'var(--color-cream)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-xs)' }}>
-                                                    <span style={{ fontSize: '0.85rem' }}>{a.status === 'approved' ? '✅' : '⏳'}</span>
-                                                    <span style={{ fontSize: '0.9rem', flex: 1 }}>{a.title}</span>
-                                                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>{a.kidName}</span>
-                                                </div>
-                                            ))}
+                                            {cityActivities.map(a => {
+                                                const userProfile = userProfiles[a.kidId];
+                                                const statusColor = a.status === 'approved' ? '#E8F5E9' : a.status === 'submitted' ? '#FFF3E0' : 'var(--color-cream)';
+                                                const statusLabel = a.status === 'approved' ? 'approved' : a.status === 'submitted' ? 'pending' : a.status;
+                                                const statusTextColor = a.status === 'approved' ? 'var(--color-success)' : a.status === 'submitted' ? 'var(--color-warning)' : 'var(--color-text-light)';
+                                                return (
+                                                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: statusColor, borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-xs)', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                        <span style={{ fontSize: '1rem' }}>{userProfile?.emoji || '👤'}</span>
+                                                        <span style={{ fontSize: '0.9rem', flex: 1, fontWeight: 500 }}>{a.title}</span>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: statusTextColor, background: 'rgba(255,255,255,0.7)', padding: '2px 6px', borderRadius: 'var(--radius-full)' }}>{statusLabel}</span>
+                                                        {a.estimatedCost > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>€{a.estimatedCost}</span>}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                     
