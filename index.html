@@ -1356,6 +1356,32 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     <p style={{ fontSize: '1rem', color: 'var(--color-text-light)', maxWidth: '280px', margin: '0 auto', lineHeight: 1.5 }}>Plan your European adventure with your AI travel buddy</p>
                 </header>
                 
+                {/* Deadline countdown — only shown when signed in */}
+                {isGoogleSignedIn && (() => {
+                    const deadlineDays = Math.ceil((new Date('2026-05-11') - new Date()) / (1000 * 60 * 60 * 24));
+                    const abbyApproved = activities.filter(a => a.kidId === 'abby' && a.status === 'approved' && !a.isSample).length;
+                    const tylerApproved = activities.filter(a => a.kidId === 'tyler' && a.status === 'approved' && !a.isSample).length;
+                    const totalApproved = abbyApproved + tylerApproved;
+                    const totalNeeded = 6;
+                    const pct = Math.round((totalApproved / totalNeeded) * 100);
+                    const urgentColor = deadlineDays <= 14 ? 'var(--color-error)' : deadlineDays <= 30 ? 'var(--color-warning)' : 'var(--color-sage)';
+                    return (
+                        <div style={{ maxWidth: '400px', margin: '0 auto var(--space-md)', width: '100%', background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', animation: 'fadeIn 0.5s ease-out' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text)' }}>📅 Activity Deadline</span>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: urgentColor }}>{deadlineDays}d left</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>⚽ Abby {abbyApproved}/3</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>🏈 Tyler {tylerApproved}/3</span>
+                            </div>
+                            <div style={{ background: 'var(--color-tan)', borderRadius: 'var(--radius-full)', height: '6px', overflow: 'hidden' }}>
+                                <div style={{ background: urgentColor, height: '100%', width: pct + '%', borderRadius: 'var(--radius-full)', transition: 'width 0.5s ease' }} />
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* Google Sign-In Status */}
                 {!isGoogleSignedIn && (
                     <div style={{ maxWidth: '400px', margin: '0 auto var(--space-md)', width: '100%', animation: 'fadeIn 0.5s ease-out' }}>
@@ -2088,7 +2114,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         };
         
         // Dashboard
-        const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea, onToggleBooked, onDeleteBooking }) => {
+        const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea, onToggleBooked, onDeleteBooking, onAddBooking }) => {
             const [filter, setFilter] = useState('all');
             const [activeTab, setActiveTab] = useState('ideas');
             
@@ -2229,6 +2255,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     {/* Booking List Tab — admin only */}
                     {activeTab === 'bookings' && isAdmin && (
                         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                            {/* Add button always visible at top */}
+                            <button onClick={() => onAddBooking()} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', width: '100%', padding: 'var(--space-md)', background: 'white', border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500, color: 'var(--color-text-light)', justifyContent: 'center', marginBottom: 'var(--space-md)' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-terracotta)'; e.currentTarget.style.color = 'var(--color-terracotta)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-light)'; }}>
+                                + Add booking item
+                            </button>
                             {bookingItems.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
                                     <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>🎟️</div>
@@ -2373,10 +2405,18 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         map.flyTo([city.lat, city.lng], 12, { duration: 0.4 });
                     });
 
-                    // City name label
+                    // City name label with date range
+                    const formatDate = (dateStr) => {
+                        if (!dateStr) return '';
+                        const d = new Date(dateStr + 'T00:00:00');
+                        return (d.getMonth() + 1) + '/' + d.getDate();
+                    };
+                    const dateRange = (city.startDate && city.endDate && !isTransfer)
+                        ? ' <span style="font-weight:400;opacity:0.7;font-size:9px;margin-left:3px;">' + formatDate(city.startDate) + '–' + formatDate(city.endDate) + '</span>'
+                        : '';
                     const label = L.divIcon({
                         className: 'city-label-container',
-                        html: '<div style="background: ' + (isTransfer ? 'var(--color-gold)' : 'white') + '; color: ' + (isTransfer ? 'white' : 'var(--color-text)') + '; padding: 3px 7px; border-radius: 4px; font-size: ' + (isTransfer ? '10px' : '11px') + '; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.18); display: inline-block;">' + city.city + '</div>',
+                        html: '<div style="background: ' + (isTransfer ? 'var(--color-gold)' : 'white') + '; color: ' + (isTransfer ? 'white' : 'var(--color-text)') + '; padding: 3px 7px; border-radius: 4px; font-size: ' + (isTransfer ? '10px' : '11px') + '; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.18); display: inline-block;">' + city.city + dateRange + '</div>',
                         iconAnchor: [-18, 14]
                     });
                     L.marker([city.lat, city.lng], { icon: label, interactive: false }).addTo(map);
@@ -2614,6 +2654,44 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             );
         };
         
+        // Add Booking Modal
+        const AddBookingModal = ({ onSubmit, onCancel }) => {
+            const [title, setTitle] = useState('');
+            const [city, setCity] = useState('');
+            const [notes, setNotes] = useState('');
+            const [link, setLink] = useState('');
+            const canSubmit = title.trim().length > 0;
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', zIndex: 1000 }}>
+                    <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', width: '100%', maxWidth: '400px' }}>
+                        <h2 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-lg)' }}>🎟️ Add to Booking List</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: 'var(--color-text-light)' }}>What needs booking <span style={{ color: 'var(--color-error)' }}>*</span></label>
+                                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Arena di Verona tickets" autoFocus style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: 'var(--color-text-light)' }}>City</label>
+                                <input value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Verona" style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: 'var(--color-text-light)' }}>Notes</label>
+                                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Why it needs booking, best timing, etc." rows={2} style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '4px', color: 'var(--color-text-light)' }}>Booking link</label>
+                                <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-lg)' }}>
+                            <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+                            <button onClick={() => canSubmit && onSubmit({ title: title.trim(), city: city.trim(), notes: notes.trim(), link: link.trim() || null })} disabled={!canSubmit} style={{ flex: 1, padding: 'var(--space-md)', background: canSubmit ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSubmit ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Add to List</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // ============================================
         // MAIN APP
         // ============================================
@@ -2624,6 +2702,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [showPasswordModal, setShowPasswordModal] = useState(false);
             const [pendingAction, setPendingAction] = useState(null);
             const [feedbackActivity, setFeedbackActivity] = useState(null);
+            const [showAddBooking, setShowAddBooking] = useState(false);
             const [previousScreen, setPreviousScreen] = useState('welcome');
             const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(TokenManager.isSignedIn());
             const [signingIn, setSigningIn] = useState(false);
@@ -2708,6 +2787,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             const handleToggleBooked = (id) => store.toggleBookingStatus(id);
             const handleDeleteBooking = (id) => { if (confirm('Remove this booking item?')) store.deleteBookingItem(id); };
+            const handleAddBooking = () => setShowAddBooking(true);
+            const handleSubmitManualBooking = async (item) => { await store.addBookingItem(item); setShowAddBooking(false); };
 
             const handleRefineIdea = (idea) => {
                 store.setRefiningIdea(idea);
@@ -2730,10 +2811,11 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 <div style={{ height: '100%' }}>
                     {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} isGoogleSignedIn={isGoogleSignedIn} onGoogleSignIn={handleGoogleSignIn} onGoogleSignOut={handleGoogleSignOut} signingIn={signingIn} syncMessage={syncMessage} />}
                     {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
-                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} />}
+                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} onAddBooking={handleAddBooking} />}
                     {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
                     {showPasswordModal && <PasswordModal onSuccess={handlePasswordSuccess} onCancel={() => { setShowPasswordModal(false); setPendingAction(null); }} />}
                     {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
+                    {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
                 </div>
             );
         };
