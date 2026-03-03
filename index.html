@@ -1059,8 +1059,7 @@
                 const submitted = kidActivities.filter(a => a.status === 'submitted').length;
                 const emoji = kidId === 'abby' ? '⚽' : '🏈';
                 return emoji + ' ' + (kidProfile?.name || kidId) + ': ' + approved + '/3 approved, ' + submitted + ' pending review';
-            }).join('
-');
+            }).join('\n');
 
             const deadlineDate = new Date('2026-05-11');
             const today = new Date();
