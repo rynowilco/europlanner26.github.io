@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Euro Planner '26</title>
@@ -1651,11 +1652,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             const msg = { id: Date.now(), text: greeting, isUser: false };
                             setMessages([msg]);
                             store.clearSessionSummary(userId);
-                        } else if (existingSummary) {
-                            setPreviousSummary(existingSummary.summary);
-                            setShowResumePrompt(true);
                         } else if (user.isParent) {
-                            // Parent opening: status snapshot + open conversation
+                            // Parents always get fresh status card — skip resume prompt
+                            store.clearSessionSummary(userId);
                             const allActivities = store.activities.filter(a => !a.isSample);
                             const abbyApproved = allActivities.filter(a => a.kidId === 'abby' && a.status === 'approved').length;
                             const abbyPending = allActivities.filter(a => a.kidId === 'abby' && a.status === 'submitted').length;
@@ -1672,6 +1671,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             const greeting = 'Hey ' + user.name + '! 👋 Here\'s where things stand:\n\n' + statusLines + '\n\nWhat do you want to work on? I can help with logistics, train routes, reviewing submitted activities, the booking list — whatever\'s on your mind.';
                             const msg = { id: Date.now(), text: greeting, isUser: false };
                             setMessages([msg]);
+                        } else if (existingSummary) {
+                            setPreviousSummary(existingSummary.summary);
+                            setShowResumePrompt(true);
                         } else {
                             const greeting = 'Hey ' + user.name + '! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ' + cities + '. What sounds fun to you?';
                             const msg = { id: Date.now(), text: greeting, isUser: false };
