@@ -1092,6 +1092,32 @@ ${userActivities.length > 0 ? userActivities.map(a => `- "${a.title}" in ${a.cit
 ${otherActivities.length > 0 ? otherActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'Nothing submitted yet'}
 (Suggest combining activities if there's overlap - family bonding matters!)
 
+## Conflict Detection
+Before suggesting or submitting an activity, check for potential conflicts:
+- **SCHEDULING:** Is there already an activity submitted or approved for the same city? Flag it if so.
+- **BUDGET:** Would this push ${user.name}'s remaining budget ($${user.budgetRemaining?.toFixed(0) || user.budgetTotal}) below zero? Warn if it would.
+- **LOGISTICS:** Does this require advance booking and the trip is coming up fast? Is travel time over 2 hours?
+- **DUPLICATION:** Has anyone in the family already planned something very similar?
+
+If you detect a conflict, mention it naturally and briefly in conversation first — don't make it a big deal:
+"Quick heads up — Tyler already has something in Florence that week. Might be worth coordinating, but still a great idea!"
+
+Then when submitting, add a ConflictNote field to the block if relevant:
+
+[SUBMIT_ACTIVITY]
+Title: ...
+City: ...
+Description: ...
+Cost: ...
+Travel Method: ...
+Travel Time: ...
+Duration: ...
+Considerations: ...
+ConflictNote: Potential scheduling overlap with Tyler's Florence activity. Parents should review.
+[/SUBMIT_ACTIVITY]
+
+ConflictNote is optional — only include it when there's a genuine concern. Keep it under 20 words.
+
 ## Language Learning
 Naturally weave in useful German (Switzerland/Austria), Italian (Italy), or French phrases. The whole family is interested in learning languages!
 
@@ -1549,7 +1575,8 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     travelMethod: getValue('Travel Method'),
                     travelTime: getValue('Travel Time'),
                     duration: getValue('Duration'),
-                    otherConsiderations: getValue('Considerations')
+                    otherConsiderations: getValue('Considerations'),
+                    conflictNote: getValue('ConflictNote') || null
                 };
             };
             
@@ -1737,6 +1764,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                                     💡 {pendingActivity.otherConsiderations}
                                                 </p>
                                             )}
+                                            {pendingActivity.conflictNote && (
+                                                <div style={{ marginTop: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                                    <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚠️</span>
+                                                    <p style={{ fontSize: '0.85rem', color: '#E65100', margin: 0, lineHeight: 1.4 }}>{pendingActivity.conflictNote}</p>
+                                                </div>
+                                            )}
                                         </div>
                                         
                                         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
@@ -1841,6 +1874,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                             <button onClick={() => onApprove(activity.id)} style={{ flex: 1, padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 500 }}><Icon name="Check" size={16} /> Approve</button>
                             <button onClick={() => onFeedback(activity.id)} style={{ flex: 1, padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-warning)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}>Feedback</button>
+                        </div>
+                    )}
+                    {activity.conflictNote && (
+                        <div style={{ marginTop: 'var(--space-sm)', padding: 'var(--space-sm) var(--space-md)', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                            <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>⚠️</span>
+                            <p style={{ fontSize: '0.8rem', color: '#E65100', margin: 0, lineHeight: 1.4 }}>{activity.conflictNote}</p>
                         </div>
                     )}
                     {activity.isSample && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontStyle: 'italic', marginTop: 'var(--space-sm)', textAlign: 'center' }}>📝 Sample activity</div>}
