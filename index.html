@@ -1050,6 +1050,22 @@
             const cities = tripItinerary.map(i => i.city).join(', ');
             const isParent = user.isParent || false;
             
+            // Build family status snapshot for parent prompts
+            const allKids = ['abby', 'tyler'];
+            const familyStatus = allKids.map(kidId => {
+                const kidProfile = (CONFIG.users[kidId]);
+                const kidActivities = activities.filter(a => a.kidId === kidId && !a.isSample);
+                const approved = kidActivities.filter(a => a.status === 'approved').length;
+                const submitted = kidActivities.filter(a => a.status === 'submitted').length;
+                const emoji = kidId === 'abby' ? '⚽' : '🏈';
+                return emoji + ' ' + (kidProfile?.name || kidId) + ': ' + approved + '/3 approved, ' + submitted + ' pending review';
+            }).join('
+');
+
+            const deadlineDate = new Date('2026-05-11');
+            const today = new Date();
+            const daysToDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+            
             return `You are a friendly travel planning assistant helping ${user.name} (age ${user.age}) plan activities for their family's Europe trip in summer 2026.
 
 ## Your Role & Scope
@@ -1106,15 +1122,24 @@ ${isParent ? `## Tone & Style (ADULT MODE 🔞)
 - ${isParent ? 'Adult humor, cursing, and innuendo are encouraged and welcome' : user.age === 14 ? 'Casual teen language is totally fine ("that\'s sick", "no cap", "bro")' : 'Keep it friendly and fun, but age-appropriate (not babyish)'}
 - Be helpful but realistic about constraints
 
-## Session Pacing
+${isParent ? `## Session Pacing (Parent Mode)
+- No need to push toward activity submission — parents have full visibility and are coordinating, not proposing
+- If they seem to be wrapping up, offer a useful summary or next action: "Want me to flag anything for the booking list, or is there something else to sort out?"
+` : `## Session Pacing
 - After about 15-20 exchanges, gently suggest wrapping up or submitting an activity idea
 - Example: "We've covered a lot! Want to polish up one of these ideas and submit it for your parents to review? Or we can pick this up next time!"
 - Encourage breaks: "Nice planning session! Maybe take a break and come back with fresh ideas?"
+`}
 
 ## Trip Details
 ${tripItinerary.map(i => `- ${i.city}, ${i.country}: ${i.startDate} to ${i.endDate} (${i.transport})`).join('\n')}
 
-## TRANSFER DAYS - Kids Choice! 🚂
+${isParent ? `## Transfer Days
+Transfer days are marked "Transfer - Kids Choice" — the kids get to pick a stop between destinations. As a parent, you can:
+- Research what's feasible between Point A and Point B given drive/train time
+- Suggest stops to discuss with the kids
+- Think about logistics: parking, luggage storage, how long a stop is realistic
+` : `## TRANSFER DAYS - Kids Choice! 🚂
 Some days are marked as "Transfer - Kids Choice" - these are YOUR chance to help shape the trip! On transfer days:
 - You're traveling between two destinations and get to pick a cool stop along the way
 - Research what cities, towns, or attractions are between Point A and Point B
@@ -1129,15 +1154,22 @@ For example, if traveling Frankfurt → Switzerland, you might discover:
 - Lucerne (beautiful lake, Swiss Transport Museum)
 
 Be proactive about suggesting transfer day discoveries - this is where ${user.name} can really make the trip unique!
+`}
 
 ## About ${user.name}
 - **Interests:** ${user.interests?.join(', ') || 'Not specified'}
 - **Preferences:** ${user.preferences || 'Not specified'}
 
-## ${user.name}'s Planning Status
+${isParent ? `## Family Planning Status
+${familyStatus}
+- Deadline for kid activities: May 11, 2026 (${daysToDeadline} days away)
+- All submitted activities need parent approval before the deadline
+- You can approve or give feedback on activities in the Dashboard
+` : `## ${user.name}'s Planning Status
 - Budget: $${user.budgetRemaining?.toFixed(0) || user.budgetTotal} of $${user.budgetTotal} remaining
 - Activities approved: ${userActivities.filter(a => a.status === 'approved').length}/3 required
 - Deadline: 3 activities need parent approval by May 11, 2026
+`}
 
 ## Activity Guidelines
 - Guide toward creative, outdoorsy, off-the-beaten-path activities (touristy is OK too)
@@ -1145,14 +1177,19 @@ Be proactive about suggesting transfer day discoveries - this is where ${user.na
 - Budget guideline: ~€100 per activity (flexible)  
 - When discussing costs, mention both euros and USD (~€1 = $1.08)
 - Include meals and transport in cost estimates
-- ${userId === 'abby' ? 'Remember: Abby wants to AVOID really long hikes and long car rides. She is good for a few hours of walking. She loves shopping, food experiences, and trying new activities she has never done.' : userId === 'tyler' ? 'Remember: Tyler wants to AVOID long car rides. He prefers shorter walks with breaks. He loves trying new foods, sports, and learning about new places. He wants family bonding time.' : userId === 'ryan' ? 'Remember: Ryan is all about seafood (especially sardines and anchovies), hiking, and cultural experiences. If there\'s a fish market nearby, he needs to know about it.' : 'Remember: Mom is obsessed with water — swimming, lakes, rivers, waterfalls, coastal towns. Also loves hiking and culture. If there\'s a body of water nearby, she\'s already in it.'}
+${isParent ? '- You have full visibility across all family activities. Help think through budget, logistics, and sequencing across the whole trip.' : userId === 'abby' ? '- Remember: Abby wants to AVOID really long hikes and long car rides. She is good for a few hours of walking. She loves shopping, food experiences, and trying new activities she has never done.' : userId === 'tyler' ? '- Remember: Tyler wants to AVOID long car rides. He prefers shorter walks with breaks. He loves trying new foods, sports, and learning about new places. He wants family bonding time.' : ''}
 
-## ${user.name}'s Activities So Far
-${userActivities.length > 0 ? userActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'None yet - fresh start!'}
+${isParent ? `## All Family Activities
+${activities.filter(a => !a.isSample).length > 0 
+  ? activities.filter(a => !a.isSample).map(a => '- ' + a.kidName + ': "' + a.title + '" in ' + a.city + ' (' + a.status + ')').join('\n') 
+  : 'No activities submitted yet'}
+` : `## ${user.name}'s Activities So Far
+${userActivities.length > 0 ? userActivities.map(a => '- "' + a.title + '" in ' + a.city + ' (' + a.status + ')').join('\n') : 'None yet - fresh start!'}
 
 ## What the Rest of the Family Is Planning
-${otherActivities.length > 0 ? otherActivities.map(a => `- "${a.title}" in ${a.city} (${a.status})`).join('\n') : 'Nothing submitted yet'}
+${otherActivities.length > 0 ? otherActivities.map(a => '- "' + a.title + '" in ' + a.city + ' (' + a.status + ')').join('\n') : 'Nothing submitted yet'}
 (Suggest combining activities if there's overlap - family bonding matters!)
+`}
 
 ## Conflict Detection
 Before suggesting or submitting an activity, check for potential conflicts:
@@ -1618,8 +1655,26 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         } else if (existingSummary) {
                             setPreviousSummary(existingSummary.summary);
                             setShowResumePrompt(true);
+                        } else if (user.isParent) {
+                            // Parent opening: status snapshot + open conversation
+                            const allActivities = store.activities.filter(a => !a.isSample);
+                            const abbyApproved = allActivities.filter(a => a.kidId === 'abby' && a.status === 'approved').length;
+                            const abbyPending = allActivities.filter(a => a.kidId === 'abby' && a.status === 'submitted').length;
+                            const tylerApproved = allActivities.filter(a => a.kidId === 'tyler' && a.status === 'approved').length;
+                            const tylerPending = allActivities.filter(a => a.kidId === 'tyler' && a.status === 'submitted').length;
+                            const deadlineDays = Math.ceil((new Date('2026-05-11') - new Date()) / (1000 * 60 * 60 * 24));
+                            
+                            const statusLines = [
+                                '⚽ **Abby:** ' + abbyApproved + '/3 approved' + (abbyPending > 0 ? ', ' + abbyPending + ' waiting on you' : ' ✓'),
+                                '🏈 **Tyler:** ' + tylerApproved + '/3 approved' + (tylerPending > 0 ? ', ' + tylerPending + ' waiting on you' : ' ✓'),
+                                '📅 **Deadline:** May 11 (' + deadlineDays + ' days away)'
+                            ].join('\n');
+                            
+                            const greeting = 'Hey ' + user.name + '! 👋 Here\'s where things stand:\n\n' + statusLines + '\n\nWhat do you want to work on? I can help with logistics, train routes, reviewing submitted activities, the booking list — whatever\'s on your mind.';
+                            const msg = { id: Date.now(), text: greeting, isUser: false };
+                            setMessages([msg]);
                         } else {
-                            const greeting = `Hey ${user.name}! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ${cities}. What sounds fun to you?`;
+                            const greeting = 'Hey ' + user.name + '! 👋 Ready to plan some adventures for Europe?\n\nWe can explore ideas for ' + cities + '. What sounds fun to you?';
                             const msg = { id: Date.now(), text: greeting, isUser: false };
                             setMessages([msg]);
                         }
@@ -1927,13 +1982,21 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 </div>
                                 {/* Chat prompt chips — scrolls horizontally on mobile */}
                                 <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto', paddingBottom: '2px' }}>
-                                    {[
+                                    {(user.isParent ? [
+                                        { label: 'Family Status', icon: 'Users', prompt: 'Give me a full family status update — what activities have been submitted and approved for each kid, who still needs more, budget remaining, and what needs my attention.' },
+                                        { label: "What's the Plan", icon: 'Calendar', prompt: "Walk me through the full trip plan — cities, dates, transfer days, and anything notable we need to prepare for." },
+                                        { label: 'All Activities', icon: 'List', prompt: 'Show me all submitted and approved activities across the whole family.' },
+                                        { label: 'Trip Logistics', icon: 'Map', prompt: 'Help me think through the logistics of this trip — trains between cities, what needs booking in advance, transfer day plans, and anything I might be missing.' },
+                                        { label: 'Booking List', icon: 'Book', prompt: 'What things do we still need to book or reserve for this trip? Check what has already been flagged and suggest anything else I should be thinking about.' },
+                                        { label: "What's the Story", icon: 'BookOpen', prompt: "Tell me the story of our trip so far — what are we doing, what's been proposed, what are we most excited about? Give it to me as a fun narrative, not a list." }
+                                    ] : [
                                         { label: 'Give me Ideas', icon: 'Sparkles', prompt: 'Give me some activity ideas for this trip based on my interests!' },
                                         { label: "What's the Plan", icon: 'Calendar', prompt: "What's the full trip plan? Walk me through the cities, transfer days, and dates." },
                                         { label: 'My Activities', icon: 'List', prompt: 'Show me all the activities I have submitted or that have been approved so far.' },
                                         { label: 'All Activities', icon: 'Users', prompt: 'Show me all approved activities for the whole family so I can see what everyone is doing and avoid conflicts.' },
-                                        { label: "What's the Story", icon: 'BookOpen', prompt: "Tell me the story of our trip so far — what are we doing, what's been proposed, what are we most excited about? Give it to me as a fun narrative, not a list." }
-                                    ].map(({ label, icon, prompt }, i) => (
+                                        { label: "What's the Story", icon: 'BookOpen', prompt: "Tell me the story of our trip so far — what are we doing, what's been proposed, what are we most excited about? Give it to me as a fun narrative, not a list." },
+                                        { label: 'Trip Logistics', icon: 'Map', prompt: 'Help me think through how we get between cities — trains, travel times, what to book in advance.' }
+                                    ]).map(({ label, icon, prompt }, i) => (
                                         <button key={i} onClick={() => { sendMessage(prompt); }} disabled={!!pendingActivity || isLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: (pendingActivity || isLoading) ? 'not-allowed' : 'pointer', opacity: (pendingActivity || isLoading) ? 0.5 : 1 }}>
                                             <Icon name={icon} size={14} /> {label}
                                         </button>
