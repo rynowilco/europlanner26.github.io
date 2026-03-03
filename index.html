@@ -103,7 +103,8 @@
                 activities: 'Activity Proposals',
                 conversations: 'Conversation Memory',
                 phrases: 'Language Phrases',
-                params: 'Soft Parameters'
+                params: 'Soft Parameters',
+                bookingList: 'Booking List'
             },
             
             // EmailJS
@@ -685,6 +686,11 @@
             
             const [refiningIdea, setRefiningIdea] = useState(null);
             
+            const [bookingItems, setBookingItems] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_bookingItems');
+                return saved ? JSON.parse(saved) : [];
+            });
+            
             const [userProfiles, setUserProfiles] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_profiles');
                 return saved ? JSON.parse(saved) : CONFIG.users;
@@ -763,6 +769,7 @@
             useEffect(() => { localStorage.setItem('euroPlanner_sessionSummaries', JSON.stringify(sessionSummaries)); }, [sessionSummaries]);
             useEffect(() => { localStorage.setItem('euroPlanner_lastActivity', JSON.stringify(lastActivity)); }, [lastActivity]);
             useEffect(() => { localStorage.setItem('euroPlanner_profiles', JSON.stringify(userProfiles)); }, [userProfiles]);
+            useEffect(() => { localStorage.setItem('euroPlanner_bookingItems', JSON.stringify(bookingItems)); }, [bookingItems]);
             
             // Saved Ideas management
             const addSavedIdea = (idea) => {
@@ -949,6 +956,57 @@
                 }
             };
             
+            // ── Booking List functions ──────────────────────────────────
+            const addBookingItem = async (item) => {
+                const newItem = {
+                    ...item,
+                    id: 'BOOK-' + Date.now(),
+                    status: 'pending',
+                    dateAdded: new Date().toISOString().split('T')[0],
+                    dateBooked: null,
+                    syncedToSheets: false
+                };
+                setBookingItems(prev => [...prev, newItem]);
+                
+                // Sync to Sheets if signed in
+                if (TokenManager.isSignedIn()) {
+                    try {
+                        const row = [
+                            newItem.id,
+                            newItem.title,
+                            newItem.city || '',
+                            newItem.notes || '',
+                            newItem.link || '',
+                            newItem.status,
+                            newItem.dateAdded,
+                            newItem.dateBooked || '',
+                            newItem.activityId || ''
+                        ];
+                        await SheetsAPI.append(CONFIG.SHEET_NAMES.bookingList, row);
+                        setBookingItems(prev => prev.map(b => b.id === newItem.id ? { ...b, syncedToSheets: true } : b));
+                        console.log('Booking item synced to Sheets:', newItem.title);
+                    } catch (e) {
+                        console.error('Failed to sync booking item:', e);
+                    }
+                }
+                return newItem;
+            };
+
+            const toggleBookingStatus = (id) => {
+                setBookingItems(prev => prev.map(b => 
+                    b.id === id 
+                        ? { ...b, 
+                            status: b.status === 'booked' ? 'pending' : 'booked',
+                            dateBooked: b.status === 'booked' ? null : new Date().toISOString().split('T')[0]
+                          } 
+                        : b
+                ));
+            };
+
+            const deleteBookingItem = (id) => {
+                setBookingItems(prev => prev.filter(b => b.id !== id));
+            };
+
             return { 
                 activities, 
                 savedIdeas,
@@ -974,7 +1032,11 @@
                 clearSessionSummary,
                 saveConversationSummaryToSheets,
                 syncUnsyncedActivities,
-                setUserProfiles 
+                setUserProfiles,
+                bookingItems,
+                addBookingItem,
+                toggleBookingStatus,
+                deleteBookingItem
             };
         };
         
@@ -1120,6 +1182,18 @@ ConflictNote is optional — only include it when there's a genuine concern. Kee
 
 ## Language Learning
 Naturally weave in useful German (Switzerland/Austria), Italian (Italy), or French phrases. The whole family is interested in learning languages!
+
+## Booking List
+When you mention something that requires advance booking or purchasing tickets — trains between cities, operas, cooking classes, tours, ferries, skip-the-line tickets, restaurants that need reservations, etc. — output this block:
+
+[ADD_BOOKING]
+Title: (what needs to be booked)
+City: (where)
+Notes: (why it needs advance booking, best timing to book)
+Link: (direct booking URL if you know it — search for it if needed)
+[/ADD_BOOKING]
+
+This silently adds it to Mom's booking checklist. Don't make a big deal of it — just a brief mention: "I've added that to the booking list!" is fine. Only output this block once per item.
 
 ## SAVING IDEAS FOR LATER
 When discussing an idea that ${user.name} seems interested in but isn't ready to submit yet, PROACTIVELY offer to save it:
@@ -1599,10 +1673,28 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 };
             };
             
+            const parseBookingSave = (text) => {
+                const match = text.match(/\[ADD_BOOKING\]([\s\S]*?)\[\/ADD_BOOKING\]/);
+                if (!match) return null;
+                const content = match[1];
+                const getValue = (field) => {
+                    const regex = new RegExp(field + ':\\s*(.+?)(?:\\n|$)', 'i');
+                    const m = content.match(regex);
+                    return m ? m[1].trim() : '';
+                };
+                return {
+                    title: getValue('Title'),
+                    city: getValue('City'),
+                    notes: getValue('Notes'),
+                    link: getValue('Link') || null
+                };
+            };
+
             const cleanResponseForDisplay = (text) => {
                 return text
                     .replace(/\[SUBMIT_ACTIVITY\][\s\S]*?\[\/SUBMIT_ACTIVITY\]/g, '')
                     .replace(/\[SAVE_IDEA\][\s\S]*?\[\/SAVE_IDEA\]/g, '')
+                    .replace(/\[ADD_BOOKING\][\s\S]*?\[\/ADD_BOOKING\]/g, '')
                     .trim();
             };
             
@@ -1648,6 +1740,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         kidId: userId,
                         kidName: user.name
                     });
+                }
+
+                const bookingData = parseBookingSave(response);
+                if (bookingData && bookingData.title) {
+                    console.log('Booking item detected - saving:', bookingData.title);
+                    store.addBookingItem(bookingData);
                 }
                 
                 const displayResponse = cleanResponseForDisplay(response);
@@ -1926,7 +2024,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         };
         
         // Dashboard
-        const DashboardScreen = ({ onBack, activities, savedIdeas, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea }) => {
+        const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea, onToggleBooked, onDeleteBooking }) => {
             const [filter, setFilter] = useState('all');
             const [activeTab, setActiveTab] = useState('ideas');
             
@@ -1962,12 +2060,17 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     
                     {/* Tab switcher */}
                     <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
-                        <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.95rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                            💡 Saved Ideas ({savedIdeas.length})
+                        <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            💡 Ideas ({savedIdeas.length})
                         </button>
-                        <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.95rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             ✅ Submitted ({activities.filter(a => !a.isSample).length})
                         </button>
+                        {isAdmin && (
+                            <button onClick={() => setActiveTab('bookings')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'bookings' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'bookings' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'bookings' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                🎟️ Book ({bookingItems.length})
+                            </button>
+                        )}
                     </div>
                     
                     {/* Budget summary */}
@@ -2059,6 +2162,76 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         </>
                     )}
                     
+                    {/* Booking List Tab — admin only */}
+                    {activeTab === 'bookings' && isAdmin && (
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                            {bookingItems.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
+                                    <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>🎟️</div>
+                                    <p style={{ fontWeight: 600, marginBottom: 'var(--space-sm)' }}>No bookings yet</p>
+                                    <p style={{ fontSize: '0.85rem' }}>Chat with Claude about activities that need advance booking — trains, tickets, tours, restaurants — and they'll appear here automatically.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* To Book section */}
+                                    {bookingItems.filter(b => b.status !== 'booked').length > 0 && (
+                                        <div style={{ marginBottom: 'var(--space-lg)' }}>
+                                            <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
+                                                To Book ({bookingItems.filter(b => b.status !== 'booked').length})
+                                            </h3>
+                                            {bookingItems.filter(b => b.status !== 'booked').map(item => (
+                                                <div key={item.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', borderLeft: '4px solid var(--color-terracotta)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-sm)' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '2px' }}>{item.title}</div>
+                                                            {item.city && <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', marginBottom: 'var(--space-xs)' }}>📍 {item.city}</div>}
+                                                            {item.notes && <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.4, marginBottom: 'var(--space-xs)' }}>{item.notes}</div>}
+                                                            {item.link && (
+                                                                <a href={item.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem', color: 'var(--color-navy)', fontWeight: 500, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                    🔗 Book now
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: 'var(--space-xs)', flexShrink: 0 }}>
+                                                            <button onClick={() => onToggleBooked(item.id)} style={{ padding: '6px 12px', background: 'var(--color-success)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                                ✓ Done
+                                                            </button>
+                                                            <button onClick={() => onDeleteBooking(item.id)} style={{ padding: '6px', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text-light)' }}>
+                                                                <Icon name="X" size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Booked section */}
+                                    {bookingItems.filter(b => b.status === 'booked').length > 0 && (
+                                        <div>
+                                            <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
+                                                Booked ✓ ({bookingItems.filter(b => b.status === 'booked').length})
+                                            </h3>
+                                            {bookingItems.filter(b => b.status === 'booked').map(item => (
+                                                <div key={item.id} style={{ background: '#F1F8F1', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', border: '1px solid #C8E6C9', borderLeft: '4px solid var(--color-success)', opacity: 0.8 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: 600, fontSize: '0.95rem', textDecoration: 'line-through', color: 'var(--color-text-light)' }}>{item.title}</div>
+                                                            {item.city && <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>📍 {item.city} · booked {item.dateBooked}</div>}
+                                                        </div>
+                                                        <button onClick={() => onToggleBooked(item.id)} style={{ padding: '4px 10px', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--color-text-light)', whiteSpace: 'nowrap' }}>
+                                                            Undo
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     {isAdmin && (
                         <footer style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center', flexShrink: 0 }}>
                             <button onClick={handleResetCache} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.85rem', cursor: 'pointer', padding: 'var(--space-sm) var(--space-md)' }}>
@@ -2469,6 +2642,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const handleFeedback = (id) => setFeedbackActivity(store.activities.find(a => a.id === id));
             const handleSubmitFeedback = (feedback) => { if (feedbackActivity) store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
             
+            const handleToggleBooked = (id) => store.toggleBookingStatus(id);
+            const handleDeleteBooking = (id) => { if (confirm('Remove this booking item?')) store.deleteBookingItem(id); };
+
             const handleRefineIdea = (idea) => {
                 store.setRefiningIdea(idea);
                 setCurrentUser(idea.kidId);
@@ -2490,7 +2666,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 <div style={{ height: '100%' }}>
                     {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} isGoogleSignedIn={isGoogleSignedIn} onGoogleSignIn={handleGoogleSignIn} onGoogleSignOut={handleGoogleSignOut} signingIn={signingIn} syncMessage={syncMessage} />}
                     {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
-                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} />}
+                    {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} />}
                     {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
                     {showPasswordModal && <PasswordModal onSuccess={handlePasswordSuccess} onCancel={() => { setShowPasswordModal(false); setPendingAction(null); }} />}
                     {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
