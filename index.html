@@ -280,8 +280,7 @@
 
             async read(sheetName, range = '') {
                 try {
-                    const payload = { operation: 'read', sheet: sheetName };
-                    if (range) payload.range = sheetName + '!' + range;
+                    const payload = { operation: 'read', sheet: sheetName, range: range || 'A:Z' };
                     const data = await this.callSheets(payload);
                     return data.values || [];
                 } catch (error) {
