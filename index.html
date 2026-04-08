@@ -280,7 +280,9 @@
 
             async read(sheetName, range = '') {
                 try {
-                    const data = await this.callSheets({ operation: 'read', sheet: sheetName, range: range || sheetName });
+                    const payload = { operation: 'read', sheet: sheetName };
+                    if (range) payload.range = sheetName + '!' + range;
+                    const data = await this.callSheets(payload);
                     return data.values || [];
                 } catch (error) {
                     console.error('Error reading from Sheets:', error);
@@ -2429,6 +2431,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary;
             const isTransferCity = (city) => city.isTransfer || city.city.toLowerCase().includes('transfer') || city.city.toLowerCase().includes('kids choice');
 
+            const fmtLongDate = (d) => {
+                if (!d) return '';
+                const dt = new Date(d + 'T00:00:00');
+                return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+            };
+
             useEffect(() => {
                 if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -2560,7 +2568,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                                 {isTransferSelected ? '🚂 ' : '📍 '}{selectedCity.city}
                                             </h2>
                                             <p style={{ color: 'var(--color-text-light)', fontSize: '0.85rem', marginTop: '2px' }}>
-                                                {selectedCity.country}{selectedCity.startDate ? ' · ' + selectedCity.startDate + ' → ' + selectedCity.endDate : ''}
+                                                {selectedCity.country}{selectedCity.startDate ? ' · ' + fmtLongDate(selectedCity.startDate) + ' – ' + fmtLongDate(selectedCity.endDate) : ''}
                                             </p>
                                         </div>
                                         <button onClick={() => { setSelectedCity(null); setAiSummary(null); }} style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer' }}>
