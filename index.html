@@ -107,6 +107,7 @@
                 phrases: 'Language Phrases',
                 params: 'Soft Parameters',
                 bookingList: 'Booking List',
+                savedIdeas: 'Saved Ideas',
                 journal: 'Journal',
                 photos: 'Photos',
                 messages: 'Messages'
@@ -463,6 +464,58 @@
                     activity.parentFeedback || '',
                     activity.dateUpdated || activity.dateSubmitted
                 ];
+            },
+
+            parseBookingItems(rows) {
+                if (!rows || rows.length < 2) return [];
+                return rows.slice(1).filter(row => row[0] && row[5] !== 'deleted').map(row => ({
+                    id: row[0] || '',
+                    title: row[1] || '',
+                    city: row[2] || '',
+                    notes: row[3] || '',
+                    link: row[4] || '',
+                    status: row[5] || 'pending',
+                    dateAdded: row[6] || '',
+                    dateBooked: row[7] || null,
+                    activityId: row[8] || '',
+                    syncedToSheets: true
+                }));
+            },
+
+            parseSavedIdeas(rows) {
+                if (!rows || rows.length < 2) return [];
+                return rows.slice(1).filter(row => row[0] && row[9] !== 'deleted').map(row => ({
+                    id: row[0] || '',
+                    kidId: row[1] || '',
+                    kidName: row[2] || '',
+                    title: row[3] || '',
+                    city: row[4] || '',
+                    notes: row[5] || '',
+                    estimatedCost: parseFloat(row[6]) || 0,
+                    dateSaved: row[7] || '',
+                    dateUpdated: row[8] || '',
+                    syncedToSheets: true
+                }));
+            },
+
+            ideaToRow(idea, status = 'active') {
+                return [
+                    idea.id, idea.kidId, idea.kidName, idea.title,
+                    idea.city || '', idea.notes || '', idea.estimatedCost || 0,
+                    idea.dateSaved, idea.dateUpdated || idea.dateSaved, status
+                ];
+            },
+
+            // Generic helper: read sheet, find row by ID in col 0, update it
+            async findAndUpdateRow(sheetName, id, values) {
+                const data = await this.read(sheetName);
+                if (!data || data.length < 2) return false;
+                const rowIndex = data.slice(1).findIndex(row => row[0] === id);
+                if (rowIndex === -1) return false;
+                const sheetRow = rowIndex + 2;
+                const endCol = String.fromCharCode(64 + values.length);
+                await this.update(sheetName, 'A' + sheetRow + ':' + endCol + sheetRow, [values]);
+                return true;
             }
         };
         
@@ -603,6 +656,35 @@
                             }
                         }
                         
+                        // Load saved ideas
+                        const ideasData = await SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas);
+                        if (ideasData && ideasData.length > 1) {
+                            const parsedIdeas = SheetsAPI.parseSavedIdeas(ideasData);
+                            if (parsedIdeas.length > 0) {
+                                setSavedIdeas(parsedIdeas);
+                                console.log('Loaded saved ideas:', parsedIdeas.length);
+                            }
+                        }
+
+                        // Load booking items
+                        const bookingData = await SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList);
+                        if (bookingData && bookingData.length > 1) {
+                            const parsedBookings = SheetsAPI.parseBookingItems(bookingData);
+                            if (parsedBookings.length > 0) {
+                                setBookingItems(parsedBookings);
+                                console.log('Loaded booking items:', parsedBookings.length);
+                            }
+                        }
+
+                        // Flush any locally-saved unsynced activities
+                        const localRaw = localStorage.getItem('euroPlanner_activities');
+                        const localActivities = localRaw ? JSON.parse(localRaw) : [];
+                        const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample);
+                        if (unsynced.length > 0) {
+                            console.log('Flushing', unsynced.length, 'unsynced local activities...');
+                            await syncUnsyncedActivities(unsynced);
+                        }
+
                         setSheetsLoaded(true);
                     } catch (error) {
                         console.error('Error loading from Sheets:', error);
@@ -623,26 +705,50 @@
             useEffect(() => { localStorage.setItem('euroPlanner_bookingItems', JSON.stringify(bookingItems)); }, [bookingItems]);
             
             // Saved Ideas management
-            const addSavedIdea = (idea) => {
+            const addSavedIdea = async (idea) => {
                 const newIdea = {
                     ...idea,
-                    id: `IDEA-${Date.now()}`,
+                    id: 'IDEA-' + Date.now(),
                     dateSaved: new Date().toISOString().split('T')[0],
-                    dateUpdated: new Date().toISOString().split('T')[0]
+                    dateUpdated: new Date().toISOString().split('T')[0],
+                    syncedToSheets: false
                 };
                 setSavedIdeas(prev => [...prev, newIdea]);
-                console.log('Idea saved:', newIdea.title);
+                try {
+                    await SheetsAPI.append(CONFIG.SHEET_NAMES.savedIdeas, SheetsAPI.ideaToRow(newIdea));
+                    setSavedIdeas(prev => prev.map(i => i.id === newIdea.id ? { ...i, syncedToSheets: true } : i));
+                    console.log('Idea saved to Sheets:', newIdea.title);
+                } catch (e) {
+                    console.error('Failed to sync idea to Sheets:', e);
+                }
                 return newIdea;
             };
             
-            const updateSavedIdea = (id, updates) => {
-                setSavedIdeas(prev => prev.map(idea => 
+            const updateSavedIdea = async (id, updates) => {
+                const updatedIdeas = savedIdeas.map(idea =>
                     idea.id === id ? { ...idea, ...updates, dateUpdated: new Date().toISOString().split('T')[0] } : idea
-                ));
+                );
+                setSavedIdeas(updatedIdeas);
+                const updated = updatedIdeas.find(i => i.id === id);
+                if (updated) {
+                    try {
+                        await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.savedIdeas, id, SheetsAPI.ideaToRow(updated));
+                    } catch (e) {
+                        console.error('Failed to update idea in Sheets:', e);
+                    }
+                }
             };
             
-            const deleteSavedIdea = (id) => {
-                setSavedIdeas(prev => prev.filter(idea => idea.id !== id));
+            const deleteSavedIdea = async (id) => {
+                const idea = savedIdeas.find(i => i.id === id);
+                setSavedIdeas(prev => prev.filter(i => i.id !== id));
+                if (idea) {
+                    try {
+                        await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.savedIdeas, id, SheetsAPI.ideaToRow(idea, 'deleted'));
+                    } catch (e) {
+                        console.error('Failed to mark idea deleted in Sheets:', e);
+                    }
+                }
             };
             
             const convertIdeaToActivity = async (ideaId) => {
@@ -662,7 +768,7 @@
                     kidName: idea.kidName
                 });
                 
-                deleteSavedIdea(ideaId);
+                await deleteSavedIdea(ideaId);
                 return newActivity;
             };
             
@@ -735,22 +841,44 @@
                 return synced;
             };
             
-            const updateActivity = (id, updates) => {
-                setActivities(prev => prev.map(a => a.id === id ? { ...a, ...updates, dateUpdated: new Date().toISOString().split('T')[0] } : a));
+            const updateActivity = async (id, updates) => {
+                const activity = activities.find(a => a.id === id);
+                if (!activity) return;
+                const updated = { ...activity, ...updates, dateUpdated: new Date().toISOString().split('T')[0] };
+                setActivities(prev => prev.map(a => a.id === id ? updated : a));
+                try {
+                    await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.activities, id, SheetsAPI.activityToRow(updated));
+                } catch (e) {
+                    console.error('Failed to sync activity update to Sheets:', e);
+                }
             };
             
-            const approveActivity = (id) => {
+            const approveActivity = async (id) => {
                 const activity = activities.find(a => a.id === id);
-                if (activity && !activity.isSample) {
-                    updateActivity(id, { status: 'approved' });
-                    setUserProfiles(prev => ({
-                        ...prev,
-                        [activity.kidId]: {
-                            ...prev[activity.kidId],
-                            budgetRemaining: prev[activity.kidId].budgetRemaining - (activity.estimatedCost * CONFIG.softParams.eurToUsdRate),
-                            approvedActivities: prev[activity.kidId].approvedActivities + 1
+                if (!activity || activity.isSample) return;
+                const updated = { ...activity, status: 'approved', dateUpdated: new Date().toISOString().split('T')[0] };
+                setActivities(prev => prev.map(a => a.id === id ? updated : a));
+                setUserProfiles(prev => ({
+                    ...prev,
+                    [activity.kidId]: {
+                        ...prev[activity.kidId],
+                        budgetRemaining: prev[activity.kidId].budgetRemaining - (activity.estimatedCost * CONFIG.softParams.eurToUsdRate),
+                        approvedActivities: prev[activity.kidId].approvedActivities + 1
+                    }
+                }));
+                // Sync approval to Sheets
+                try {
+                    const data = await SheetsAPI.read(CONFIG.SHEET_NAMES.activities);
+                    if (data && data.length >= 2) {
+                        const rowIndex = data.slice(1).findIndex(row => row[0] === id);
+                        if (rowIndex !== -1) {
+                            const sheetRow = rowIndex + 2;
+                            await SheetsAPI.update(CONFIG.SHEET_NAMES.activities, 'A' + sheetRow + ':N' + sheetRow, [SheetsAPI.activityToRow(updated)]);
+                            console.log('Approval synced to Sheets, row', sheetRow);
                         }
-                    }));
+                    }
+                } catch (e) {
+                    console.error('Failed to sync approval to Sheets:', e);
                 }
             };
             
@@ -834,19 +962,42 @@
                 return newItem;
             };
 
-            const toggleBookingStatus = (id) => {
-                setBookingItems(prev => prev.map(b => 
-                    b.id === id 
-                        ? { ...b, 
-                            status: b.status === 'booked' ? 'pending' : 'booked',
-                            dateBooked: b.status === 'booked' ? null : new Date().toISOString().split('T')[0]
-                          } 
-                        : b
-                ));
+            const toggleBookingStatus = async (id) => {
+                const item = bookingItems.find(b => b.id === id);
+                if (!item) return;
+                const updated = {
+                    ...item,
+                    status: item.status === 'booked' ? 'pending' : 'booked',
+                    dateBooked: item.status === 'booked' ? null : new Date().toISOString().split('T')[0]
+                };
+                setBookingItems(prev => prev.map(b => b.id === id ? updated : b));
+                try {
+                    const row = [
+                        updated.id, updated.title, updated.city || '', updated.notes || '',
+                        updated.link || '', updated.status, updated.dateAdded,
+                        updated.dateBooked || '', updated.activityId || ''
+                    ];
+                    await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.bookingList, id, row);
+                } catch (e) {
+                    console.error('Failed to sync booking toggle to Sheets:', e);
+                }
             };
 
-            const deleteBookingItem = (id) => {
+            const deleteBookingItem = async (id) => {
+                const item = bookingItems.find(b => b.id === id);
                 setBookingItems(prev => prev.filter(b => b.id !== id));
+                if (item) {
+                    try {
+                        const row = [
+                            item.id, item.title, item.city || '', item.notes || '',
+                            item.link || '', 'deleted', item.dateAdded,
+                            item.dateBooked || '', item.activityId || ''
+                        ];
+                        await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.bookingList, id, row);
+                    } catch (e) {
+                        console.error('Failed to mark booking deleted in Sheets:', e);
+                    }
+                }
             };
 
             return { 
@@ -910,7 +1061,7 @@
             return `You are a friendly travel planning assistant helping ${user.name} (age ${user.age}) plan activities for their family's Europe trip in summer 2026.
 
 ## Your Role & Scope
-You are a Europe trip planning assistant for the Wilcoxson family's summer 2026 trip. You help with:
+You are a Europe trip planning assistant for Team Wonder & Awe's summer 2026 trip. You help with:
 ✅ Planning and researching activities, restaurants, and experiences in ${cities}
 ✅ Train routes, journey times, connections, and booking tips (Trenitalia, SNCF, SBB, Interrail, etc.)
 ✅ Ferries, buses, taxis, and all other transit between and within cities
@@ -2517,7 +2668,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 const dateRange = (selectedCity.startDate && selectedCity.endDate)
                     ? 'from ' + selectedCity.startDate + ' to ' + selectedCity.endDate : '';
 
-                const prompt = 'The Wilcoxson family (two parents and two kids ages 11 and 14) is spending time in '
+                const prompt = 'Team Wonder & Awe (two parents and two kids ages 11 and 14) is spending time in '
                     + selectedCity.city + ', ' + selectedCity.country + ' ' + dateRange
                     + ' during their 3-week Europe trip in summer 2026.\n\n'
                     + 'Approved plans so far:\n' + activityList
@@ -2548,7 +2699,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         </button>
                         <div style={{ flex: 1 }}>
                             <h1 style={{ fontSize: '1.15rem', fontWeight: 600, lineHeight: 1.2 }}>Follow Along &#128065;&#65039;</h1>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>Wilcoxson Family &middot; Summer 2026</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>Team Wonder &amp; Awe &middot; Summer 2026</p>
                         </div>
                     </header>
 
@@ -2747,7 +2898,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const handlePasswordSuccess = () => { setShowPasswordModal(false); setIsAdmin(true); if (pendingAction?.type === 'settings') setScreen('dashboard'); else if (pendingAction?.type === 'approve') store.approveActivity(pendingAction.activityId); setPendingAction(null); };
             const handleApprove = (id) => { if (isAdmin) store.approveActivity(id); else { setPendingAction({ type: 'approve', activityId: id }); setShowPasswordModal(true); } };
             const handleFeedback = (id) => setFeedbackActivity(store.activities.find(a => a.id === id));
-            const handleSubmitFeedback = (feedback) => { if (feedbackActivity) store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
+            const handleSubmitFeedback = async (feedback) => { if (feedbackActivity) await store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
             
             const handleToggleBooked = (id) => store.toggleBookingStatus(id);
             const handleDeleteBooking = (id) => { if (confirm('Remove this booking item?')) store.deleteBookingItem(id); };
