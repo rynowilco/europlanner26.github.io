@@ -531,7 +531,7 @@
                 this.initialized = true;
             },
             
-            async sendDigest(kidName, sessionSummary, activitiesSubmitted, budgetStatus, toEmail) {
+            async sendDigest(kidName, sessionSummary, activitiesSubmitted, toEmail) {
                 this.init();
                 
                 try {
@@ -542,8 +542,7 @@
                             to_email: toEmail,
                             kid_name: kidName,
                             session_summary: sessionSummary || 'Had a planning chat',
-                            activities_submitted: activitiesSubmitted || 'None this session',
-                            budget_status: budgetStatus || 'See app for details'
+                            activities_submitted: activitiesSubmitted || 'None this session'
                         }
                     );
                     console.log('Email sent successfully:', result);
@@ -554,10 +553,10 @@
                 }
             },
             
-            async sendDigestToBothParents(kidName, sessionSummary, activitiesSubmitted, budgetStatus) {
+            async sendDigestToBothParents(kidName, sessionSummary, activitiesSubmitted) {
                 const results = await Promise.all(
                     CONFIG.PARENT_EMAILS.map(email => 
-                        this.sendDigest(kidName, sessionSummary, activitiesSubmitted, budgetStatus, email)
+                        this.sendDigest(kidName, sessionSummary, activitiesSubmitted, email)
                     )
                 );
                 return results.every(r => r);
@@ -1158,7 +1157,6 @@ ${familyStatus}
 - All submitted activities need parent approval before the deadline
 - You can approve or give feedback on activities in the Dashboard
 ` : `## ${user.name}'s Planning Status
-- Budget: $${user.budgetRemaining?.toFixed(0) || user.budgetTotal} of $${user.budgetTotal} remaining
 - Activities approved: ${userActivities.filter(a => a.status === 'approved').length}/3 required
 - Deadline: 3 activities need parent approval by May 11, 2026
 `}
@@ -1186,7 +1184,6 @@ ${otherActivities.length > 0 ? otherActivities.map(a => '- "' + a.title + '" in 
 ## Conflict Detection
 Before suggesting or submitting an activity, check for potential conflicts:
 - **SCHEDULING:** Is there already an activity submitted or approved for the same city? Flag it if so.
-- **BUDGET:** Would this push ${user.name}'s remaining budget ($${user.budgetRemaining?.toFixed(0) || user.budgetTotal}) below zero? Warn if it would.
 - **LOGISTICS:** Does this require advance booking and the trip is coming up fast? Is travel time over 2 hours?
 - **DUPLICATION:** Has anyone in the family already planned something very similar?
 
@@ -1436,7 +1433,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{locked ? 'Sign in to plan' : `$${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · ${approved}/3 activities`}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{locked ? 'Sign in to plan' : `${approved}/3 activities`}</div>
                                 </div>
                                 <Icon name={locked ? 'Lock' : 'ChevronRight'} size={24} color="var(--color-text-light)" />
                             </button>
@@ -1455,7 +1452,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{locked ? 'Sign in to plan' : `$${user.budgetRemaining?.toFixed(0) || user.budgetTotal} left · ${approved} activities`}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{locked ? 'Sign in to plan' : `${approved} activities`}</div>
                                 </div>
                                 <Icon name={locked ? 'Lock' : 'ChevronRight'} size={24} color="var(--color-text-light)" />
                             </button>
@@ -1562,14 +1559,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             }, []);
             
             const sendActivityEmail = async (activity) => {
-                const profile = store.userProfiles[userId];
-                const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
-                
                 await EmailService.sendDigestToBothParents(
                     user.name,
                     `Submitted a new activity for review!`,
-                    `• ${activity.title} in ${activity.city} (€${activity.estimatedCost})\n\n${activity.description}`,
-                    budgetText
+                    `• ${activity.title} in ${activity.city} (€${activity.estimatedCost})\n\n${activity.description}`
                 );
             };
             
@@ -1590,8 +1583,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 
                 const summary = generateSessionSummary();
                 if (summary) {
-                    const profile = store.userProfiles[userId];
-                    const budgetText = `$${profile?.budgetRemaining?.toFixed(0) || 1000} remaining of $${profile?.budgetTotal || 1000}`;
                     const topicsText = summary.topics.join('\n• ');
                     const activitiesText = summary.activitiesSubmitted.length > 0
                         ? summary.activitiesSubmitted.map(a => `• ${a}`).join('\n')
@@ -1599,8 +1590,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     EmailService.sendDigestToBothParents(
                         user.name,
                         `Topics discussed:\n• ${topicsText}`,
-                        activitiesText,
-                        budgetText
+                        activitiesText
                     ).catch(err => console.log('Email send error:', err));
                 }
                 
@@ -1855,7 +1845,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-sm)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{user.emoji}</div>
                         <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600, fontSize: '1rem' }}>{user.name}'s Planning</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>${store.userProfiles[userId]?.budgetRemaining?.toFixed(0) || user.budgetRemaining} left</div>
+
                         </div>
                         <button onClick={onOpenMap} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
                             <Icon name="Map" size={20} />
@@ -1995,7 +1985,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 {/* Chat prompt chips — scrolls horizontally on mobile */}
                                 <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', overflowX: 'auto', paddingBottom: '2px' }}>
                                     {(user.isParent ? [
-                                        { label: 'Family Status', icon: 'Users', prompt: 'Give me a full family status update — what activities have been submitted and approved for each kid, who still needs more, budget remaining, and what needs my attention.' },
+                                        { label: 'Family Status', icon: 'Users', prompt: 'Give me a full family status update — what activities have been submitted and approved for each kid, who still needs more, and what needs my attention.' },
                                         { label: "What's the Plan", icon: 'Calendar', prompt: "Walk me through the full trip plan — cities, dates, transfer days, and anything notable we need to prepare for." },
                                         { label: 'All Activities', icon: 'List', prompt: 'Show me all submitted and approved activities across the whole family.' },
                                         { label: 'Trip Logistics', icon: 'Map', prompt: 'Help me think through the logistics of this trip — trains between cities, what needs booking in advance, transfer day plans, and anything I might be missing.' },
@@ -2148,17 +2138,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         )}
                     </div>
                     
-                    {/* Budget summary */}
-                    <div style={{ display: 'flex', gap: 'var(--space-md)', padding: 'var(--space-md)', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
-                        {Object.entries(userProfiles).map(([key, user]) => (
-                            <div key={key} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-                                <div style={{ fontSize: '1.5rem' }}>{user.emoji}</div>
-                                <div style={{ fontWeight: 600 }}>{user.name}</div>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>${user.budgetRemaining?.toFixed(0)} left</div>
-                                <div style={{ fontSize: '0.8rem', color: user.color, fontWeight: 500 }}>{activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length}/3 approved</div>
-                            </div>
-                        ))}
-                    </div>
+
                     
                     {/* Ideas Tab */}
                     {activeTab === 'ideas' && (
@@ -2675,11 +2655,12 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     + '\n\nWrite a warm, friendly 2-3 sentence summary of what they have planned, '
                     + 'written for friends and family following along from home. '
                     + 'Keep it conversational and enthusiastic. '
+                    + 'Always refer to the family by the exact name **_Team Wonder & Awe_** (bold italic). Never say "the family" or any other variation. '
                     + 'If nothing is booked yet, say plans are still taking shape and that is part of the fun.';
 
                 callClaudeAPI(
                     [{ isUser: true, text: prompt }],
-                    'You write warm, concise travel summaries for a family trip. Respond in 2-3 sentences only. Plain conversational text, no markdown, no bullet points, no lists.'
+                    'You write warm, concise travel summaries for a family trip. Respond in 2-3 sentences only. Conversational text — no bullet points, no lists, no headers. Bold and italic markdown are allowed.'
                 ).then(text => {
                     setAiSummary(text);
                     setLoadingSummary(false);
