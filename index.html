@@ -293,7 +293,7 @@
 
             async append(sheetName, values) {
                 try {
-                    await this.callSheets({ operation: 'append', sheet: sheetName, values: [values] });
+                    await this.callSheets({ operation: 'append', sheet: sheetName, values });
                     console.log('✅ Synced to Sheets');
                     return true;
                 } catch (error) {
