@@ -488,7 +488,7 @@
                 if (!rows || rows.length < 2) return [];
                 return rows.slice(1).filter(row => row[0] && row[9] !== 'deleted').map(row => ({
                     id: row[0] || '',
-                    kidId: row[1] || '',
+                    kidId: (row[1] || '').toLowerCase(),
                     kidName: row[2] || '',
                     title: row[3] || '',
                     city: row[4] || '',
@@ -2366,8 +2366,11 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                 return activities;
             }, [activities, filter]);
             
-            const abbyIdeas = savedIdeas.filter(i => i.kidId === 'abby');
-            const tylerIdeas = savedIdeas.filter(i => i.kidId === 'tyler');
+            const ideasByUser = savedIdeas.reduce((acc, i) => {
+                if (!acc[i.kidId]) acc[i.kidId] = [];
+                acc[i.kidId].push(i);
+                return acc;
+            }, {});
             
             const handleResetCache = () => {
                 if (confirm('This will clear all cached data and reload from Google Sheets. Continue?')) {
@@ -2420,47 +2423,30 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 </div>
                             ) : (
                                 <>
-                                    {abbyIdeas.length > 0 && (
-                                        <div style={{ marginBottom: 'var(--space-lg)' }}>
-                                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span style={{ fontSize: '1.25rem' }}>⚽</span> Abby's Ideas ({abbyIdeas.length})
-                                            </h3>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                                {abbyIdeas.map(idea => (
-                                                    <IdeaCard 
-                                                        key={idea.id} 
-                                                        idea={idea} 
-                                                        isOwner={currentUserId === 'abby' || isAdmin}
-                                                        onRefine={onRefineIdea}
-                                                        onSubmit={onSubmitIdea}
-                                                        onDelete={onDeleteIdea}
-                                                        userProfiles={userProfiles}
-                                                    />
-                                                ))}
+                                    {Object.entries(ideasByUser).map(([kidId, ideas]) => {
+                                        const profile = userProfiles[kidId] || {};
+                                        const isOwner = currentUserId === kidId || isAdmin;
+                                        return (
+                                            <div key={kidId} style={{ marginBottom: 'var(--space-lg)' }}>
+                                                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span style={{ fontSize: '1.25rem' }}>{profile.emoji || '💡'}</span> {profile.name || kidId}'s Ideas ({ideas.length})
+                                                </h3>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                                    {ideas.map(idea => (
+                                                        <IdeaCard
+                                                            key={idea.id}
+                                                            idea={idea}
+                                                            isOwner={isOwner}
+                                                            onRefine={onRefineIdea}
+                                                            onSubmit={onSubmitIdea}
+                                                            onDelete={onDeleteIdea}
+                                                            userProfiles={userProfiles}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                    
-                                    {tylerIdeas.length > 0 && (
-                                        <div style={{ marginBottom: 'var(--space-lg)' }}>
-                                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span style={{ fontSize: '1.25rem' }}>🏈</span> Tyler's Ideas ({tylerIdeas.length})
-                                            </h3>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                                {tylerIdeas.map(idea => (
-                                                    <IdeaCard 
-                                                        key={idea.id} 
-                                                        idea={idea} 
-                                                        isOwner={currentUserId === 'tyler' || isAdmin}
-                                                        onRefine={onRefineIdea}
-                                                        onSubmit={onSubmitIdea}
-                                                        onDelete={onDeleteIdea}
-                                                        userProfiles={userProfiles}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })}
                                 </>
                             )}
                         </div>
