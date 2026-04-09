@@ -1469,7 +1469,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         // Welcome Screen (Euro Explorers path)
         const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, activities, onOpenAdmin, onOpenDashboard, onOpenMap, onBack }) => {
             const [forkUser, setForkUser] = useState(null);
-            const journalActive = new Date() >= new Date(CONFIG.JOURNAL_MODE_DATE);
+            const journalActive = true;
 
             const handleCardTap = (key) => {
                 if (journalActive) { setForkUser(key); }
