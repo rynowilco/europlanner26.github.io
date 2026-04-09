@@ -117,6 +117,7 @@
             EMAILJS_SERVICE_ID: 'service_3uu6sr7',
             EMAILJS_TEMPLATE_ID: 'template_q5foa71',
             EMAILJS_PUBLIC_KEY: 'vp0WzqrRRXnzh_y58',
+            JOURNAL_MODE_DATE: '2026-06-06',
             PARENT_EMAILS: ['katieheindel@gmail.com', 'talentonian@gmail.com'],
             
             // Default user data (will be overwritten by Google Sheets)
@@ -187,7 +188,7 @@
                 { city: 'TBD',                 country: 'Italy',         startDate: '2026-06-28', endDate: '2026-07-01', lat: 45.5000, lng: 11.5000, language: 'Italian' },
                 { city: 'Dolomites',           country: 'Italy',         startDate: '2026-07-01', endDate: '2026-07-04', lat: 46.4102, lng: 11.8440, language: 'Italian' },
                 { city: 'Transfer - Kids Choice', country: 'Italy/Austria',    startDate: '2026-07-04', endDate: '2026-07-05', lat: 47.0011, lng: 11.5000, isTransfer: true, language: 'German'  },
-                { city: 'Innbruck',            country: 'Austria',       startDate: '2026-07-05', endDate: '2026-07-07', lat: 47.2692, lng: 11.4041, language: 'German'  },
+                { city: 'Innsbruck',           country: 'Austria',       startDate: '2026-07-05', endDate: '2026-07-07', lat: 47.2692, lng: 11.4041, language: 'German'  },
                 { city: 'Transfer - Kids Choice', country: 'Austria/Germany', startDate: '2026-07-07', endDate: '2026-07-08', lat: 47.5000, lng: 12.2000, isTransfer: true, language: 'German'  },
                 { city: 'Frankfurt',           country: 'Germany',       startDate: '2026-07-09', endDate: '2026-07-09', lat: 50.1109, lng:  8.6821, language: 'German'  }
             ],
@@ -387,6 +388,7 @@
                     'ortisei': { lat: 46.5744, lng: 11.6717 },
                     'innbrücke': { lat: 47.2800, lng: 11.4500 },
                     'innsbruck': { lat: 47.2692, lng: 11.4041 },
+                    'innbruck': { lat: 47.2692, lng: 11.4041 },  // misspelling alias
                     'ampass': { lat: 47.2667, lng: 11.4667 },
                     'train day - kids choice': { lat: 46.0, lng: 9.0 }
                 };
@@ -506,6 +508,32 @@
                 ];
             },
 
+            parseJournalEntries(rows) {
+                if (!rows || rows.length < 2) return [];
+                return rows.slice(1).filter(row => row[0]).map(row => ({
+                    id: row[0] || '',
+                    userId: row[1] || '',
+                    userName: row[2] || '',
+                    city: row[3] || '',
+                    date: row[4] || '',
+                    entryText: row[5] || '',
+                    mood: row[6] || '',
+                    lat: parseFloat(row[7]) || null,
+                    lng: parseFloat(row[8]) || null,
+                    timestamp: row[9] || '',
+                    heartCount: parseInt(row[10]) || 0,
+                }));
+            },
+
+            journalEntryToRow(entry) {
+                return [
+                    entry.id, entry.userId, entry.userName, entry.city,
+                    entry.date, entry.entryText, entry.mood || '',
+                    entry.lat || '', entry.lng || '', entry.timestamp,
+                    entry.heartCount || 0, ''
+                ];
+            },
+
             // Generic helper: read sheet, find row by ID in col 0, update it
             async findAndUpdateRow(sheetName, id, values) {
                 const data = await this.read(sheetName);
@@ -593,6 +621,11 @@
                 const saved = localStorage.getItem('euroPlanner_bookingItems');
                 return saved ? JSON.parse(saved) : [];
             });
+
+            const [journalEntries, setJournalEntries] = useState(() => {
+                const saved = localStorage.getItem('euroPlanner_journalEntries');
+                return saved ? JSON.parse(saved) : [];
+            });
             
             const [userProfiles, setUserProfiles] = useState(() => {
                 const saved = localStorage.getItem('euroPlanner_profiles');
@@ -675,8 +708,17 @@
                             }
                         }
 
-                        // Flush any locally-saved unsynced activities
-                        const localRaw = localStorage.getItem('euroPlanner_activities');
+                        // Load journal entries
+                        const journalData = await SheetsAPI.read(CONFIG.SHEET_NAMES.journal);
+                        if (journalData && journalData.length > 1) {
+                            const parsedJournal = SheetsAPI.parseJournalEntries(journalData);
+                            if (parsedJournal.length > 0) {
+                                setJournalEntries(parsedJournal);
+                                console.log('Loaded journal entries:', parsedJournal.length);
+                            }
+                        }
+
+                        // Flush any locally-saved unsynced activities                        const localRaw = localStorage.getItem('euroPlanner_activities');
                         const localActivities = localRaw ? JSON.parse(localRaw) : [];
                         const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample);
                         if (unsynced.length > 0) {
@@ -702,6 +744,7 @@
             useEffect(() => { localStorage.setItem('euroPlanner_lastActivity', JSON.stringify(lastActivity)); }, [lastActivity]);
             useEffect(() => { localStorage.setItem('euroPlanner_profiles', JSON.stringify(userProfiles)); }, [userProfiles]);
             useEffect(() => { localStorage.setItem('euroPlanner_bookingItems', JSON.stringify(bookingItems)); }, [bookingItems]);
+            useEffect(() => { localStorage.setItem('euroPlanner_journalEntries', JSON.stringify(journalEntries)); }, [journalEntries]);
             
             // Saved Ideas management
             const addSavedIdea = async (idea) => {
@@ -999,6 +1042,45 @@
                 }
             };
 
+            const addJournalEntry = async (userId, userName, city, entryText, mood, lat, lng) => {
+                const now = new Date();
+                const entry = {
+                    id: 'JRNL-' + Date.now(),
+                    userId, userName, city,
+                    date: now.toISOString().split('T')[0],
+                    entryText, mood: mood || '',
+                    lat: lat || null, lng: lng || null,
+                    timestamp: now.toISOString(),
+                    heartCount: 0,
+                };
+                setJournalEntries(prev => [entry, ...prev]);
+                try {
+                    await SheetsAPI.append(CONFIG.SHEET_NAMES.journal, SheetsAPI.journalEntryToRow(entry));
+                    console.log('Journal entry saved to Sheets:', entry.id);
+                } catch (e) { console.error('Failed to save journal entry:', e); }
+                return entry;
+            };
+
+            const heartJournalEntry = async (entryId) => {
+                const storageKey = 'euroPlanner_heartedEntries';
+                const hearted = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                const alreadyHearted = hearted.includes(entryId);
+                const delta = alreadyHearted ? -1 : 1;
+                localStorage.setItem(storageKey, JSON.stringify(
+                    alreadyHearted ? hearted.filter(id => id !== entryId) : [...hearted, entryId]
+                ));
+                const current = journalEntries.find(e => e.id === entryId);
+                if (!current) return;
+                const newCount = Math.max(0, (current.heartCount || 0) + delta);
+                setJournalEntries(prev => prev.map(e =>
+                    e.id === entryId ? { ...e, heartCount: newCount } : e
+                ));
+                try {
+                    await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.journal, entryId,
+                        SheetsAPI.journalEntryToRow({ ...current, heartCount: newCount }));
+                } catch (e) { console.error('Failed to sync heart to Sheets:', e); }
+            };
+
             return { 
                 activities, 
                 savedIdeas,
@@ -1028,7 +1110,10 @@
                 bookingItems,
                 addBookingItem,
                 toggleBookingStatus,
-                deleteBookingItem
+                deleteBookingItem,
+                journalEntries,
+                addJournalEntry,
+                heartJournalEntry
             };
         };
         
@@ -1381,10 +1466,18 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         );
 
         // Welcome Screen (Euro Explorers path)
-        const WelcomeScreen = ({ onSelectUser, userProfiles, activities, onOpenSettings, onOpenDashboard, onOpenMap, onBack }) => (
+        const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, activities, onOpenAdmin, onOpenDashboard, onOpenMap, onBack }) => {
+            const [forkUser, setForkUser] = useState(null);
+            const journalActive = new Date() >= new Date(CONFIG.JOURNAL_MODE_DATE);
+
+            const handleCardTap = (key) => {
+                if (journalActive) { setForkUser(key); }
+                else { onSelectUser(key); }
+            };
+            return (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
                 <header style={{ textAlign: 'center', paddingTop: 'var(--space-xl)', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out', position: 'relative' }}>
-                    <button onClick={onBack} style={{ position: 'absolute', left: 0, top: 'var(--space-xl)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-text-light)', fontSize: '0.9rem', padding: '4px' }}>
+                    <button onClick={onBack} style={{ position: 'absolute', left: 0, top: 'var(--space-xl)', background: 'var(--color-navy)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'white', fontSize: '0.9rem', fontWeight: 600, padding: '8px 14px', boxShadow: 'var(--shadow-sm)' }}>
                         🏠 Home
                     </button>
                     <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
@@ -1427,7 +1520,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
                         const locked = false;
                         return (
-                            <button key={key} onClick={() => !locked && onSelectUser(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
+                            <button key={key} onClick={() => !locked && handleCardTap(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
                                 onMouseEnter={(e) => { if (!locked) { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
                                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none'; }}>
                                 <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
@@ -1446,7 +1539,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length;
                         const locked = false;
                         return (
-                            <button key={key} onClick={() => !locked && onSelectUser(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
+                            <button key={key} onClick={() => !locked && handleCardTap(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
                                 onMouseEnter={(e) => { if (!locked) { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
                                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none'; }}>
                                 <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
@@ -1468,17 +1561,189 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                             <Icon name="List" size={20} /> Activities
                         </button>
                     </div>
-                </div>
-                
-                <footer style={{ textAlign: 'center', paddingTop: 'var(--space-lg)', paddingBottom: 'var(--space-md)', animation: 'fadeIn 0.6s ease-out 0.5s both' }}>
-                    <button onClick={onOpenSettings} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.9rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-xs)', padding: 'var(--space-sm) var(--space-md)' }}>
-                        <Icon name="Settings" size={16} /> Parent Settings
-                    </button>
 
-                </footer>
+                    {/* Admin Area button */}
+                    <button onClick={onOpenAdmin} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', width: '100%', marginTop: 'var(--space-md)', padding: 'var(--space-md)', background: '#1a1a2e', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, letterSpacing: '0.5px', animation: 'fadeIn 0.6s ease-out 0.6s both' }}>
+                        🔒 Admin Area
+                    </button>
+                </div>
+
+                {/* Journey Mode Fork — position:fixed bottom sheet, shown after June 6 */}
+                {forkUser && (() => {
+                    const u = userProfiles[forkUser] || {};
+                    return (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 500, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-out' }} onClick={() => setForkUser(null)}>
+                            <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', padding: 'var(--space-xl)', width: '100%', animation: 'slideUp 0.25s ease-out' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
+                                    <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-md)', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>{u.emoji}</div>
+                                    <div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Hey {u.name}!</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>What do you want to do?</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                                    <button onClick={() => { setForkUser(null); onSelectUser(forkUser); }} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'var(--color-navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 600, textAlign: 'left' }}>
+                                        <span style={{ fontSize: '24px' }}>💬</span>
+                                        <div>
+                                            <div>Plan the Trip</div>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 400, opacity: 0.75 }}>Chat with your AI travel buddy</div>
+                                        </div>
+                                    </button>
+                                    <button onClick={() => { setForkUser(null); onSelectMemories(forkUser); }} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', color: 'var(--color-navy)', border: '2px solid var(--color-navy)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 600, textAlign: 'left' }}>
+                                        <span style={{ fontSize: '24px' }}>📖</span>
+                                        <div>
+                                            <div>My Memories</div>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--color-text-light)' }}>Journal, photos &amp; moments</div>
+                                        </div>
+                                    </button>
+                                </div>
+                                <button onClick={() => setForkUser(null)} style={{ width: '100%', marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.9rem', cursor: 'pointer' }}>Cancel</button>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
-        );
+            );
+        };
         
+        // ============================================
+        // JOURNAL COMPOSE MODAL
+        // ============================================
+        const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
+            const [entryText, setEntryText] = useState('');
+            const [mood, setMood] = useState('');
+            const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary;
+            const today = new Date().toISOString().split('T')[0];
+            const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate);
+            const cityOptions = [...new Set(tripItinerary.filter(c => !c.isTransfer).map(c => c.city))];
+            const [city, setCity] = useState(currentCity ? currentCity.city : '');
+            const moods = ['😊', '🤩', '😄', '😴', '😤', '😐'];
+            const canSubmit = entryText.trim().length > 0 && city;
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', padding: 'var(--space-xl)', width: '100%', maxHeight: '92vh', overflowY: 'auto', animation: 'slideUp 0.3s ease-out' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
+                            <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-navy)' }}>📖 New Memory</h2>
+                            <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                                <Icon name="X" size={20} color="var(--color-text-light)" />
+                            </button>
+                        </div>
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>Where are you?</label>
+                            <select value={city} onChange={e => setCity(e.target.value)} style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none', boxSizing: 'border-box' }}>
+                                <option value="">Select a city...</option>
+                                {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>How are you feeling?</label>
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                                {moods.map(m => (
+                                    <button key={m} onClick={() => setMood(mood === m ? '' : m)} style={{ fontSize: '28px', background: mood === m ? 'var(--color-cream)' : 'transparent', border: mood === m ? '2px solid var(--color-terracotta)' : '2px solid transparent', borderRadius: 'var(--radius-sm)', padding: '4px 6px', cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1 }}>
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ marginBottom: 'var(--space-lg)' }}>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>What happened today?</label>
+                            <textarea value={entryText} onChange={e => setEntryText(e.target.value)} placeholder="Write about your day, a moment that stood out, something that surprised you..." rows={6} autoFocus style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', textAlign: 'right', marginTop: '4px' }}>{entryText.length} chars</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+                            <button onClick={() => canSubmit && onSubmit(entryText.trim(), mood, city)} disabled={!canSubmit} style={{ flex: 2, padding: 'var(--space-md)', background: canSubmit ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSubmit ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}>
+                                Save Memory ✨
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================
+        // MEMORIES SCREEN (Explorer path)
+        // ============================================
+        const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onBack }) => {
+            const [showCompose, setShowCompose] = useState(false);
+            const myEntries = journalEntries.filter(e => e.userId === userId);
+            const grouped = myEntries.reduce((acc, e) => {
+                if (!acc[e.city]) acc[e.city] = [];
+                acc[e.city].push(e);
+                return acc;
+            }, {});
+            const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary;
+            const today = new Date().toISOString().split('T')[0];
+            const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate);
+            return (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
+                    <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
+                        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
+                            <Icon name="ArrowLeft" size={20} color="white" />
+                        </button>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>{user.emoji} {user.name}'s Memories</div>
+                            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>{myEntries.length} {myEntries.length === 1 ? 'entry' : 'entries'}</div>
+                        </div>
+                        <button onClick={() => setShowCompose(true)} style={{ background: 'var(--color-terracotta)', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 16px', color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer' }}>
+                            + Write
+                        </button>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                        {myEntries.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
+                                <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📖</div>
+                                <p style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.1rem', marginBottom: 'var(--space-sm)' }}>No memories yet</p>
+                                <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 'var(--space-lg)' }}>
+                                    {currentCity ? 'You\'re in ' + currentCity.city + ' — write your first entry!' : 'Start writing when the adventure begins!'}
+                                </p>
+                                <button onClick={() => setShowCompose(true)} style={{ padding: 'var(--space-md) var(--space-xl)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '1rem' }}>
+                                    Write First Entry
+                                </button>
+                            </div>
+                        ) : (
+                            Object.entries(grouped).map(([city, entries]) => (
+                                <div key={city} style={{ marginBottom: 'var(--space-xl)', animation: 'slideUp 0.4s ease-out' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        📍 {city}
+                                    </div>
+                                    {[...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(entry => (
+                                        <div key={entry.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                                                    {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {entry.mood && <span style={{ fontSize: '20px', lineHeight: 1 }}>{entry.mood}</span>}
+                                                    {entry.heartCount > 0 && (
+                                                        <span style={{ fontSize: '0.8rem', color: 'var(--color-terracotta)', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                                                            ❤️ {entry.heartCount}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    {showCompose && (
+                        <JournalComposeModal
+                            user={user}
+                            itinerary={tripItinerary}
+                            onSubmit={async (entryText, mood, city) => {
+                                await onAddEntry(userId, user.name, city, entryText, mood, null, null);
+                                setShowCompose(false);
+                            }}
+                            onCancel={() => setShowCompose(false)}
+                        />
+                    )}
+                </div>
+            );
+        };
+
         // Chat Message
         const ChatMessage = ({ message, isUser, isTyping }) => (
             <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 'var(--space-md)', animation: 'slideIn 0.3s ease-out' }}>
@@ -2224,36 +2489,32 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     {activeTab === 'approved' && (
                         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                             {(() => {
-                                const abbyApproved = activities.filter(a => a.kidId === 'abby' && a.status === 'approved' && !a.isSample);
-                                const tylerApproved = activities.filter(a => a.kidId === 'tyler' && a.status === 'approved' && !a.isSample);
-                                const total = abbyApproved.length + tylerApproved.length;
-                                if (total === 0) return (
+                                const approvedAll = activities.filter(a => a.status === 'approved' && !a.isSample);
+                                if (approvedAll.length === 0) return (
                                     <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
                                         <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>⭐</div>
                                         <p style={{ fontWeight: 600, marginBottom: 'var(--space-sm)' }}>No approved activities yet</p>
                                         <p style={{ fontSize: '0.85rem' }}>Approve submitted activities from the Submitted tab.</p>
                                     </div>
                                 );
-                                return (
-                                    <>
-                                        {abbyApproved.length > 0 && (
-                                            <div>
-                                                <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
-                                                    ⚽ Abby ({abbyApproved.length}/3)
-                                                </h3>
-                                                {abbyApproved.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
-                                            </div>
-                                        )}
-                                        {tylerApproved.length > 0 && (
-                                            <div style={{ marginTop: abbyApproved.length > 0 ? 'var(--space-lg)' : 0 }}>
-                                                <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
-                                                    🏈 Tyler ({tylerApproved.length}/3)
-                                                </h3>
-                                                {tylerApproved.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
-                                            </div>
-                                        )}
-                                    </>
-                                );
+                                const grouped = approvedAll.reduce((acc, a) => {
+                                    if (!acc[a.kidId]) acc[a.kidId] = [];
+                                    acc[a.kidId].push(a);
+                                    return acc;
+                                }, {});
+                                return Object.entries(grouped).map(([kidId, kidActivities], idx) => {
+                                    const profile = userProfiles[kidId] || {};
+                                    const isKid = !profile.isParent;
+                                    const label = (profile.emoji ? profile.emoji + ' ' : '') + (profile.name || kidId) + (isKid ? ' (' + kidActivities.length + '/3)' : ' (' + kidActivities.length + ')');
+                                    return (
+                                        <div key={kidId} style={{ marginTop: idx > 0 ? 'var(--space-md)' : 0 }}>
+                                            <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
+                                                {label}
+                                            </h3>
+                                            {kidActivities.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
+                                        </div>
+                                    );
+                                });
                             })()}
                         </div>
                     )}
@@ -2472,11 +2733,20 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}>
                             <Icon name="ArrowLeft" size={20} />
                         </button>
-                        <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Trip Map</h1>
+                        <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Follow Along</h1>
                         <Icon name="Globe" size={24} color="var(--color-navy)" />
                     </header>
+
+                    {/* Tab bar */}
+                    <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+                        {[{ key: 'map', label: '🗺️ Trip Map' }, { key: 'memories', label: '📖 Memories' }].map(t => (
+                            <button key={t.key} onClick={() => setTrackerTab(t.key)} style={{ flex: 1, padding: 'var(--space-md)', background: 'none', border: 'none', borderBottom: trackerTab === t.key ? '2px solid var(--color-terracotta)' : '2px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: trackerTab === t.key ? 600 : 400, color: trackerTab === t.key ? 'var(--color-terracotta)' : 'var(--color-text-light)', transition: 'all 0.15s' }}>
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
                     
-                    <div style={{ flex: 1, position: 'relative' }}>
+                    {trackerTab === 'map' && <div style={{ flex: 1, position: 'relative' }}>
                         <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
                         
                         {/* City Detail Panel */}
@@ -2592,12 +2862,13 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         // ============================================
         // TRACKER SCREEN (Follow Along)
         // ============================================
-        const TrackerScreen = ({ onBack, activities, itinerary }) => {
+        const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, onHeartEntry }) => {
             const mapRef = useRef(null);
             const mapInstanceRef = useRef(null);
             const [selectedCity, setSelectedCity] = useState(null);
             const [aiSummary, setAiSummary] = useState(null);
             const [loadingSummary, setLoadingSummary] = useState(false);
+            const [trackerTab, setTrackerTab] = useState('map');
 
             const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary;
             const isTransferCity = (city) => city.isTransfer || city.city.toLowerCase().includes('transfer') || city.city.toLowerCase().includes('kids choice');
@@ -2778,7 +3049,56 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 &#128070; Tap a city to see what's planned
                             </div>
                         )}
-                    </div>
+                    </div>}
+
+                    {trackerTab === 'memories' && (() => {
+                        const allEntries = (journalEntries || []).filter(e => e.userId && e.entryText);
+                        const hearted = JSON.parse(localStorage.getItem('euroPlanner_heartedEntries') || '[]');
+                        const grouped = allEntries.reduce((acc, e) => {
+                            if (!acc[e.city]) acc[e.city] = [];
+                            acc[e.city].push(e);
+                            return acc;
+                        }, {});
+                        return (
+                            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+                                {allEntries.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
+                                        <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📖</div>
+                                        <p style={{ fontWeight: 600, color: 'var(--color-navy)', marginBottom: 'var(--space-sm)' }}>No memories yet</p>
+                                        <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', lineHeight: 1.6 }}>Check back once the adventure starts — Team Wonder &amp; Awe will post their moments here!</p>
+                                    </div>
+                                ) : Object.entries(grouped).map(([city, entries]) => (
+                                    <div key={city} style={{ marginBottom: 'var(--space-xl)', animation: 'slideUp 0.4s ease-out' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
+                                            📍 {city}
+                                        </div>
+                                        {[...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(entry => {
+                                            const isHearted = hearted.includes(entry.id);
+                                            return (
+                                                <div key={entry.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-navy)' }}>{entry.userName}</span>
+                                                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                                                                {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {entry.mood && <span style={{ fontSize: '18px', lineHeight: 1 }}>{entry.mood}</span>}
+                                                            <button onClick={() => onHeartEntry && onHeartEntry(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isHearted ? '#FFF0F0' : 'var(--color-cream)', border: isHearted ? '1px solid #FFCCCC' : '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', color: isHearted ? 'var(--color-error)' : 'var(--color-text-light)', fontWeight: 600, transition: 'all 0.15s' }}>
+                                                                {isHearted ? '❤️' : '🤍'} {entry.heartCount > 0 ? entry.heartCount : ''}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
             );
         };
@@ -2893,6 +3213,79 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             );
         };
 
+
+        // ============================================
+        // FINGERPRINT MODAL
+        // ============================================
+        const FingerprintModal = ({ onSuccess, onCancel }) => {
+            const [phase, setPhase] = React.useState('idle'); // idle | scanning | success
+
+            const handleScan = () => {
+                if (phase !== 'idle') return;
+                setPhase('scanning');
+                setTimeout(() => {
+                    setPhase('success');
+                    setTimeout(() => { onSuccess(); }, 900);
+                }, 1800);
+            };
+
+            const phaseColor = phase === 'success' ? '#4CAF50' : phase === 'scanning' ? 'var(--color-gold)' : 'var(--color-navy)';
+            const phaseLabel = phase === 'success' ? '✓ Identity confirmed' : phase === 'scanning' ? 'Scanning...' : 'Place finger on scanner';
+
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', zIndex: 2000, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div style={{ background: '#0D1B2A', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', width: '100%', maxWidth: '340px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 0 60px rgba(0,0,0,0.8)' }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '3px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 'var(--space-lg)' }}>🔒 Secure Access Terminal</div>
+                        
+                        <div style={{ background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-xl)', fontSize: '0.8rem', color: '#FF8A80', lineHeight: 1.5 }}>
+                            ⚠️ Warning: Unrecognized fingerprints will lock this device for <strong>72 hours</strong> and notify authorities.
+                        </div>
+
+                        {/* Fingerprint scanner */}
+                        <div onClick={handleScan} style={{ cursor: phase === 'idle' ? 'pointer' : 'default', display: 'inline-block', position: 'relative', marginBottom: 'var(--space-lg)' }}>
+                            <svg width="120" height="120" viewBox="0 0 120 120" style={{ filter: phase === 'success' ? 'drop-shadow(0 0 12px #4CAF50)' : phase === 'scanning' ? 'drop-shadow(0 0 12px #D4A853)' : 'drop-shadow(0 0 6px rgba(30,58,95,0.8))', transition: 'filter 0.4s' }}>
+                                {/* Fingerprint arcs */}
+                                {[
+                                    'M 60 95 Q 20 95 20 60 Q 20 25 60 25 Q 100 25 100 60 Q 100 78 88 88',
+                                    'M 60 88 Q 28 88 28 60 Q 28 32 60 32 Q 92 32 92 60 Q 92 74 82 82',
+                                    'M 60 81 Q 36 81 36 60 Q 36 39 60 39 Q 84 39 84 60 Q 84 70 76 76',
+                                    'M 60 74 Q 44 74 44 60 Q 44 46 60 46 Q 76 46 76 60 Q 76 66 70 70',
+                                    'M 60 67 Q 52 67 52 60 Q 52 53 60 53 Q 68 53 68 60 Q 68 62 65 64',
+                                    'M 42 22 Q 60 14 78 22',
+                                    'M 35 28 Q 60 16 85 28',
+                                    'M 60 95 Q 38 97 24 82',
+                                    'M 60 88 Q 42 91 30 78',
+                                ].map((d, i) => (
+                                    <path key={i} d={d} fill="none" stroke={phaseColor} strokeWidth="2.5" strokeLinecap="round"
+                                        style={{ opacity: phase === 'scanning' ? 0 : 1, animation: phase === 'scanning' ? 'pulse 0.8s ease-in-out ' + (i * 0.1) + 's infinite' : 'none', transition: 'stroke 0.4s, opacity 0.3s' }} />
+                                ))}
+                                {/* Success checkmark overlay */}
+                                {phase === 'success' && (
+                                    <path d="M 38 60 L 52 74 L 82 44" fill="none" stroke="#4CAF50" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"
+                                        style={{ animation: 'slideIn 0.3s ease-out' }} />
+                                )}
+                                {/* Outer ring */}
+                                <circle cx="60" cy="60" r="56" fill="none" stroke={phaseColor} strokeWidth="1.5" strokeDasharray={phase === 'scanning' ? '8 4' : 'none'} style={{ opacity: 0.4, transition: 'stroke 0.4s', animation: phase === 'scanning' ? 'spin 2s linear infinite' : 'none' }} />
+                            </svg>
+                            {phase === 'idle' && (
+                                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', animation: 'pulse 2s ease-in-out infinite', background: 'radial-gradient(circle, rgba(30,58,95,0.15) 0%, transparent 70%)' }} />
+                            )}
+                        </div>
+
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: phase === 'success' ? '#4CAF50' : phase === 'scanning' ? 'var(--color-gold)' : 'rgba(255,255,255,0.7)', marginBottom: 'var(--space-xl)', transition: 'color 0.4s', letterSpacing: '0.5px' }}>
+                            {phaseLabel}
+                        </div>
+
+                        {phase === 'idle' && (
+                            <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', cursor: 'pointer', padding: 'var(--space-sm)' }}>
+                                Cancel
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         // ============================================
         // MAIN APP
         // ============================================
@@ -2900,25 +3293,26 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [screen, setScreen] = useState('home');
             const [currentUser, setCurrentUser] = useState(null);
             const [isAdmin, setIsAdmin] = useState(false);
-            const [showPasswordModal, setShowPasswordModal] = useState(false);
-            const [pendingAction, setPendingAction] = useState(null);
+            const [showFingerprintModal, setShowFingerprintModal] = useState(false);
             const [feedbackActivity, setFeedbackActivity] = useState(null);
             const [showAddBooking, setShowAddBooking] = useState(false);
             const [previousScreen, setPreviousScreen] = useState('welcome');
             const store = useStore();
             
             const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat'); };
+            const handleSelectMemories = (userId) => { setCurrentUser(userId); setScreen('memories'); };
             const handleBack = () => {
                 if (screen === 'welcome') { setScreen('home'); }
                 else if (screen === 'chat') { setScreen('welcome'); setCurrentUser(null); store.setRefiningIdea(null); }
+                else if (screen === 'memories') { setScreen('welcome'); setCurrentUser(null); }
                 else if (screen === 'dashboard') { setScreen(currentUser ? 'chat' : 'welcome'); }
                 else if (screen === 'map') { setScreen(previousScreen); }
             };
-            const handleOpenSettings = () => { setPendingAction({ type: 'settings' }); setShowPasswordModal(true); };
+            const handleOpenAdmin = () => setShowFingerprintModal(true);
             const handleOpenDashboard = () => setScreen('dashboard');
             const handleOpenMap = () => { setPreviousScreen(screen); setScreen('map'); };
-            const handlePasswordSuccess = () => { setShowPasswordModal(false); setIsAdmin(true); if (pendingAction?.type === 'settings') setScreen('dashboard'); else if (pendingAction?.type === 'approve') store.approveActivity(pendingAction.activityId); setPendingAction(null); };
-            const handleApprove = (id) => { if (isAdmin) store.approveActivity(id); else { setPendingAction({ type: 'approve', activityId: id }); setShowPasswordModal(true); } };
+            const handleFingerprintSuccess = () => { setShowFingerprintModal(false); setIsAdmin(true); setScreen('dashboard'); };
+            const handleApprove = (id) => store.approveActivity(id);
             const handleFeedback = (id) => setFeedbackActivity(store.activities.find(a => a.id === id));
             const handleSubmitFeedback = async (feedback) => { if (feedbackActivity) await store.updateActivity(feedbackActivity.id, { status: 'needs-revision', parentFeedback: feedback }); setFeedbackActivity(null); };
             
@@ -2934,25 +3328,22 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             };
             const handleSubmitIdea = async (ideaId) => {
                 const activity = await store.convertIdeaToActivity(ideaId);
-                if (activity) {
-                    alert(`"${activity.title}" has been submitted for parent review!`);
-                }
+                if (activity) { alert('"' + activity.title + '" has been submitted for parent review!'); }
             };
             const handleDeleteIdea = (ideaId) => {
-                if (confirm('Delete this saved idea?')) {
-                    store.deleteSavedIdea(ideaId);
-                }
+                if (confirm('Delete this saved idea?')) store.deleteSavedIdea(ideaId);
             };
             
             return (
                 <div style={{ height: '100%' }}>
                     {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} />}
-                    {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} userProfiles={store.userProfiles} activities={store.activities} onOpenSettings={handleOpenSettings} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onBack={handleBack} />}
+                    {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onBack={handleBack} />}
                     {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
+                    {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onBack={handleBack} />}
                     {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} onAddBooking={handleAddBooking} />}
                     {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
-                    {screen === 'tracker' && <TrackerScreen onBack={() => setScreen('home')} activities={store.activities} itinerary={store.itinerary} />}
-                    {showPasswordModal && <PasswordModal onSuccess={handlePasswordSuccess} onCancel={() => { setShowPasswordModal(false); setPendingAction(null); }} />}
+                    {screen === 'tracker' && <TrackerScreen onBack={() => setScreen('home')} activities={store.activities} itinerary={store.itinerary} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} />}
+                    {showFingerprintModal && <FingerprintModal onSuccess={handleFingerprintSuccess} onCancel={() => setShowFingerprintModal(false)} />}
                     {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
                     {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
                 </div>
