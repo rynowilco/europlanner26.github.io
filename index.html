@@ -718,7 +718,8 @@
                             }
                         }
 
-                        // Flush any locally-saved unsynced activities                        const localRaw = localStorage.getItem('euroPlanner_activities');
+                        // Flush any locally-saved unsynced activities
+                        const localRaw = localStorage.getItem('euroPlanner_activities');
                         const localActivities = localRaw ? JSON.parse(localRaw) : [];
                         const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample);
                         if (unsynced.length > 0) {
@@ -2996,9 +2997,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         ))}
                     </div>
 
-                    {trackerTab === 'map' && (
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
+                    {/* Map tab - always mounted, hidden via CSS when not active so Leaflet stays initialized */}
+                    <div style={{ flex: 1, position: 'relative', display: trackerTab === 'map' ? 'block' : 'none' }}>
+                        <div ref={mapRef} style={{ height: '100%', width: '100%' }} />
 
                             {selectedCity && (
                                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', maxHeight: '55%', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s ease-out', zIndex: 1000 }}>
@@ -3051,7 +3052,6 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                 </div>
                             )}
                         </div>
-                    )}
 
                     {trackerTab === 'memories' && (() => {
                         const allEntries = (journalEntries || []).filter(e => e.userId && e.entryText);
