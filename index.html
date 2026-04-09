@@ -1385,7 +1385,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
                 <header style={{ textAlign: 'center', paddingTop: 'var(--space-xl)', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out', position: 'relative' }}>
                     <button onClick={onBack} style={{ position: 'absolute', left: 0, top: 'var(--space-xl)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-text-light)', fontSize: '0.9rem', padding: '4px' }}>
-                        <Icon name="ArrowLeft" size={18} /> Back
+                        🏠 Home
                     </button>
                     <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
                     <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 8vw, 2.5rem)', fontWeight: 600, color: 'var(--color-navy)', letterSpacing: '-0.02em' }}>Euro Explorers</h1>
@@ -2131,6 +2131,9 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                             ✅ Submitted ({activities.filter(a => !a.isSample).length})
                         </button>
+                        <button onClick={() => setActiveTab('approved')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'approved' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'approved' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'approved' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            ⭐ Approved ({activities.filter(a => a.status === 'approved' && !a.isSample).length})
+                        </button>
                         {isAdmin && (
                             <button onClick={() => setActiveTab('bookings')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'bookings' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'bookings' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'bookings' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                 🎟️ Book ({bookingItems.length})
@@ -2217,6 +2220,44 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                         </>
                     )}
                     
+                    {/* Approved Tab */}
+                    {activeTab === 'approved' && (
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                            {(() => {
+                                const abbyApproved = activities.filter(a => a.kidId === 'abby' && a.status === 'approved' && !a.isSample);
+                                const tylerApproved = activities.filter(a => a.kidId === 'tyler' && a.status === 'approved' && !a.isSample);
+                                const total = abbyApproved.length + tylerApproved.length;
+                                if (total === 0) return (
+                                    <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-light)' }}>
+                                        <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>⭐</div>
+                                        <p style={{ fontWeight: 600, marginBottom: 'var(--space-sm)' }}>No approved activities yet</p>
+                                        <p style={{ fontSize: '0.85rem' }}>Approve submitted activities from the Submitted tab.</p>
+                                    </div>
+                                );
+                                return (
+                                    <>
+                                        {abbyApproved.length > 0 && (
+                                            <div>
+                                                <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
+                                                    ⚽ Abby ({abbyApproved.length}/3)
+                                                </h3>
+                                                {abbyApproved.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
+                                            </div>
+                                        )}
+                                        {tylerApproved.length > 0 && (
+                                            <div style={{ marginTop: abbyApproved.length > 0 ? 'var(--space-lg)' : 0 }}>
+                                                <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>
+                                                    🏈 Tyler ({tylerApproved.length}/3)
+                                                </h3>
+                                                {tylerApproved.map(a => <ActivityCard key={a.id} activity={a} isAdmin={isAdmin} onApprove={onApprove} onFeedback={onFeedback} />)}
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
+
                     {/* Booking List Tab — admin only */}
                     {activeTab === 'bookings' && isAdmin && (
                         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
@@ -2655,7 +2696,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                     + '\n\nWrite a warm, friendly 2-3 sentence summary of what they have planned, '
                     + 'written for friends and family following along from home. '
                     + 'Keep it conversational and enthusiastic. '
-                    + 'Always refer to the family by the exact name **_Team Wonder & Awe_** (bold italic). Never say "the family" or any other variation. '
+                    + 'Always refer to the family as **_Team Wonder & Awe_** — bold italic, exactly that phrasing. Never say "the family" or any other variation. '
                     + 'If nothing is booked yet, say plans are still taking shape and that is part of the fun.';
 
                 callClaudeAPI(
@@ -2724,7 +2765,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
                                                     Generating summary...
                                                 </div>
                                             ) : (
-                                                <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)' }}>{aiSummary}</p>
+                                                <div className="markdown-content" style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)' }} dangerouslySetInnerHTML={{ __html: typeof marked !== 'undefined' ? marked.parse(aiSummary || '') : aiSummary }} />
                                             )}
                                         </div>
                                     )}
