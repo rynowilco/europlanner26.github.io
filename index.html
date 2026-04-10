@@ -3302,6 +3302,41 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
         // ============================================
         // MAIN APP
         // ============================================
+        // Non-blocking banner shown when Sheets sync fails.
+        // The app still works from localStorage cache — this just tells the user why
+        // data might be stale. Dismissible, auto-hides after 8 seconds.
+        const SheetsStatusBanner = ({ error, onDismiss }) => {
+            useEffect(() => {
+                if (!error) return;
+                const t = setTimeout(onDismiss, 8000);
+                return () => clearTimeout(t);
+            }, [error]);
+
+            if (!error) return null;
+
+            return (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+                    background: '#7a4f1e', color: '#fff',
+                    padding: '10px 16px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    fontSize: 13, fontFamily: 'var(--font-body)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    animation: 'slideUp 0.3s ease'
+                }}>
+                    <span style={{ fontSize: 16 }}>⚠️</span>
+                    <span style={{ flex: 1 }}>
+                        <strong>Couldn't reach trip data</strong> — showing cached info. Changes may not save until reconnected.
+                    </span>
+                    <button onClick={onDismiss} style={{
+                        background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff',
+                        borderRadius: 6, padding: '3px 10px', cursor: 'pointer',
+                        fontFamily: 'var(--font-body)', fontSize: 12
+                    }}>Dismiss</button>
+                </div>
+            );
+        };
+
         const App = () => {
             const [screen, setScreen] = useState('home');
             const [currentUser, setCurrentUser] = useState(null);
@@ -3310,6 +3345,7 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             const [feedbackActivity, setFeedbackActivity] = useState(null);
             const [showAddBooking, setShowAddBooking] = useState(false);
             const [previousScreen, setPreviousScreen] = useState('welcome');
+            const [bannerDismissed, setBannerDismissed] = useState(false);
             const store = useStore();
             
             const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat'); };
@@ -3349,6 +3385,10 @@ Keep it fun and focused on making this Europe trip amazing! 🎉`;
             
             return (
                 <div style={{ height: '100%' }}>
+                    <SheetsStatusBanner
+                        error={!bannerDismissed && store.sheetsError ? store.sheetsError : null}
+                        onDismiss={() => setBannerDismissed(true)}
+                    />
                     {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} />}
                     {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onBack={handleBack} />}
                     {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
