@@ -327,7 +327,7 @@
                     travelTime: row[7] || '',
                     duration: row[8] || '',
                     otherConsiderations: row[9] || '',
-                    status: (row[10] || 'draft').toLowerCase().replace(' ', '-'),
+                    status: (row[10] || 'draft').toLowerCase().replace(/ /g, '-'),
                     dateSubmitted: row[11] || '',
                     parentFeedback: row[12] || '',
                     dateUpdated: row[13] || '',
@@ -346,7 +346,7 @@
                     const id = name.toLowerCase();
                     profiles[id] = {
                         name: name,
-                        age: parseInt(row[1]) || 11,
+                        age: parseInt(row[1]) || 0,
                         interests: (row[2] || '').split(',').map(s => s.trim()).filter(Boolean),
                         preferences: row[3] || '',
                         budgetTotal: parseFloat(row[4]) || 1000,
@@ -461,7 +461,7 @@
                     activity.travelTime,
                     activity.duration,
                     activity.otherConsiderations,
-                    activity.status.charAt(0).toUpperCase() + activity.status.slice(1).replace('-', ' '),
+                    activity.status ? activity.status.charAt(0).toUpperCase() + activity.status.slice(1).replace(/-/g, ' ') : 'Submitted',
                     activity.dateSubmitted,
                     activity.parentFeedback || '',
                     activity.dateUpdated || activity.dateSubmitted
@@ -470,7 +470,7 @@
 
             parseBookingItems(rows) {
                 if (!rows || rows.length < 2) return [];
-                return rows.slice(1).filter(row => row[0] && row[5] !== 'deleted').map(row => ({
+                return rows.slice(1).filter(row => row[0] && (row[5] || '').toLowerCase() !== 'deleted').map(row => ({
                     id: row[0] || '',
                     title: row[1] || '',
                     city: row[2] || '',
@@ -486,7 +486,7 @@
 
             parseSavedIdeas(rows) {
                 if (!rows || rows.length < 2) return [];
-                return rows.slice(1).filter(row => row[0] && row[9] !== 'deleted').map(row => ({
+                return rows.slice(1).filter(row => row[0] && (row[9] || '').toLowerCase() !== 'deleted').map(row => ({
                     id: row[0] || '',
                     kidId: (row[1] || '').toLowerCase(),
                     kidName: row[2] || '',
@@ -592,45 +592,41 @@
         };
         
         // ============================================
+        // SAFE PARSE HELPERS
+        // ============================================
+
+        // Wraps JSON.parse so corrupted/stale localStorage never crashes the app.
+        // Returns the fallback value on any parse error.
+        const safeParseJSON = (key, fallback) => {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw === null || raw === undefined) return fallback;
+                const parsed = JSON.parse(raw);
+                // Basic type guard: if we expect an array, reject non-arrays
+                if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+                return parsed;
+            } catch (e) {
+                console.warn('safeParseJSON: corrupt localStorage key "' + key + '", using fallback.', e);
+                return fallback;
+            }
+        };
+
+        // ============================================
         // DATA STORE (with Google Sheets sync)
         // ============================================
         const useStore = () => {
-            const [activities, setActivities] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_activities');
-                return saved ? JSON.parse(saved) : [];
-            });
-            
-            const [savedIdeas, setSavedIdeas] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_savedIdeas');
-                return saved ? JSON.parse(saved) : [];
-            });
-            
-            const [sessionSummaries, setSessionSummaries] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_sessionSummaries');
-                return saved ? JSON.parse(saved) : { abby: null, tyler: null, ryan: null, mom: null };
-            });
-            
-            const [lastActivity, setLastActivity] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_lastActivity');
-                return saved ? JSON.parse(saved) : { abby: null, tyler: null, ryan: null, mom: null };
-            });
-            
+            const [activities, setActivities] = useState(() => safeParseJSON('euroPlanner_activities', []));
+            const [savedIdeas, setSavedIdeas] = useState(() => safeParseJSON('euroPlanner_savedIdeas', []));
+            const [sessionSummaries, setSessionSummaries] = useState(() =>
+                safeParseJSON('euroPlanner_sessionSummaries', { abby: null, tyler: null, ryan: null, mom: null })
+            );
+            const [lastActivity, setLastActivity] = useState(() =>
+                safeParseJSON('euroPlanner_lastActivity', { abby: null, tyler: null, ryan: null, mom: null })
+            );
             const [refiningIdea, setRefiningIdea] = useState(null);
-            
-            const [bookingItems, setBookingItems] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_bookingItems');
-                return saved ? JSON.parse(saved) : [];
-            });
-
-            const [journalEntries, setJournalEntries] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_journalEntries');
-                return saved ? JSON.parse(saved) : [];
-            });
-            
-            const [userProfiles, setUserProfiles] = useState(() => {
-                const saved = localStorage.getItem('euroPlanner_profiles');
-                return saved ? JSON.parse(saved) : CONFIG.users;
-            });
+            const [bookingItems, setBookingItems] = useState(() => safeParseJSON('euroPlanner_bookingItems', []));
+            const [journalEntries, setJournalEntries] = useState(() => safeParseJSON('euroPlanner_journalEntries', []));
+            const [userProfiles, setUserProfiles] = useState(() => safeParseJSON('euroPlanner_profiles', CONFIG.users));
             
             const [itinerary, setItinerary] = useState(CONFIG.itinerary);
             const [sheetsLoaded, setSheetsLoaded] = useState(false);
@@ -640,87 +636,116 @@
             useEffect(() => {
                 const loadFromSheets = async () => {
                     try {
-                        console.log('Loading data from Google Sheets...');
-                        
-                        // Load activities from Sheets
-                        const activitiesData = await SheetsAPI.read(CONFIG.SHEET_NAMES.activities);
-                        if (activitiesData && activitiesData.length > 1) {
-                            const sheetsActivities = SheetsAPI.parseActivities(activitiesData);
-                            
-                            if (sheetsActivities.length > 0) {
-                                // Build a set of IDs that exist in Sheets
-                                const sheetsIds = new Set(sheetsActivities.map(a => a.id));
-                                
-                                // Mark any localStorage activities that exist in Sheets as synced
-                                setActivities(prev => {
-                                    const updated = prev.map(a => 
-                                        sheetsIds.has(a.id) ? { ...a, syncedToSheets: true } : a
-                                    );
-                                    // Merge: keep Sheets as source of truth, add local-only items
-                                    const localOnlyIds = updated
-                                        .filter(a => !sheetsIds.has(a.id) && !a.isSample)
-                                        .map(a => a.id);
-                                    const samples = updated.filter(a => a.isSample);
-                                    return [...samples, ...sheetsActivities, ...updated.filter(a => localOnlyIds.includes(a.id))];
-                                });
-                                
-                                console.log('Loaded activities:', sheetsActivities.length);
-                            }
-                        }
-                        
-                        // Load user profiles
-                        const profilesData = await SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles);
-                        if (profilesData && profilesData.length > 1) {
-                            const parsed = SheetsAPI.parseUserProfiles(profilesData);
-                            if (parsed && Object.keys(parsed).length > 0) {
-                                setUserProfiles(prev => ({ ...prev, ...parsed }));
-                                console.log('Loaded user profiles');
-                            }
-                        }
-                        
-                        // Load itinerary
-                        const itineraryData = await SheetsAPI.read(CONFIG.SHEET_NAMES.itinerary);
-                        if (itineraryData && itineraryData.length > 1) {
-                            const parsed = SheetsAPI.parseItinerary(itineraryData);
-                            if (parsed && parsed.length > 0) {
-                                setItinerary(parsed);
-                                console.log('Loaded itinerary:', parsed.length, 'cities');
-                            }
-                        }
-                        
-                        // Load saved ideas
-                        const ideasData = await SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas);
-                        if (ideasData && ideasData.length > 1) {
-                            const parsedIdeas = SheetsAPI.parseSavedIdeas(ideasData);
-                            if (parsedIdeas.length > 0) {
-                                setSavedIdeas(parsedIdeas);
-                                console.log('Loaded saved ideas:', parsedIdeas.length);
-                            }
+                        console.log('Loading data from Google Sheets (parallel)...');
+
+                        // Fire all reads simultaneously — Promise.allSettled never throws,
+                        // so a single failing sheet cannot block the others.
+                        const [
+                            activitiesResult,
+                            profilesResult,
+                            itineraryResult,
+                            ideasResult,
+                            bookingResult,
+                            journalResult
+                        ] = await Promise.allSettled([
+                            SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
+                            SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
+                            SheetsAPI.read(CONFIG.SHEET_NAMES.itinerary),
+                            SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas),
+                            SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList),
+                            SheetsAPI.read(CONFIG.SHEET_NAMES.journal)
+                        ]);
+
+                        // ── Activities ──────────────────────────────────────────
+                        if (activitiesResult.status === 'fulfilled' && activitiesResult.value?.length > 1) {
+                            try {
+                                const sheetsActivities = SheetsAPI.parseActivities(activitiesResult.value);
+                                if (sheetsActivities.length > 0) {
+                                    const sheetsIds = new Set(sheetsActivities.map(a => a.id));
+                                    setActivities(prev => {
+                                        const updated = prev.map(a =>
+                                            sheetsIds.has(a.id) ? { ...a, syncedToSheets: true } : a
+                                        );
+                                        const localOnlyIds = updated
+                                            .filter(a => !sheetsIds.has(a.id) && !a.isSample)
+                                            .map(a => a.id);
+                                        const samples = updated.filter(a => a.isSample);
+                                        return [...samples, ...sheetsActivities, ...updated.filter(a => localOnlyIds.includes(a.id))];
+                                    });
+                                    console.log('Loaded activities:', sheetsActivities.length);
+                                }
+                            } catch (e) { console.warn('parseActivities error:', e); }
+                        } else if (activitiesResult.status === 'rejected') {
+                            console.warn('Activities sheet read failed:', activitiesResult.reason);
                         }
 
-                        // Load booking items
-                        const bookingData = await SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList);
-                        if (bookingData && bookingData.length > 1) {
-                            const parsedBookings = SheetsAPI.parseBookingItems(bookingData);
-                            if (parsedBookings.length > 0) {
-                                setBookingItems(parsedBookings);
-                                console.log('Loaded booking items:', parsedBookings.length);
-                            }
+                        // ── User Profiles ───────────────────────────────────────
+                        if (profilesResult.status === 'fulfilled' && profilesResult.value?.length > 1) {
+                            try {
+                                const parsed = SheetsAPI.parseUserProfiles(profilesResult.value);
+                                if (parsed && Object.keys(parsed).length > 0) {
+                                    setUserProfiles(prev => ({ ...prev, ...parsed }));
+                                    console.log('Loaded user profiles');
+                                }
+                            } catch (e) { console.warn('parseUserProfiles error:', e); }
+                        } else if (profilesResult.status === 'rejected') {
+                            console.warn('User profiles sheet read failed:', profilesResult.reason);
                         }
 
-                        // Load journal entries
-                        const journalData = await SheetsAPI.read(CONFIG.SHEET_NAMES.journal);
-                        if (journalData && journalData.length > 1) {
-                            const parsedJournal = SheetsAPI.parseJournalEntries(journalData);
-                            if (parsedJournal.length > 0) {
-                                setJournalEntries(parsedJournal);
-                                console.log('Loaded journal entries:', parsedJournal.length);
-                            }
+                        // ── Itinerary ───────────────────────────────────────────
+                        if (itineraryResult.status === 'fulfilled' && itineraryResult.value?.length > 1) {
+                            try {
+                                const parsed = SheetsAPI.parseItinerary(itineraryResult.value);
+                                if (parsed?.length > 0) {
+                                    setItinerary(parsed);
+                                    console.log('Loaded itinerary:', parsed.length, 'cities');
+                                }
+                            } catch (e) { console.warn('parseItinerary error:', e); }
+                        } else if (itineraryResult.status === 'rejected') {
+                            console.warn('Itinerary sheet read failed:', itineraryResult.reason);
                         }
 
-                        // Flush any locally-saved unsynced activities
-                        const localRaw = localStorage.getItem('euroPlanner_activities');
-                        const localActivities = localRaw ? JSON.parse(localRaw) : [];
+                        // ── Saved Ideas ─────────────────────────────────────────
+                        if (ideasResult.status === 'fulfilled' && ideasResult.value?.length > 1) {
+                            try {
+                                const parsedIdeas = SheetsAPI.parseSavedIdeas(ideasResult.value);
+                                if (parsedIdeas.length > 0) {
+                                    setSavedIdeas(parsedIdeas);
+                                    console.log('Loaded saved ideas:', parsedIdeas.length);
+                                }
+                            } catch (e) { console.warn('parseSavedIdeas error:', e); }
+                        } else if (ideasResult.status === 'rejected') {
+                            console.warn('Saved ideas sheet read failed:', ideasResult.reason);
+                        }
+
+                        // ── Booking Items ───────────────────────────────────────
+                        if (bookingResult.status === 'fulfilled' && bookingResult.value?.length > 1) {
+                            try {
+                                const parsedBookings = SheetsAPI.parseBookingItems(bookingResult.value);
+                                if (parsedBookings.length > 0) {
+                                    setBookingItems(parsedBookings);
+                                    console.log('Loaded booking items:', parsedBookings.length);
+                                }
+                            } catch (e) { console.warn('parseBookingItems error:', e); }
+                        } else if (bookingResult.status === 'rejected') {
+                            console.warn('Booking items sheet read failed:', bookingResult.reason);
+                        }
+
+                        // ── Journal Entries ─────────────────────────────────────
+                        if (journalResult.status === 'fulfilled' && journalResult.value?.length > 1) {
+                            try {
+                                const parsedJournal = SheetsAPI.parseJournalEntries(journalResult.value);
+                                if (parsedJournal.length > 0) {
+                                    setJournalEntries(parsedJournal);
+                                    console.log('Loaded journal entries:', parsedJournal.length);
+                                }
+                            } catch (e) { console.warn('parseJournalEntries error:', e); }
+                        } else if (journalResult.status === 'rejected') {
+                            console.warn('Journal sheet read failed:', journalResult.reason);
+                        }
+
+                        // ── Flush unsynced local activities ─────────────────────
+                        const localActivities = safeParseJSON('euroPlanner_activities', []);
                         const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample);
                         if (unsynced.length > 0) {
                             console.log('Flushing', unsynced.length, 'unsynced local activities...');
@@ -729,7 +754,7 @@
 
                         setSheetsLoaded(true);
                     } catch (error) {
-                        console.error('Error loading from Sheets:', error);
+                        console.error('Unexpected error in loadFromSheets:', error);
                         setSheetsError(error.message);
                         setSheetsLoaded(true);
                     }
