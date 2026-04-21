@@ -235,26 +235,39 @@ export const SheetsAPI = {
     parseJournalEntries(rows) {
         if (!rows || rows.length < 2) return []
         return rows.slice(1).filter(row => row[0]).map(row => ({
-            id: row[0] || '',
-            userId: row[1] || '',
-            userName: row[2] || '',
-            city: row[3] || '',
-            date: row[4] || '',
-            entryText: row[5] || '',
-            mood: row[6] || '',
-            lat: parseFloat(row[7]) || null,
-            lng: parseFloat(row[8]) || null,
-            timestamp: row[9] || '',
-            heartCount: parseInt(row[10]) || 0,
+            id:         row[0]  || '',
+            userId:     row[1]  || '',
+            userName:   row[2]  || '',
+            city:       row[3]  || '',
+            date:       row[4]  || '',
+            entryText:  row[5]  || '',
+            mood:       row[6]  || '',
+            lat:        parseFloat(row[7])  || null,
+            lng:        parseFloat(row[8])  || null,
+            timestamp:  row[9]  || '',
+            heartCount: parseInt(row[10])   || 0,
+            // row[11] = heartedBy (existing col, not used in frontend)
+            entryType:  row[12] || 'journal',
+            photoUrl:   row[13] || ''
         }))
     },
 
     journalEntryToRow(entry) {
         return [
-            entry.id, entry.userId, entry.userName, entry.city,
-            entry.date, entry.entryText, entry.mood || '',
-            entry.lat || '', entry.lng || '', entry.timestamp,
-            entry.heartCount || 0, ''
+            entry.id,
+            entry.userId,
+            entry.userName,
+            entry.city,
+            entry.date,
+            entry.entryText || '',
+            entry.mood || '',
+            entry.lat || '',
+            entry.lng || '',
+            entry.timestamp,
+            entry.heartCount || 0,
+            '',                          // col 11: heartedBy placeholder (unused)
+            entry.entryType || 'journal',
+            entry.photoUrl  || ''
         ]
     },
 
