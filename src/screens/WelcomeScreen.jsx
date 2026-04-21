@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Icon } from '../components/Icon'
 
-export const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, activities, onOpenAdmin, onOpenDashboard, onOpenMap, onBack }) => {
+export const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, activities, onOpenAdmin, onOpenDashboard, onOpenMap, onOpenFamilyFeed, onBack }) => {
     const [forkUser, setForkUser] = useState(null)
     const journalActive = true
 
@@ -90,11 +90,14 @@ export const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, ac
 
                 {/* Action buttons */}
                 <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', animation: 'fadeIn 0.6s ease-out 0.5s both' }}>
-                    <button onClick={onOpenMap} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-sage)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500 }}>
-                        <Icon name="Map" size={20} /> Trip Map
+                    <button onClick={onOpenMap} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-sage)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+                        <Icon name="Map" size={18} color="white" /> Trip Map
                     </button>
-                    <button onClick={onOpenDashboard} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-tan)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500 }}>
-                        <Icon name="List" size={20} /> Activities
+                    <button onClick={onOpenDashboard} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-tan)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+                        <Icon name="List" size={18} /> Activities
+                    </button>
+                    <button onClick={onOpenFamilyFeed} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+                        📸 Feed
                     </button>
                 </div>
 
@@ -104,7 +107,7 @@ export const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, ac
                 </button>
             </div>
 
-            {/* Journey Mode Fork — bottom sheet, shown after June 6 */}
+            {/* Journey Mode Fork — bottom sheet */}
             {forkUser && (() => {
                 const u = userProfiles[forkUser] || {}
                 return (
