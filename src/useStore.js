@@ -450,21 +450,27 @@ export const useStore = () => {
     }
 
     // ── Journal ─────────────────────────────────────────────────────────────
-    const addJournalEntry = async (userId, userName, city, entryText, mood, lat, lng) => {
+    // entryType: 'journal' (default) or 'photo'
+    // photoUrl: Drive URL for photo entries (empty string for journal entries)
+    const addJournalEntry = async (userId, userName, city, entryText, mood, lat, lng, entryType = 'journal', photoUrl = '') => {
         const now = new Date()
         const entry = {
             id: 'JRNL-' + Date.now(),
             userId, userName, city,
             date: now.toISOString().split('T')[0],
-            entryText, mood: mood || '',
-            lat: lat || null, lng: lng || null,
+            entryText: entryText || '',
+            mood: mood || '',
+            lat: lat || null,
+            lng: lng || null,
             timestamp: now.toISOString(),
             heartCount: 0,
+            entryType,
+            photoUrl: photoUrl || ''
         }
         setJournalEntries(prev => [entry, ...prev])
         try {
             await SheetsAPI.append(CONFIG.SHEET_NAMES.journal, SheetsAPI.journalEntryToRow(entry))
-            console.log('Journal entry saved to Sheets:', entry.id)
+            console.log('Journal entry saved to Sheets:', entry.id, '(' + entryType + ')')
         } catch (e) { console.error('Failed to save journal entry:', e) }
         return entry
     }
