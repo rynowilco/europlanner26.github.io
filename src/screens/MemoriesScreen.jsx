@@ -72,7 +72,7 @@ const readExifGps = async (file) => {
   }
 }
 
-const getThumbUrl = (url, size = 'w800') => {
+const getThumbUrl = (url, size = 'w400') => {
   if (!url) return null
   const match = url.match(/[?&]id=([^&]+)/)
   return match ? `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}` : url
@@ -324,12 +324,6 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
 }
 
 // ─── MemoriesScreen ──────────────────────────────────────────────────────────
-
-const getThumbUrl = (url, size = 'w400') => {
-  if (!url) return null
-  const match = url.match(/[?&]id=([^&]+)/)
-  return match ? `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}` : url
-}
 
 const Lightbox = ({ entry, onClose }) => (
   <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', animation: 'fadeIn 0.2s ease-out' }}>
