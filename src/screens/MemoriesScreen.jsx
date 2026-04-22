@@ -43,28 +43,27 @@ const compressImage = (file) => new Promise((resolve, reject) => {
   img.src = url
 })
 
-const uploadToDrive = async (blob, filename) => {
+const uploadToCloudinary = async (blob, filename) => {
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => resolve(e.target.result.split(',')[1])
     reader.onerror = () => reject(new Error('FileReader failed'))
     reader.readAsDataURL(blob)
   })
-  const res = await fetch('/api/drive', {
+  const res = await fetch('/api/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageData: base64, mimeType: 'image/jpeg', filename })
+    body: JSON.stringify({ imageData: base64, filename })
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || 'Drive upload failed')
+    throw new Error(err.error || 'Upload failed')
   }
   return res.json()
 }
 
 const readExifGps = async (file) => {
   try {
-    // Dynamically import exifr to avoid SSR issues
     const exifr = (await import('exifr')).default
     return await exifr.gps(file)
   } catch {
@@ -72,17 +71,20 @@ const readExifGps = async (file) => {
   }
 }
 
-const getThumbUrl = (url, size = 'w400') => {
+// Cloudinary URLs support on-the-fly transforms via /upload/ path segment
+const getThumbUrl = (url, width = 400) => {
   if (!url) return null
-  const match = url.match(/[?&]id=([^&]+)/)
-  return match ? `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}` : url
+  if (url.includes('cloudinary.com')) {
+    return url.replace('/upload/', `/upload/w_${width},c_fill,q_auto,f_auto/`)
+  }
+  return url
 }
 
 // ─── PhotoUploadModal ────────────────────────────────────────────────────────
 
 const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
-  const [step, setStep] = useState('select') // 'select' | 'review' | 'uploading'
-  const [photos, setPhotos] = useState([]) // { file, previewUrl, caption, city, lat, lng, status }
+  const [step, setStep] = useState('select')
+  const [photos, setPhotos] = useState([])
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, errors: [] })
   const fileInputRef = useRef(null)
 
@@ -94,21 +96,16 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files).slice(0, 10)
     if (files.length === 0) return
-
-    // Build initial photo state while EXIF reads happen in parallel
     const initialPhotos = files.map(file => ({
       file,
       previewUrl: URL.createObjectURL(file),
       caption: '',
       city: currentCity?.city || '',
       lat: null,
-      lng: null,
-      status: 'pending'
+      lng: null
     }))
     setPhotos(initialPhotos)
     setStep('review')
-
-    // Read EXIF GPS in the background and update city auto-detection
     files.forEach(async (file, i) => {
       const gps = await readExifGps(file)
       if (gps?.latitude && gps?.longitude) {
@@ -135,36 +132,29 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
     setStep('uploading')
     const errors = []
     setUploadProgress({ current: 0, total: photos.length, errors: [] })
-
     for (let i = 0; i < photos.length; i++) {
       setUploadProgress(prev => ({ ...prev, current: i + 1 }))
       const photo = photos[i]
       try {
         const blob = await compressImage(photo.file)
         const filename = `EP26_${user.id || user.name}_${Date.now()}_${i}.jpg`
-        const { url } = await uploadToDrive(blob, filename)
+        const { url } = await uploadToCloudinary(blob, filename)
         await onUploadComplete(photo.city, photo.caption.trim(), photo.lat, photo.lng, url)
       } catch (err) {
         console.error('Photo upload error:', err)
         errors.push(i + 1)
       }
     }
-
-    // Cleanup preview URLs
     photos.forEach(p => URL.revokeObjectURL(p.previewUrl))
-
     if (errors.length > 0) {
-      setUploadProgress(prev => ({ ...prev, errors }))
       alert(`${photos.length - errors.length} photo${photos.length - errors.length !== 1 ? 's' : ''} uploaded. ${errors.length} failed — try again later.`)
     }
-    onCancel() // close modal regardless
+    onCancel()
   }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
       <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s ease-out' }}>
-
-        {/* Header */}
         <div style={{ padding: 'var(--space-lg) var(--space-xl) var(--space-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-navy)' }}>
             {step === 'select' ? '📸 Add Photos' : step === 'review' ? `📸 Review ${photos.length} Photo${photos.length !== 1 ? 's' : ''}` : '⬆️ Uploading...'}
@@ -176,15 +166,10 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
           )}
         </div>
 
-        {/* Body */}
         {step === 'select' && (
           <div style={{ padding: 'var(--space-xl)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-lg)' }}>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} style={{ display: 'none' }} />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{ width: '100%', padding: 'var(--space-2xl)', background: 'var(--color-cream)', border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-md)', transition: 'border-color 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-terracotta)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}>
+            <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', padding: 'var(--space-2xl)', background: 'var(--color-cream)', border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-md)', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-terracotta)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'}>
               <div style={{ fontSize: '48px' }}>🖼️</div>
               <div style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1rem' }}>Choose from Camera Roll</div>
               <div style={{ color: 'var(--color-text-light)', fontSize: '0.85rem' }}>Up to 10 photos at a time</div>
@@ -198,33 +183,18 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
             <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
               {photos.map((photo, i) => (
                 <div key={i} style={{ display: 'flex', gap: 'var(--space-md)', background: 'var(--color-cream)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-md)', border: '1px solid var(--color-border)' }}>
-                  {/* Thumbnail */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <img src={photo.previewUrl} alt={`Photo ${i + 1}`} style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', display: 'block' }} />
-                    <button
-                      onClick={() => removePhoto(i)}
-                      style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--color-error)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <button onClick={() => removePhoto(i)} style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--color-error)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                       <Icon name="X" size={12} color="white" />
                     </button>
                   </div>
-                  {/* Fields */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <select
-                      value={photo.city}
-                      onChange={e => updatePhoto(i, 'city', e.target.value)}
-                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none' }}>
+                    <select value={photo.city} onChange={e => updatePhoto(i, 'city', e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none' }}>
                       <option value="">Select city...</option>
                       {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <textarea
-                      value={photo.caption}
-                      onChange={e => updatePhoto(i, 'caption', e.target.value)}
-                      placeholder="Add a caption... (optional)"
-                      rows={2}
-                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }}
-                      onFocus={e => e.target.style.borderColor = 'var(--color-navy)'}
-                      onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
-                    />
+                    <textarea value={photo.caption} onChange={e => updatePhoto(i, 'caption', e.target.value)} placeholder="Add a caption... (optional)" rows={2} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
                   </div>
                 </div>
               ))}
@@ -239,10 +209,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
             </div>
             <div style={{ padding: 'var(--space-md) var(--space-xl)', borderTop: '1px solid var(--color-border)', display: 'flex', gap: 'var(--space-sm)', flexShrink: 0 }}>
               <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-              <button
-                onClick={handleUpload}
-                disabled={photos.some(p => !p.city)}
-                style={{ flex: 2, padding: 'var(--space-md)', background: photos.some(p => !p.city) ? 'var(--color-tan)' : 'var(--color-terracotta)', color: photos.some(p => !p.city) ? 'var(--color-text-light)' : 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: photos.some(p => !p.city) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '1rem' }}>
+              <button onClick={handleUpload} disabled={photos.some(p => !p.city)} style={{ flex: 2, padding: 'var(--space-md)', background: photos.some(p => !p.city) ? 'var(--color-tan)' : 'var(--color-terracotta)', color: photos.some(p => !p.city) ? 'var(--color-text-light)' : 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: photos.some(p => !p.city) ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '1rem' }}>
                 Upload {photos.length} Photo{photos.length !== 1 ? 's' : ''} 📸
               </button>
             </div>
@@ -253,12 +220,9 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-2xl)', gap: 'var(--space-lg)' }}>
             <div style={{ width: '40px', height: '40px', border: '3px solid var(--color-tan)', borderTopColor: 'var(--color-terracotta)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.1rem' }}>
-                Uploading photo {uploadProgress.current} of {uploadProgress.total}
-              </div>
+              <div style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.1rem' }}>Uploading photo {uploadProgress.current} of {uploadProgress.total}</div>
               <div style={{ color: 'var(--color-text-light)', fontSize: '0.85rem', marginTop: '4px' }}>Don't close the app</div>
             </div>
-            {/* Progress bar */}
             <div style={{ width: '100%', maxWidth: '280px', background: 'var(--color-tan)', borderRadius: 'var(--radius-full)', height: '8px', overflow: 'hidden' }}>
               <div style={{ background: 'var(--color-terracotta)', height: '100%', width: `${(uploadProgress.current / uploadProgress.total) * 100}%`, borderRadius: 'var(--radius-full)', transition: 'width 0.4s ease' }} />
             </div>
@@ -330,7 +294,7 @@ const Lightbox = ({ entry, onClose }) => (
     <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: 'var(--space-lg)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
       <Icon name="X" size={20} color="white" />
     </button>
-    <img src={getThumbUrl(entry.photoUrl, 'w1600')} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
+    <img src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
     {entry.entryText && <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px' }}>{entry.entryText}</p>}
     <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 'var(--space-sm)' }}>📍 {entry.city}</div>
   </div>
@@ -347,7 +311,6 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
 
   const myEntries = journalEntries.filter(e => e.userId === userId && (e.entryText || e.photoUrl))
 
-  // Group by date, newest first
   const grouped = myEntries.reduce((acc, e) => {
     const key = e.date || (e.timestamp ? e.timestamp.split('T')[0] : 'Unknown')
     if (!acc[key]) acc[key] = []
@@ -364,7 +327,6 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
-      {/* Header */}
       <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
           <Icon name="ArrowLeft" size={20} color="white" />
@@ -373,7 +335,7 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
           <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>{user.emoji} {user.name}'s Memories</div>
           <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>{myEntries.length} {myEntries.length === 1 ? 'moment' : 'moments'}</div>
         </div>
-        <button onClick={() => setShowPhotoUpload(true)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={() => setShowPhotoUpload(true)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'white', fontSize: '1.1rem', cursor: 'pointer' }}>
           📸
         </button>
         <button onClick={() => setShowCompose(true)} style={{ background: 'var(--color-terracotta)', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 16px', color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer' }}>
@@ -381,7 +343,6 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         </button>
       </div>
 
-      {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
         {myEntries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
@@ -409,13 +370,11 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)', paddingBottom: 'var(--space-xs)', borderBottom: '1px solid var(--color-border)' }}>
                   📅 {formatDay(dateKey)}
                 </div>
-
-                {/* Photo grid */}
                 {photos.length > 0 && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
                     {photos.map(entry => (
                       <div key={entry.id} onClick={() => setLightboxEntry(entry)} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
-                        <img src={getThumbUrl(entry.photoUrl)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={getThumbUrl(entry.photoUrl, 400)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         {entry.entryText && (
                           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', padding: '16px 6px 6px' }}>
                             <div style={{ color: 'white', fontSize: '0.7rem', lineHeight: 1.3 }}>{entry.entryText}</div>
@@ -425,8 +384,6 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
                     ))}
                   </div>
                 )}
-
-                {/* Journal entries */}
                 {journals.map(entry => (
                   <div key={entry.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
@@ -451,7 +408,6 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         )}
       </div>
 
-      {/* Modals */}
       {showCompose && (
         <JournalComposeModal
           user={user}
