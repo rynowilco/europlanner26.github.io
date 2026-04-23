@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Icon } from '../components/Icon'
 
 // Derive a thumbnail URL from a Drive direct URL
@@ -17,39 +17,75 @@ const formatDay = (dateStr) => {
   return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
-const Lightbox = ({ entry, onClose, comments }) => {
+const Lightbox = ({ photos, initialIndex, onClose, comments }) => {
+  const [idx, setIdx] = useState(initialIndex)
+  const [dir, setDir] = useState(0)
+  const touchStartX = useRef(null)
+  const entry = photos[idx]
   const entryComments = (comments || []).filter(c => c.entryId === entry.id)
+
+  const prev = (e) => { e.stopPropagation(); setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
+  const next = (e) => { e.stopPropagation(); setDir(1); setIdx(i => (i + 1) % photos.length) }
+  const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX }
+  const onTouchEnd = (e) => {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(dx) > 50) {
+      if (dx < 0) { setDir(1); setIdx(i => (i + 1) % photos.length) }
+      else { setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
+    }
+    touchStartX.current = null
+  }
+
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', animation: 'fadeIn 0.2s ease-out' }}>
-      <button onClick={onClose} style={{ position: 'fixed', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.2s ease-out' }}
+      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* Close */}
+      <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         <Icon name="X" size={20} color="white" />
       </button>
-      <img src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
-        style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-xl)' }} />
-      {entry.entryText && (
-        <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px', padding: '0 var(--space-lg)' }}>{entry.entryText}</p>
+      {/* Prev */}
+      {photos.length > 1 && (
+        <button onClick={prev} style={{ position: 'absolute', left: '16px', top: '35%', transform: 'translateY(-50%)', zIndex: 10, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <Icon name="ChevronLeft" size={24} color="white" />
+        </button>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>
-        <span>{entry.userName}</span><span>·</span><span>{entry.city}</span>
-      </div>
-      {/* Comments (read-only) */}
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', padding: '0 var(--space-lg) var(--space-xl)', marginTop: 'var(--space-md)' }}>
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 'var(--space-sm)' }}>
-          {entryComments.length === 0 ? (
-            <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No comments yet</div>
-          ) : entryComments.map(c => (
-            <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-start' }}>
-              <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
-                {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
-              </div>
-              <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: '2px' }}>{c.commenterName}</div>
-                <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>{c.commentText}</div>
-              </div>
-            </div>
-          ))}
+      {/* Image area — tap backdrop to close */}
+      <div onClick={onClose} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 'calc(48px + env(safe-area-inset-top, 0px))', paddingBottom: 'var(--space-md)', paddingLeft: '60px', paddingRight: '60px' }}>
+        <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
+          style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain', borderRadius: 'var(--radius-md)',
+            animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out' }} />
+        {entry.entryText && <p onClick={e => e.stopPropagation()} style={{ color: 'white', marginTop: 'var(--space-sm)', fontSize: '0.9rem', lineHeight: 1.5, textAlign: 'center', maxWidth: '400px' }}>{entry.entryText}</p>}
+        <div onClick={e => e.stopPropagation()} style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: '4px' }}>
+          {entry.userName} · {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}
         </div>
       </div>
+      {/* Next */}
+      {photos.length > 1 && (
+        <button onClick={next} style={{ position: 'absolute', right: '16px', top: '35%', transform: 'translateY(-50%)', zIndex: 10, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <Icon name="ChevronRight" size={24} color="white" />
+        </button>
+      )}
+      {/* Comments — independently scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid rgba(255,255,255,0.15)', padding: 'var(--space-md) var(--space-lg) var(--space-xl)' }}>
+        {entryComments.length === 0 ? (
+          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No comments yet</div>
+        ) : entryComments.map(c => (
+          <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'flex-start' }}>
+            <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
+              {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+            </div>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: '2px' }}>{c.commenterName}</div>
+              <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>{c.commentText}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes slideInFromRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideInFromLeft  { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
+      `}</style>
     </div>
   )
 }
@@ -138,7 +174,7 @@ const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount, comments, 
 }
 
 export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comments }) => {
-  const [lightboxEntry, setLightboxEntry] = useState(null)
+  const [lightbox, setLightbox] = useState(null) // { photos, index }
   const [expandedComments, setExpandedComments] = useState(() => {
     const ids = (comments || []).map(c => c.entryId)
     return new Set(ids)
@@ -151,6 +187,7 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
   const heartedIds = JSON.parse(localStorage.getItem('euroPlanner_heartedEntries') || '[]')
 
   const allEntries = (journalEntries || []).filter(e => e.userId && (e.entryText || e.photoUrl))
+  const allPhotos = allEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
 
   // Group by date, newest first
   const grouped = allEntries.reduce((acc, e) => {
@@ -192,7 +229,7 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)', paddingBottom: 'var(--space-xs)', borderBottom: '1px solid var(--color-border)' }}>
                   📅 {formatDay(dateKey)}
                 </div>
-                <PhotoGrid photos={photos} onPhotoTap={setLightboxEntry} comments={comments} />
+                <PhotoGrid photos={photos} onPhotoTap={(entry) => setLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.id === entry.id) })} comments={comments} />
                 {journals.map(entry => (
                   <JournalCard key={entry.id} entry={entry} onHeartEntry={onHeartEntry} heartedIds={heartedIds}
                     commentCount={(comments || []).filter(c => c.entryId === entry.id).length}
@@ -204,7 +241,7 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
         )}
       </div>
 
-      {lightboxEntry && <Lightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} comments={comments} />}
+      {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} comments={comments} />}
     </div>
   )
 }
