@@ -190,10 +190,15 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
                     </button>
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <select value={photo.city} onChange={e => updatePhoto(i, 'city', e.target.value)} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none' }}>
-                      <option value="">Select city...</option>
-                      {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <select value={photo.city} onChange={e => updatePhoto(i, 'city', e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none' }}>
+                        <option value="">Select city...</option>
+                        {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      {photo.lat && (
+                        <span style={{ flexShrink: 0, fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-sage)', background: 'rgba(100,160,100,0.12)', borderRadius: 'var(--radius-sm)', padding: '3px 6px', whiteSpace: 'nowrap' }}>📍 Detected</span>
+                      )}
+                    </div>
                     <textarea value={photo.caption} onChange={e => updatePhoto(i, 'caption', e.target.value)} placeholder="Add a caption... (optional)" rows={2} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
                   </div>
                 </div>
@@ -371,7 +376,7 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
                   📅 {formatDay(dateKey)}
                 </div>
                 {photos.length > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
                     {photos.map(entry => (
                       <div key={entry.id} onClick={() => setLightboxEntry(entry)} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
                         <img src={getThumbUrl(entry.photoUrl, 400)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
