@@ -17,29 +17,42 @@ const formatDay = (dateStr) => {
   return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
-const Lightbox = ({ entry, onClose }) => (
-  <div
-    onClick={onClose}
-    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', animation: 'fadeIn 0.2s ease-out' }}>
-    <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: 'var(--space-lg)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-      <Icon name="X" size={20} color="white" />
-    </button>
-    <img
-      src={getThumbUrl(entry.photoUrl, 1600)}
-      alt={entry.entryText || 'Photo'}
-      onClick={e => e.stopPropagation()}
-      style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }}
-    />
-    {entry.entryText && (
-      <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px' }}>{entry.entryText}</p>
-    )}
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>
-      <span>{entry.userName}</span>
-      <span>·</span>
-      <span>{entry.city}</span>
+const Lightbox = ({ entry, onClose, comments }) => {
+  const entryComments = (comments || []).filter(c => c.entryId === entry.id)
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', animation: 'fadeIn 0.2s ease-out' }}>
+      <button onClick={onClose} style={{ position: 'fixed', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <Icon name="X" size={20} color="white" />
+      </button>
+      <img src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
+        style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-xl)' }} />
+      {entry.entryText && (
+        <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px', padding: '0 var(--space-lg)' }}>{entry.entryText}</p>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>
+        <span>{entry.userName}</span><span>·</span><span>{entry.city}</span>
+      </div>
+      {/* Comments (read-only) */}
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', padding: '0 var(--space-lg) var(--space-xl)', marginTop: 'var(--space-md)' }}>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 'var(--space-sm)' }}>
+          {entryComments.length === 0 ? (
+            <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No comments yet</div>
+          ) : entryComments.map(c => (
+            <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-start' }}>
+              <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
+                {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+              </div>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: '2px' }}>{c.commenterName}</div>
+                <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>{c.commentText}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 const PhotoGrid = ({ photos, onPhotoTap, comments }) => {
   if (photos.length === 0) return null
@@ -191,7 +204,7 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
         )}
       </div>
 
-      {lightboxEntry && <Lightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />}
+      {lightboxEntry && <Lightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} comments={comments} />}
     </div>
   )
 }
