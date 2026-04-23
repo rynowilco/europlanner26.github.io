@@ -294,27 +294,63 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
 
 // ─── MemoriesScreen ──────────────────────────────────────────────────────────
 
-const Lightbox = ({ entry, onClose }) => (
-  <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', animation: 'fadeIn 0.2s ease-out' }}>
-    <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: 'var(--space-lg)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-      <Icon name="X" size={20} color="white" />
-    </button>
-    <img src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
-    {entry.entryText && <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px' }}>{entry.entryText}</p>}
-    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 'var(--space-sm)' }}>📍 {entry.city}</div>
-  </div>
-)
+const Lightbox = ({ photos, initialIndex, onClose }) => {
+  const [idx, setIdx] = useState(initialIndex)
+  const touchStartX = useRef(null)
+  const entry = photos[idx]
+
+  const prev = (e) => { e.stopPropagation(); setIdx(i => (i - 1 + photos.length) % photos.length) }
+  const next = (e) => { e.stopPropagation(); setIdx(i => (i + 1) % photos.length) }
+
+  const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX }
+  const onTouchEnd = (e) => {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    if (Math.abs(dx) > 50) dx < 0 ? setIdx(i => (i + 1) % photos.length) : setIdx(i => (i - 1 + photos.length) % photos.length)
+    touchStartX.current = null
+  }
+
+  return (
+    <div onClick={onClose} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-lg)', animation: 'fadeIn 0.2s ease-out' }}>
+      {/* Close */}
+      <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: 'var(--space-lg)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <Icon name="X" size={20} color="white" />
+      </button>
+      {/* Prev */}
+      {photos.length > 1 && (
+        <button onClick={prev} style={{ position: 'absolute', left: 'var(--space-md)', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <Icon name="ChevronLeft" size={24} color="white" />
+        </button>
+      )}
+      {/* Image */}
+      <img src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
+      {/* Next */}
+      {photos.length > 1 && (
+        <button onClick={next} style={{ position: 'absolute', right: 'var(--space-md)', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <Icon name="ChevronRight" size={24} color="white" />
+        </button>
+      )}
+      {/* Caption + meta */}
+      {entry.entryText && <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px' }}>{entry.entryText}</p>}
+      <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 'var(--space-sm)' }}>
+        📍 {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}
+      </div>
+    </div>
+  )
+}
 
 export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack }) => {
   const [showCompose, setShowCompose] = useState(false)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
-  const [lightboxEntry, setLightboxEntry] = useState(null)
+  const [lightbox, setLightbox] = useState(null) // { photos, index }
 
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
   const today = new Date().toISOString().split('T')[0]
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
 
   const myEntries = journalEntries.filter(e => e.userId === userId && (e.entryText || e.photoUrl))
+  const allPhotos = myEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
 
   const grouped = myEntries.reduce((acc, e) => {
     const key = e.date || (e.timestamp ? e.timestamp.split('T')[0] : 'Unknown')
@@ -378,7 +414,7 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
                 {photos.length > 0 && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
                     {photos.map(entry => (
-                      <div key={entry.id} onClick={() => setLightboxEntry(entry)} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
+                      <div key={entry.id} onClick={() => setLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.id === entry.id) })} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
                         <img src={getThumbUrl(entry.photoUrl, 400)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         {entry.entryText && (
                           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', padding: '16px 6px 6px' }}>
@@ -434,7 +470,7 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
           onCancel={() => setShowPhotoUpload(false)}
         />
       )}
-      {lightboxEntry && <Lightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />}
+      {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} />}
     </div>
   )
 }
