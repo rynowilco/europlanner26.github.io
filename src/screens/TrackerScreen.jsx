@@ -98,21 +98,67 @@ const formatDay = (dateStr) => {
     return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
-const Lightbox = ({ entry, onClose, comments, onAddComment, commenterName, onSetCommenterName }) => (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', animation: 'fadeIn 0.2s ease-out' }}>
-        <button onClick={onClose} style={{ position: 'fixed', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <Icon name="X" size={20} color="white" />
-        </button>
-        <img src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-xl)' }} />
-        {entry.entryText && <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px', padding: '0 var(--space-lg)' }}>{entry.entryText}</p>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)', color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>
-            <span>{entry.userName}</span><span>·</span><span>{entry.city}</span>
+const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, commenterName, onSetCommenterName }) => {
+    const [idx, setIdx] = useState(initialIndex)
+    const [dir, setDir] = useState(0)
+    const touchStartX = useRef(null)
+    const entry = photos[idx]
+
+    const prev = (e) => { e.stopPropagation(); setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
+    const next = (e) => { e.stopPropagation(); setDir(1); setIdx(i => (i + 1) % photos.length) }
+    const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX }
+    const onTouchEnd = (e) => {
+        if (touchStartX.current === null) return
+        const dx = e.changedTouches[0].clientX - touchStartX.current
+        if (Math.abs(dx) > 50) {
+            if (dx < 0) { setDir(1); setIdx(i => (i + 1) % photos.length) }
+            else { setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
+        }
+        touchStartX.current = null
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.2s ease-out' }}
+            onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <style>{`
+                @keyframes slideInFromRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
+                @keyframes slideInFromLeft  { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
+            `}</style>
+            {/* Close */}
+            <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <Icon name="X" size={20} color="white" />
+            </button>
+            {/* Prev */}
+            {photos.length > 1 && (
+                <button onClick={prev} style={{ position: 'absolute', left: '16px', top: '35%', transform: 'translateY(-50%)', zIndex: 10, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <Icon name="ChevronLeft" size={24} color="white" />
+                </button>
+            )}
+            {/* Image area — tap backdrop to close */}
+            <div onClick={onClose} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 'calc(48px + env(safe-area-inset-top, 0px))', paddingBottom: 'var(--space-md)', paddingLeft: '60px', paddingRight: '60px' }}>
+                <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
+                    style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain', borderRadius: 'var(--radius-md)',
+                        animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out' }} />
+                {entry.entryText && <p onClick={e => e.stopPropagation()} style={{ color: 'white', marginTop: 'var(--space-sm)', fontSize: '0.9rem', lineHeight: 1.5, textAlign: 'center', maxWidth: '400px' }}>{entry.entryText}</p>}
+                <div onClick={e => e.stopPropagation()} style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: '4px' }}>
+                    {entry.userName} · {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}
+                </div>
+            </div>
+            {/* Next */}
+            {photos.length > 1 && (
+                <button onClick={next} style={{ position: 'absolute', right: '16px', top: '35%', transform: 'translateY(-50%)', zIndex: 10, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <Icon name="ChevronRight" size={24} color="white" />
+                </button>
+            )}
+            {/* Comments — scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                <div style={{ padding: 'var(--space-md) var(--space-lg) var(--space-xl)' }} onClick={e => e.stopPropagation()}>
+                    <CommentSection entryId={entry.id} entryType="photo" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={onSetCommenterName} dark={true} />
+                </div>
+            </div>
         </div>
-        <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', padding: '0 var(--space-lg) var(--space-xl)', marginTop: 'var(--space-md)' }}>
-            <CommentSection entryId={entry.id} entryType="photo" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={onSetCommenterName} dark={true} />
-        </div>
-    </div>
-)
+    )
+}
 
 export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, onHeartEntry, comments, onAddComment }) => {
     const mapRef = useRef(null)
@@ -121,7 +167,7 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
     const [aiSummary, setAiSummary] = useState(null)
     const [loadingSummary, setLoadingSummary] = useState(false)
     const [trackerTab, setTrackerTab] = useState('map')
-    const [lightboxEntry, setLightboxEntry] = useState(null)
+    const [lightbox, setLightbox] = useState(null) // { photos, index }
     const [expandedComments, setExpandedComments] = useState(() => {
         const ids = (comments || []).map(c => c.entryId)
         return new Set(ids)
@@ -248,6 +294,7 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
 
     // Memories tab data — photos + journal entries, grouped by date
     const allEntries = (journalEntries || []).filter(e => e.userId && (e.entryText || e.photoUrl))
+    const allPhotos = allEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
     const grouped = allEntries.reduce((acc, e) => {
         const key = e.date || (e.timestamp ? e.timestamp.split('T')[0] : 'Unknown')
         if (!acc[key]) acc[key] = []
@@ -363,7 +410,7 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                                             {photos.map(entry => {
                                                 const photoCommentCount = (comments || []).filter(c => c.entryId === entry.id).length
                                                 return (
-                                                    <div key={entry.id} onClick={() => setLightboxEntry(entry)} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
+                                                    <div key={entry.id} onClick={() => setLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.id === entry.id) })} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
                                                         <img src={getThumbUrl(entry.photoUrl)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.55))', padding: '20px 6px 6px' }}>
                                                             <div style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600 }}>{entry.userName}</div>
@@ -416,7 +463,7 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                 </div>
             )}
 
-            {lightboxEntry && <Lightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName} />}
+            {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName} />}
         </div>
     )
 }
