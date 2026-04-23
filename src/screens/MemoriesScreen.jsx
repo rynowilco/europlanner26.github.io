@@ -12,14 +12,27 @@ const getDistanceKm = (lat1, lon1, lat2, lon2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-const getNearestCity = (lat, lng, itinerary) => {
+const getNearestCity = (lat, lng, itinerary, date) => {
   const cities = itinerary.filter(c => !c.isTransfer && c.lat && c.lng)
   let nearest = null, minDist = Infinity
   for (const city of cities) {
     const d = getDistanceKm(lat, lng, city.lat, city.lng)
     if (d < minDist) { minDist = d; nearest = city }
   }
-  return minDist < 120 ? nearest?.city : 'En Route'
+  if (minDist < 120) return nearest?.city
+
+  // Smart En Route: find the leg the photo date falls between
+  if (date) {
+    const allCities = itinerary.filter(c => !c.isTransfer)
+    const before = allCities.filter(c => c.endDate < date).sort((a, b) => b.endDate.localeCompare(a.endDate))
+    const after  = allCities.filter(c => c.startDate > date).sort((a, b) => a.startDate.localeCompare(b.startDate))
+    const from = before[0]?.city
+    const to   = after[0]?.city
+    if (from && to)   return `En Route · ${from} → ${to}`
+    if (from)         return `En Route · from ${from}`
+    if (to)           return `En Route · to ${to}`
+  }
+  return 'En Route'
 }
 
 const compressImage = (file) => new Promise((resolve, reject) => {
@@ -109,7 +122,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
     files.forEach(async (file, i) => {
       const gps = await readExifGps(file)
       if (gps?.latitude && gps?.longitude) {
-        const detectedCity = getNearestCity(gps.latitude, gps.longitude, tripItinerary)
+        const detectedCity = getNearestCity(gps.latitude, gps.longitude, tripItinerary, today)
         setPhotos(prev => prev.map((p, idx) => idx === i
           ? { ...p, city: detectedCity || p.city, lat: gps.latitude, lng: gps.longitude }
           : p
