@@ -75,12 +75,12 @@ const CommentSection = ({ entryId, entryType, comments, onAddComment, commenterN
             )}
             <select value={commenterName} onChange={e => onSetCommenterName(e.target.value)}
                 style={{ width: '100%', padding: '6px 8px', border: bd, borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: bg, color: commenterName ? textColor : mutedColor, outline: 'none', marginBottom: '8px' }}>
-                <option value="">Who are you?</option>
+                <option value="">Who is commenting?</option>
                 {STAR_WARS_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
             <div style={{ display: 'flex', gap: '8px' }}>
                 <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                    placeholder={commenterName ? 'Leave a comment...' : 'Pick your name first'}
+                    placeholder={commenterName ? 'Leave a comment...' : 'Select your name above before commenting'}
                     disabled={!commenterName}
                     style={{ flex: 1, padding: '8px 10px', border: bd, borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', background: bg, color: textColor }} />
                 <button onClick={handleSubmit} disabled={!text.trim() || !commenterName || submitting}
