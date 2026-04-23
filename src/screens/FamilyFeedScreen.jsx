@@ -41,7 +41,7 @@ const Lightbox = ({ entry, onClose }) => (
 const PhotoGrid = ({ photos, onPhotoTap }) => {
   if (photos.length === 0) return null
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
       {photos.map(entry => (
         <div
           key={entry.id}
