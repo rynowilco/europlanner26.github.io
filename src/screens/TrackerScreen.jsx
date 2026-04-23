@@ -281,7 +281,7 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
 
                                     {/* Photo grid */}
                                     {photos.length > 0 && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
                                             {photos.map(entry => (
                                                 <div key={entry.id} onClick={() => setLightboxEntry(entry)} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
                                                     <img src={getThumbUrl(entry.photoUrl)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
