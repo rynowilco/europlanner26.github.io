@@ -29,6 +29,7 @@ export const useStore = () => {
     const [refiningIdea, setRefiningIdea] = useState(null)
     const [bookingItems, setBookingItems] = useState(() => safeParseJSON('euroPlanner_bookingItems', []))
     const [journalEntries, setJournalEntries] = useState(() => safeParseJSON('euroPlanner_journalEntries', []))
+    const [comments, setComments] = useState(() => safeParseJSON('euroPlanner_comments', []))
     const [userProfiles, setUserProfiles] = useState(() => safeParseJSON('euroPlanner_profiles', CONFIG.users))
     const [itinerary, setItinerary] = useState(CONFIG.itinerary)
     const [sheetsLoaded, setSheetsLoaded] = useState(false)
@@ -46,14 +47,16 @@ export const useStore = () => {
                     itineraryResult,
                     ideasResult,
                     bookingResult,
-                    journalResult
+                    journalResult,
+                    commentsResult
                 ] = await Promise.allSettled([
                     SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.itinerary),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.journal)
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.journal),
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.comments)
                 ])
 
                 // ── Activities ──────────────────────────────────────────────
@@ -144,6 +147,17 @@ export const useStore = () => {
                     console.warn('Journal sheet read failed:', journalResult.reason)
                 }
 
+                // ── Comments ────────────────────────────────────────────────
+                if (commentsResult.status === 'fulfilled' && commentsResult.value?.length > 1) {
+                    try {
+                        const parsedComments = SheetsAPI.parseComments(commentsResult.value)
+                        setComments(parsedComments)
+                        console.log('Loaded comments:', parsedComments.length)
+                    } catch (e) { console.warn('parseComments error:', e) }
+                } else if (commentsResult.status === 'rejected') {
+                    console.warn('Comments sheet read failed:', commentsResult.reason)
+                }
+
                 // ── Flush unsynced local activities ─────────────────────────
                 const localActivities = safeParseJSON('euroPlanner_activities', [])
                 const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
@@ -171,6 +185,7 @@ export const useStore = () => {
     useEffect(() => { localStorage.setItem('euroPlanner_profiles', JSON.stringify(userProfiles)) }, [userProfiles])
     useEffect(() => { localStorage.setItem('euroPlanner_bookingItems', JSON.stringify(bookingItems)) }, [bookingItems])
     useEffect(() => { localStorage.setItem('euroPlanner_journalEntries', JSON.stringify(journalEntries)) }, [journalEntries])
+    useEffect(() => { localStorage.setItem('euroPlanner_comments', JSON.stringify(comments)) }, [comments])
 
     // ── Saved Ideas ─────────────────────────────────────────────────────────
     const addSavedIdea = async (idea) => {
@@ -495,6 +510,26 @@ export const useStore = () => {
         } catch (e) { console.error('Failed to sync heart to Sheets:', e) }
     }
 
+    const addComment = async (entryId, entryType, commenterName, commentText) => {
+        const comment = {
+            id: 'CMT-' + Date.now(),
+            entryId,
+            entryType,
+            commenterName,
+            commentText,
+            timestamp: new Date().toISOString(),
+            read: 'N'
+        }
+        setComments(prev => [...prev, comment])
+        try {
+            await SheetsAPI.append(CONFIG.SHEET_NAMES.comments, SheetsAPI.commentToRow(comment))
+            console.log('Comment saved to Sheets:', comment.id)
+        } catch (e) {
+            console.error('Failed to save comment:', e)
+        }
+        return comment
+    }
+
     return {
         activities,
         savedIdeas,
@@ -528,6 +563,8 @@ export const useStore = () => {
         journalEntries,
         addJournalEntry,
         heartJournalEntry,
+        comments,
+        addComment,
         EmailService
     }
 }
