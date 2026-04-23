@@ -122,7 +122,10 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
     const [loadingSummary, setLoadingSummary] = useState(false)
     const [trackerTab, setTrackerTab] = useState('map')
     const [lightboxEntry, setLightboxEntry] = useState(null)
-    const [expandedComments, setExpandedComments] = useState(new Set())
+    const [expandedComments, setExpandedComments] = useState(() => {
+        const ids = (comments || []).map(c => c.entryId)
+        return new Set(ids)
+    })
     const [commenterName, setCommenterName] = useState(() => localStorage.getItem('euroPlanner_commenterName') || '')
 
     const handleSetCommenterName = (name) => {
@@ -383,23 +386,23 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                                         const commentCount = (comments || []).filter(c => c.entryId === entry.id).length
                                         const isExpanded = expandedComments.has(entry.id)
                                         return (
-                                            <div key={entry.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                                            <div key={entry.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-lg)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-navy)' }}>{entry.userName}</span>
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', background: 'var(--color-cream)', padding: '2px 7px', borderRadius: 'var(--radius-full)' }}>📍 {entry.city}</span>
+                                                        <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-navy)' }}>{entry.userName}</span>
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', background: 'var(--color-cream)', padding: '3px 9px', borderRadius: 'var(--radius-full)' }}>📍 {entry.city}</span>
                                                     </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        {entry.mood && <span style={{ fontSize: '18px', lineHeight: 1 }}>{entry.mood}</span>}
-                                                        <button onClick={() => toggleComments(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: isExpanded ? 'var(--color-navy)' : 'var(--color-cream)', border: isExpanded ? '1px solid var(--color-navy)' : '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem', color: isExpanded ? 'white' : 'var(--color-text-light)', fontWeight: 600, transition: 'all 0.15s' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {entry.mood && <span style={{ fontSize: '22px', lineHeight: 1 }}>{entry.mood}</span>}
+                                                        <button onClick={() => toggleComments(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#2E7D32', border: '1px solid #2E7D32', borderRadius: 'var(--radius-full)', padding: '8px 14px', cursor: 'pointer', fontSize: '0.9rem', color: 'white', fontWeight: 600, transition: 'all 0.15s', opacity: isExpanded ? 1 : 0.85, minHeight: '40px' }}>
                                                             💬{commentCount > 0 ? ` ${commentCount}` : ''}
                                                         </button>
-                                                        <button onClick={() => onHeartEntry && onHeartEntry(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isHearted ? '#FFF0F0' : 'var(--color-cream)', border: isHearted ? '1px solid #FFCCCC' : '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', color: isHearted ? 'var(--color-error)' : 'var(--color-text-light)', fontWeight: 600, transition: 'all 0.15s' }}>
+                                                        <button onClick={() => onHeartEntry && onHeartEntry(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isHearted ? '#FFF0F0' : 'var(--color-cream)', border: isHearted ? '1px solid #FFCCCC' : '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', padding: '8px 14px', cursor: 'pointer', fontSize: '0.9rem', color: isHearted ? 'var(--color-error)' : 'var(--color-text-light)', fontWeight: 600, transition: 'all 0.15s', minHeight: '40px' }}>
                                                             {isHearted ? '❤️' : '🤍'}{entry.heartCount > 0 ? ` ${entry.heartCount}` : ''}
                                                         </button>
                                                     </div>
                                                 </div>
-                                                <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
+                                                <p style={{ fontSize: '1rem', lineHeight: 1.7, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
                                                 {isExpanded && (
                                                     <CommentSection entryId={entry.id} entryType="journal" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName} />
                                                 )}
