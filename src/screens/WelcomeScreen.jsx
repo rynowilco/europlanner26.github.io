@@ -21,42 +21,15 @@ export const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, ac
                 <p style={{ fontSize: '1rem', color: 'var(--color-text-light)', maxWidth: '280px', margin: '0 auto', lineHeight: 1.5 }}>Plan your European adventure with your AI travel buddy</p>
             </header>
 
-            {/* Deadline countdown */}
-            {(() => {
-                const deadlineDays = Math.ceil((new Date('2026-05-11') - new Date()) / (1000 * 60 * 60 * 24))
-                const abbyApproved = activities.filter(a => a.kidId === 'abby' && a.status === 'approved' && !a.isSample).length
-                const tylerApproved = activities.filter(a => a.kidId === 'tyler' && a.status === 'approved' && !a.isSample).length
-                const totalApproved = abbyApproved + tylerApproved
-                const totalNeeded = 6
-                const pct = Math.round((totalApproved / totalNeeded) * 100)
-                const urgentColor = deadlineDays <= 14 ? 'var(--color-error)' : deadlineDays <= 30 ? 'var(--color-warning)' : 'var(--color-sage)'
-                return (
-                    <div style={{ maxWidth: '400px', margin: '0 auto var(--space-md)', width: '100%', background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', animation: 'fadeIn 0.5s ease-out' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text)' }}>📅 Activity Deadline</span>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: urgentColor }}>{deadlineDays}d left</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>⚽ Abby {abbyApproved}/3</span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>🏈 Tyler {tylerApproved}/3</span>
-                        </div>
-                        <div style={{ background: 'var(--color-tan)', borderRadius: 'var(--radius-full)', height: '6px', overflow: 'hidden' }}>
-                            <div style={{ background: urgentColor, height: '100%', width: pct + '%', borderRadius: 'var(--radius-full)', transition: 'width 0.5s ease' }} />
-                        </div>
-                    </div>
-                )
-            })()}
+
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
-                <p style={{ textAlign: 'center', fontSize: '1rem', color: 'var(--color-text-light)', animation: 'fadeIn 0.6s ease-out 0.2s both' }}>"Who's planning today?"</p>
-
                 {/* Kids section */}
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-sm)' }}>The Kids</div>
                 {Object.entries(userProfiles).filter(([key]) => !userProfiles[key].isParent).map(([key, user], index) => {
                     const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length
                     const locked = false
                     return (
-                        <button key={key} onClick={() => !locked && handleCardTap(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
+                        <button key={key} onClick={() => !locked && handleCardTap(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-md) var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
                             onMouseEnter={(e) => { if (!locked) { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)' } }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none' }}>
                             <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
@@ -69,13 +42,11 @@ export const WelcomeScreen = ({ onSelectUser, onSelectMemories, userProfiles, ac
                     )
                 })}
 
-                {/* Parents section */}
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-md)' }}>The Parents</div>
                 {Object.entries(userProfiles).filter(([key]) => userProfiles[key].isParent).map(([key, user], index) => {
                     const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length
                     const locked = false
                     return (
-                        <button key={key} onClick={() => !locked && handleCardTap(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
+                        <button key={key} onClick={() => !locked && handleCardTap(key)} disabled={locked} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-md) var(--space-lg)', background: locked ? 'var(--color-tan)' : 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: locked ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.5 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s', opacity: locked ? 0.6 : 1 }}
                             onMouseEnter={(e) => { if (!locked) { e.currentTarget.style.borderColor = user.color; e.currentTarget.style.transform = 'translateY(-2px)' } }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.transform = 'none' }}>
                             <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-md)', background: user.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{locked ? '🔒' : user.emoji}</div>
