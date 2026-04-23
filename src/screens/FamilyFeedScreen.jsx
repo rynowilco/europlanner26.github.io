@@ -72,7 +72,31 @@ const PhotoGrid = ({ photos, onPhotoTap, comments }) => {
   )
 }
 
-const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount }) => {
+const CommentDisplay = ({ entryId, comments }) => {
+  const entryComments = (comments || []).filter(c => c.entryId === entryId)
+  if (entryComments.length === 0) return (
+    <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)', fontSize: '0.8rem', color: 'var(--color-text-light)', fontStyle: 'italic' }}>
+      No comments yet
+    </div>
+  )
+  return (
+    <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)' }}>
+      {entryComments.map(c => (
+        <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-start' }}>
+          <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'var(--color-navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
+            {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+          </div>
+          <div style={{ flex: 1, background: 'var(--color-cream)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-navy)', marginBottom: '2px' }}>{c.commenterName}</div>
+            <div style={{ fontSize: '0.875rem', color: 'var(--color-text)', lineHeight: 1.4 }}>{c.commentText}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount, comments, isExpanded, onToggle }) => {
   const isHearted = heartedIds.includes(entry.id)
   return (
     <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
@@ -83,9 +107,10 @@ const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {entry.mood && <span style={{ fontSize: '18px', lineHeight: 1 }}>{entry.mood}</span>}
-          {commentCount > 0 && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', display: 'flex', alignItems: 'center', gap: '3px' }}>💬 {commentCount}</span>
-          )}
+          <button onClick={onToggle}
+            style={{ display: 'flex', alignItems: 'center', gap: '3px', background: '#2E7D32', border: '1px solid #2E7D32', borderRadius: 'var(--radius-full)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem', color: 'white', fontWeight: 600, opacity: isExpanded ? 1 : 0.85 }}>
+            💬{commentCount > 0 ? ` ${commentCount}` : ''}
+          </button>
           <button
             onClick={() => onHeartEntry && onHeartEntry(entry.id)}
             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isHearted ? '#FFF0F0' : 'var(--color-cream)', border: isHearted ? '1px solid #FFCCCC' : '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', color: isHearted ? 'var(--color-error)' : 'var(--color-text-light)', fontWeight: 600, transition: 'all 0.15s' }}>
@@ -94,12 +119,22 @@ const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount }) => {
         </div>
       </div>
       <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
+      {isExpanded && <CommentDisplay entryId={entry.id} comments={comments} />}
     </div>
   )
 }
 
 export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comments }) => {
   const [lightboxEntry, setLightboxEntry] = useState(null)
+  const [expandedComments, setExpandedComments] = useState(() => {
+    const ids = (comments || []).map(c => c.entryId)
+    return new Set(ids)
+  })
+  const toggleComments = (id) => setExpandedComments(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
   const heartedIds = JSON.parse(localStorage.getItem('euroPlanner_heartedEntries') || '[]')
 
   const allEntries = (journalEntries || []).filter(e => e.userId && (e.entryText || e.photoUrl))
@@ -147,7 +182,8 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
                 <PhotoGrid photos={photos} onPhotoTap={setLightboxEntry} comments={comments} />
                 {journals.map(entry => (
                   <JournalCard key={entry.id} entry={entry} onHeartEntry={onHeartEntry} heartedIds={heartedIds}
-                    commentCount={(comments || []).filter(c => c.entryId === entry.id).length} />
+                    commentCount={(comments || []).filter(c => c.entryId === entry.id).length}
+                    comments={comments} isExpanded={expandedComments.has(entry.id)} onToggle={() => toggleComments(entry.id)} />
                 ))}
               </div>
             )
