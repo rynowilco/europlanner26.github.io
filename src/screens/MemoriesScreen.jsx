@@ -253,7 +253,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
 
 // ─── JournalComposeModal ─────────────────────────────────────────────────────
 
-const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
+const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPrompt }) => {
   const [entryText, setEntryText] = useState('')
   const [mood, setMood] = useState('')
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
@@ -267,11 +267,18 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
       <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', padding: 'var(--space-xl)', width: '100%', maxHeight: '92vh', overflowY: 'auto', animation: 'slideUp 0.3s ease-out' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-navy)' }}>📖 New Memory</h2>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-navy)' }}>{checkInPrompt ? '✍️ Daily Check-In' : '📖 New Memory'}</h2>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
             <Icon name="X" size={20} color="var(--color-text-light)" />
           </button>
         </div>
+        {/* Check-in prompt card */}
+        {checkInPrompt && (
+          <div style={{ background: 'linear-gradient(135deg, #fff5f0, #fde8dc)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', borderLeft: '3px solid #c8603a' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#c8603a', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '5px' }}>📖 Today's Prompt</div>
+            <div style={{ fontSize: '0.95rem', color: 'var(--color-text)', fontStyle: 'italic', lineHeight: 1.5 }}>{checkInPrompt}</div>
+          </div>
+        )}
         <div style={{ marginBottom: 'var(--space-md)' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>Where are you?</label>
           <select value={city} onChange={e => setCity(e.target.value)} style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none', boxSizing: 'border-box' }}>
@@ -364,8 +371,9 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
   )
 }
 
-export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack }) => {
-  const [showCompose, setShowCompose] = useState(false)
+export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack, initialPrompt }) => {
+  const [showCompose, setShowCompose] = useState(!!initialPrompt)
+  const [checkInPrompt] = useState(initialPrompt || null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
   const [lightbox, setLightbox] = useState(null) // { photos, index }
 
@@ -477,6 +485,7 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         <JournalComposeModal
           user={user}
           itinerary={tripItinerary}
+          checkInPrompt={checkInPrompt}
           onSubmit={async (entryText, mood, city) => {
             await onAddEntry(userId, user.name, city, entryText, mood, null, null)
             setShowCompose(false)
