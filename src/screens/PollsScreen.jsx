@@ -17,10 +17,13 @@ export const PollsScreen = ({ onBack }) => {
                     <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>🗳️ Family Polls</div>
                     <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>Vote on what to do next</div>
                 </div>
-                <button onClick={() => setShowHowItWorks(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
+            </div>
+            {/* Toolbar */}
+            <div style={{ background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm) var(--space-lg)', display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end', flexShrink: 0 }}>
+                <button onClick={() => setShowHowItWorks(true)} style={{ background: 'var(--color-cream)', border: '1.5px solid var(--color-border)', borderRadius: '50%', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-light)', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
                     ?
                 </button>
-                <button onClick={() => setShowComingSoon(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 'var(--radius-md)', padding: '8px 16px', color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={() => setShowComingSoon(true)} style={{ background: '#4a7fc1', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 16px', color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
                     + New Poll
                 </button>
             </div>
