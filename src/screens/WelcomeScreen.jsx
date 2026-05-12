@@ -48,10 +48,6 @@ export const WelcomeScreen = ({
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
 
-                <p style={{ textAlign: 'center', fontSize: '1rem', color: 'var(--color-text-light)', animation: 'fadeIn 0.6s ease-out 0.2s both', margin: 0 }}>"Who's planning today?"</p>
-
-                {/* ── Kids ─────────────────────────────────────────────────────── */}
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-sm)' }}>The Kids</div>
                 {Object.entries(userProfiles).filter(([key]) => !userProfiles[key].isParent).map(([key, user], index) => {
                     const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length
                     return (
@@ -70,7 +66,6 @@ export const WelcomeScreen = ({
                 })}
 
                 {/* ── Parents ───────────────────────────────────────────────────── */}
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: 'var(--space-md)' }}>The Parents</div>
                 {Object.entries(userProfiles).filter(([key]) => userProfiles[key].isParent).map(([key, user], index) => {
                     const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length
                     return (
