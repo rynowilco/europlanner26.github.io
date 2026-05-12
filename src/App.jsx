@@ -4,6 +4,7 @@ import { SheetsStatusBanner } from './components/SheetsStatusBanner'
 import { FingerprintModal } from './components/FingerprintModal'
 import { FeedbackModal } from './components/FeedbackModal'
 import { AddBookingModal } from './components/AddBookingModal'
+import { CityGuidesModal } from './screens/CityGuidesModal'
 import { HomeScreen } from './screens/HomeScreen'
 import { WelcomeScreen } from './screens/WelcomeScreen'
 import { ChatScreen } from './screens/ChatScreen'
@@ -20,6 +21,7 @@ const App = () => {
     const [showFingerprintModal, setShowFingerprintModal] = useState(false)
     const [feedbackActivity, setFeedbackActivity] = useState(null)
     const [showAddBooking, setShowAddBooking] = useState(false)
+    const [showCityGuides, setShowCityGuides] = useState(false)
     const [previousScreen, setPreviousScreen] = useState('welcome')
     const [bannerDismissed, setBannerDismissed] = useState(false)
     const store = useStore()
@@ -75,7 +77,7 @@ const App = () => {
                 error={!bannerDismissed && store.sheetsError ? store.sheetsError : null}
                 onDismiss={() => setBannerDismissed(true)}
             />
-            {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} />}
+            {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} onOpenCityGuides={() => setShowCityGuides(true)} />}
             {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} />}
             {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
             {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} />}
@@ -86,6 +88,7 @@ const App = () => {
             {showFingerprintModal && <FingerprintModal onSuccess={handleFingerprintSuccess} onCancel={() => setShowFingerprintModal(false)} />}
             {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
             {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
+            {showCityGuides && <CityGuidesModal onClose={() => setShowCityGuides(false)} itinerary={store.itinerary} activities={store.activities} journalEntries={store.journalEntries} />}
         </div>
     )
 }
