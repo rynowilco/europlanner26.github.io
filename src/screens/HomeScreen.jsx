@@ -1,50 +1,64 @@
 import React from 'react'
 import { Icon } from '../components/Icon'
 
+const HomeButton = ({ onClick, bg, color, border, title, subtitle, animationDelay }) => (
+    <button
+        onClick={onClick}
+        style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: 'var(--space-md) var(--space-lg)',
+            background: bg, color, border: border || 'none',
+            borderRadius: 'var(--radius-lg)', cursor: 'pointer',
+            boxShadow: 'var(--shadow-md)', textAlign: 'left',
+            animation: `slideUp 0.5s ease-out ${animationDelay}s both`,
+            transition: 'filter 0.15s',
+            width: '100%',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.93)' }}
+        onMouseLeave={e => { e.currentTarget.style.filter = 'brightness(1)' }}
+    >
+        <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>{title}</div>
+            <div style={{ fontSize: '0.82rem', opacity: 0.8, marginTop: '3px', lineHeight: 1.4 }}>{subtitle}</div>
+        </div>
+        <Icon name="ChevronRight" size={22} color={color} style={{ flexShrink: 0, marginLeft: 'var(--space-md)', opacity: 0.7 }} />
+    </button>
+)
+
 export const HomeScreen = ({ onExplorer, onFollowAlong, onOpenCityGuides }) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-2xl) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
-        <header style={{ textAlign: 'center', paddingBottom: 'var(--space-xl)', animation: 'slideUp 0.6s ease-out' }}>
+        <header style={{ textAlign: 'center', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out' }}>
             <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(2rem, 8vw, 2.5rem)', fontWeight: 600, color: 'var(--color-navy)', letterSpacing: '-0.02em' }}>Euro Planner '26</h1>
             <p style={{ fontSize: '1rem', color: 'var(--color-text-light)', marginTop: 'var(--space-sm)' }}>Summer of Wonder &amp; Awe</p>
         </header>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '400px', margin: '0 auto', width: '100%', justifyContent: 'center' }}>
-            <button
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', maxWidth: '400px', margin: '0 auto', width: '100%', justifyContent: 'center' }}>
+            <HomeButton
                 onClick={onExplorer}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 'var(--space-xl)', background: 'var(--color-navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-lg)', animation: 'slideUp 0.5s ease-out 0.2s both', textAlign: 'left', transition: 'opacity 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.opacity = '0.92' }}
-                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>Euro Explorers</div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.8, marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>Abby, Tyler, Ryan &amp; Mom — plan your adventures</div>
-                <div style={{ marginTop: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', fontWeight: 600, opacity: 0.9 }}>
-                    Let's go <Icon name="ChevronRight" size={16} color="white" />
-                </div>
-            </button>
-
-            <button
+                bg="var(--color-navy)"
+                color="white"
+                title="Euro Explorers"
+                subtitle="Abby, Tyler, Ryan &amp; Mom — plan your adventures"
+                animationDelay={0.2}
+            />
+            <HomeButton
                 onClick={onFollowAlong}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 'var(--space-xl)', background: 'white', color: 'var(--color-text)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-md)', animation: 'slideUp 0.5s ease-out 0.35s both', textAlign: 'left', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-terracotta)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--color-navy)' }}>Follow Along</div>
-                <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>See where we're headed and what we have planned</div>
-                <div style={{ marginTop: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-terracotta)', fontSize: '0.9rem', fontWeight: 600 }}>
-                    View trip <Icon name="ChevronRight" size={16} color="var(--color-terracotta)" />
-                </div>
-            </button>
-
-            <button
+                bg="white"
+                color="var(--color-navy)"
+                border="2px solid var(--color-border)"
+                title="Follow Along"
+                subtitle="See where we're headed and what we have planned"
+                animationDelay={0.32}
+            />
+            <HomeButton
                 onClick={onOpenCityGuides}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 'var(--space-xl)', background: 'var(--color-cream)', color: 'var(--color-text)', border: '2px solid var(--color-tan)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: 'slideUp 0.5s ease-out 0.45s both', textAlign: 'left', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-navy)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-tan)' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--color-navy)' }}>Our Cities</div>
-                <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>Explore destinations — summaries, activities &amp; local phrases</div>
-                <div style={{ marginTop: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-navy)', fontSize: '0.9rem', fontWeight: 600 }}>
-                    Explore <Icon name="ChevronRight" size={16} color="var(--color-navy)" />
-                </div>
-            </button>
+                bg="rgb(211, 108, 80)"
+                color="white"
+                title="Our Cities"
+                subtitle="Explore destinations — summaries, activities &amp; local phrases"
+                animationDelay={0.44}
+            />
         </div>
 
         <div style={{ textAlign: 'center', padding: 'var(--space-lg)', color: 'var(--color-text-light)', fontSize: '0.8rem', animation: 'fadeIn 0.8s ease-out 0.6s both' }}>
