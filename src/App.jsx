@@ -13,6 +13,8 @@ import { MapScreen } from './screens/MapScreen'
 import { TrackerScreen } from './screens/TrackerScreen'
 import { MemoriesScreen } from './screens/MemoriesScreen'
 import { FamilyFeedScreen } from './screens/FamilyFeedScreen'
+import { PollsScreen } from './screens/PollsScreen'
+import { ScavengerHuntScreen } from './screens/ScavengerHuntScreen'
 
 const App = () => {
     const [screen, setScreen] = useState('home')
@@ -24,14 +26,17 @@ const App = () => {
     const [showCityGuides, setShowCityGuides] = useState(false)
     const [previousScreen, setPreviousScreen] = useState('welcome')
     const [bannerDismissed, setBannerDismissed] = useState(false)
+    const [showPolls, setShowPolls] = useState(false)
+    const [showScavengerHunt, setShowScavengerHunt] = useState(false)
+    const [memoriesInitialPrompt, setMemoriesInitialPrompt] = useState(null)
     const store = useStore()
 
     const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat') }
-    const handleSelectMemories = (userId) => { setCurrentUser(userId); setScreen('memories') }
+    const handleSelectMemories = (userId, initialPrompt = null) => { setCurrentUser(userId); setMemoriesInitialPrompt(initialPrompt); setScreen('memories') }
     const handleBack = () => {
         if (screen === 'welcome') { setScreen('home') }
         else if (screen === 'chat') { setScreen('welcome'); setCurrentUser(null); store.setRefiningIdea(null) }
-        else if (screen === 'memories') { setScreen('welcome'); setCurrentUser(null) }
+        else if (screen === 'memories') { setScreen('welcome'); setCurrentUser(null); setMemoriesInitialPrompt(null) }
         else if (screen === 'familyFeed') { setScreen('welcome') }
         else if (screen === 'dashboard') { setScreen(currentUser ? 'chat' : 'welcome') }
         else if (screen === 'map') { setScreen(previousScreen) }
@@ -78,9 +83,9 @@ const App = () => {
                 onDismiss={() => setBannerDismissed(true)}
             />
             {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} onOpenCityGuides={() => setShowCityGuides(true)} />}
-            {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} />}
+            {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} itinerary={store.itinerary} onOpenPolls={() => setShowPolls(true)} onOpenScavengerHunt={() => setShowScavengerHunt(true)} />}
             {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
-            {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} />}
+            {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} initialPrompt={memoriesInitialPrompt} />}
             {screen === 'familyFeed' && <FamilyFeedScreen onBack={handleBack} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} />}
             {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} onAddBooking={handleAddBooking} />}
             {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
@@ -89,6 +94,8 @@ const App = () => {
             {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
             {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
             {showCityGuides && <CityGuidesModal onClose={() => setShowCityGuides(false)} itinerary={store.itinerary} activities={store.activities} journalEntries={store.journalEntries} />}
+            {showPolls && <PollsScreen onBack={() => setShowPolls(false)} />}
+            {showScavengerHunt && <ScavengerHuntScreen onBack={() => setShowScavengerHunt(false)} itinerary={store.itinerary} />}
         </div>
     )
 }
