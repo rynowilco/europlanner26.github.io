@@ -2,34 +2,31 @@ import React, { useState, useEffect, useRef } from 'react'
 import { CONFIG, marked } from '../config'
 import { Icon } from '../components/Icon'
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const CLOUDINARY_BASE = 'https://res.cloudinary.com/dxa8sf575/image/upload/ep26/'
+// ─── Hero image URLs (direct from Cloudinary) ─────────────────────────────────
 
 const HERO_IMAGES = {
-    'frankfurt':    'hero_frankfurt.jpg',
-    'hinterzarten': 'hero_hinterzarten.jpg',
-    'iseltwald':    'hero_iseltwald.jpg',
-    'milan':        'hero_milan.jpg',
-    'riomaggiore':  'hero_riomaggiore.jpg',
-    'lucca':        'hero_lucca.jpg',
-    'noce':         'hero_noce.jpeg',
-    'verona':       'hero_verona.jpg',
-    'dolomites':    'hero_dolomites.jpg',
-    'innsbruck':    'hero_innsbruck.jpg',
+    'frankfurt':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611560/hero_frankfurt_njk6ze.jpg',
+    'hinterzarten': 'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611557/hero_hinterzarten_nfqyi5.jpg',
+    'iseltwald':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611559/hero_iseltwald_z5uyev.jpg',
+    'milan':        'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611562/hero_milan_vqyxkn.jpg',
+    'riomaggiore':  'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611565/hero_riomaggiore_wu1yuu.jpg',
+    'lucca':        'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611561/hero_lucca_amyzzo.jpg',
+    'noce':         'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611563/hero_noce_btwsq5.jpg',
+    'verona':       'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611566/hero_verona_tpctfp.jpg',
+    'dolomites':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'innsbruck':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611559/hero_innsbruck_iraymb.jpg',
 }
 
 const STATUS_CONFIG = {
-    current:  { borderColor: '#22c55e', label: '📍 Here Now',  color: '#16a34a', bg: '#f0fdf4' },
-    visited:  { borderColor: '#60a5fa', label: '✓ Visited',    color: '#2563eb', bg: '#eff6ff' },
-    upcoming: { borderColor: '#d1d5db', label: 'Coming Up',    color: '#6b7280', bg: '#f9fafb' },
+    current:  { borderColor: '#22c55e', label: '📍 Here Now', color: '#16a34a', bg: '#f0fdf4' },
+    visited:  { borderColor: '#60a5fa', label: '✓ Visited',   color: '#2563eb', bg: '#eff6ff' },
+    upcoming: { borderColor: '#d1d5db', label: 'Coming Up',   color: '#6b7280', bg: '#f9fafb' },
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getHeroUrl(cityName) {
-    const file = HERO_IMAGES[cityName.toLowerCase()]
-    return file ? `${CLOUDINARY_BASE}${file}` : null
+    return HERO_IMAGES[cityName.toLowerCase()] || null
 }
 
 function getCityStatus(city) {
@@ -42,6 +39,14 @@ function getCityStatus(city) {
 function formatDateRange(startDate, endDate) {
     const fmt = d => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     return startDate === endDate ? fmt(startDate) : `${fmt(startDate)} – ${fmt(endDate)}`
+}
+
+function getThumbUrl(url, width = 400) {
+    if (!url) return null
+    if (url.includes('cloudinary.com')) {
+        return url.replace('/upload/', `/upload/w_${width},c_fill,q_auto,f_auto/`)
+    }
+    return url
 }
 
 async function fetchCitySummary(city, country, activities) {
@@ -67,6 +72,73 @@ async function fetchCitySummary(city, country, activities) {
     } catch {
         return 'Summary unavailable right now.'
     }
+}
+
+// ─── Photo Lightbox ───────────────────────────────────────────────────────────
+
+const PhotoLightbox = ({ photos, startIndex, onClose }) => {
+    const [idx, setIdx] = useState(startIndex)
+    const [dir, setDir] = useState(0)
+    const touchStartX = useRef(null)
+    const entry = photos[idx]
+
+    const prev = () => { setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
+    const next = () => { setDir(1);  setIdx(i => (i + 1) % photos.length) }
+
+    const onTouchStart = e => { touchStartX.current = e.touches[0].clientX }
+    const onTouchEnd = e => {
+        if (touchStartX.current === null) return
+        const dx = e.changedTouches[0].clientX - touchStartX.current
+        if (Math.abs(dx) > 40) { dx < 0 ? next() : prev() }
+        touchStartX.current = null
+    }
+
+    useEffect(() => {
+        const handler = e => { if (e.key === 'ArrowLeft') prev(); if (e.key === 'ArrowRight') next(); if (e.key === 'Escape') onClose() }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [])
+
+    return (
+        <div
+            style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+        >
+            {/* Close */}
+            <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                <Icon name="X" size={20} color="white" />
+            </button>
+
+            {/* Prev */}
+            {photos.length > 1 && (
+                <button onClick={prev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                    <Icon name="ChevronLeft" size={24} color="white" />
+                </button>
+            )}
+
+            {/* Image */}
+            <img
+                key={idx}
+                src={getThumbUrl(entry.photoUrl, 1600)}
+                alt={entry.entryText || ''}
+                style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out' }}
+            />
+
+            {/* Next */}
+            {photos.length > 1 && (
+                <button onClick={next} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                    <Icon name="ChevronRight" size={24} color="white" />
+                </button>
+            )}
+
+            {/* Caption + counter */}
+            <div style={{ position: 'absolute', bottom: '24px', left: 0, right: 0, textAlign: 'center', padding: '0 60px' }}>
+                {entry.entryText && <p style={{ color: 'white', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '6px' }}>{entry.entryText}</p>}
+                {photos.length > 1 && <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem' }}>{idx + 1} / {photos.length}</div>}
+            </div>
+        </div>
+    )
 }
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
@@ -100,25 +172,15 @@ const CityCard = ({ city, onSelect }) => {
             onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)' }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)' }}
         >
-            {/* Hero image */}
             <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', position: 'relative', background: 'var(--color-tan)' }}>
                 {heroUrl && !imgError
-                    ? <img src={heroUrl} alt={city.city} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ? <img src={getThumbUrl(heroUrl, 400)} alt={city.city} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, var(--color-tan), var(--color-terracotta))', fontSize: '2rem' }}>🌍</div>
                 }
-                {/* Status badge */}
-                <div style={{
-                    position: 'absolute', top: '6px', right: '6px',
-                    background: 'rgba(255,255,255,0.95)', borderRadius: 'var(--radius-full)',
-                    padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700,
-                    color, boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                    backdropFilter: 'blur(4px)',
-                }}>
+                <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(255,255,255,0.95)', borderRadius: 'var(--radius-full)', padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700, color, boxShadow: '0 1px 4px rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
                     {label}
                 </div>
             </div>
-
-            {/* City info */}
             <div style={{ padding: 'var(--space-sm) var(--space-md) var(--space-md)' }}>
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-navy)', fontFamily: 'var(--font-display)', lineHeight: 1.2 }}>{city.city}</div>
                 <div style={{ fontSize: '0.73rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{city.country}</div>
@@ -127,16 +189,11 @@ const CityCard = ({ city, onSelect }) => {
     )
 }
 
-// ─── City Grid View ───────────────────────────────────────────────────────────
+// ─── City Grid ────────────────────────────────────────────────────────────────
 
 const CityGrid = ({ cities, onSelect, onClose }) => (
     <>
-        {/* Header */}
-        <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: 'var(--space-lg)', paddingBottom: 'var(--space-md)',
-            borderBottom: '1px solid var(--color-border)', flexShrink: 0,
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-lg)', paddingBottom: 'var(--space-md)', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
             <div>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: 'var(--color-navy)', margin: 0, lineHeight: 1 }}>Our Cities</h2>
                 <p style={{ fontSize: '0.82rem', color: 'var(--color-text-light)', margin: 0, marginTop: '4px' }}>Tap a city to explore</p>
@@ -146,9 +203,8 @@ const CityGrid = ({ cities, onSelect, onClose }) => (
             </button>
         </div>
 
-        {/* Status legend */}
         <div style={{ display: 'flex', gap: 'var(--space-md)', padding: 'var(--space-sm) var(--space-lg)', flexShrink: 0, background: 'white', borderBottom: '1px solid var(--color-border)' }}>
-            {Object.entries(STATUS_CONFIG).map(([key, { borderColor, label, color }]) => (
+            {Object.entries(STATUS_CONFIG).map(([key, { borderColor, label }]) => (
                 <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', color: 'var(--color-text-light)' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: borderColor, flexShrink: 0 }} />
                     {label}
@@ -156,7 +212,6 @@ const CityGrid = ({ cities, onSelect, onClose }) => (
             ))}
         </div>
 
-        {/* Grid */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-md)' }}>
                 {cities.map(city => (
@@ -168,12 +223,13 @@ const CityGrid = ({ cities, onSelect, onClose }) => (
     </>
 )
 
-// ─── City Detail View ─────────────────────────────────────────────────────────
+// ─── City Detail ──────────────────────────────────────────────────────────────
 
 const CityDetail = ({ city, activities, journalEntries, onBack, summaryCache }) => {
     const [summary, setSummary] = useState(summaryCache.current[city.city] || null)
     const [summaryLoading, setSummaryLoading] = useState(!summaryCache.current[city.city])
     const [imgError, setImgError] = useState(false)
+    const [lightbox, setLightbox] = useState(null) // { photos, index }
 
     const status = getCityStatus(city)
     const { borderColor, label, color, bg } = STATUS_CONFIG[status]
@@ -202,123 +258,117 @@ const CityDetail = ({ city, activities, journalEntries, onBack, summaryCache }) 
     }, [city.city])
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Header */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 'var(--space-sm)',
-                padding: 'var(--space-md) var(--space-lg)',
-                borderBottom: '1px solid var(--color-border)', flexShrink: 0,
-            }}>
-                <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--color-text-light)', display: 'flex', alignItems: 'center', marginLeft: '-4px' }}>
-                    <Icon name="ChevronLeft" size={24} />
-                </button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', color: 'var(--color-navy)', margin: 0, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{city.city}</h2>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{city.country} · {formatDateRange(city.startDate, city.endDate)}</div>
-                </div>
-                <span style={{
-                    background: bg, color, fontSize: '0.72rem', fontWeight: 700,
-                    padding: '4px 10px', borderRadius: 'var(--radius-full)',
-                    border: `1.5px solid ${borderColor}`, whiteSpace: 'nowrap', flexShrink: 0,
-                }}>
-                    {label}
-                </span>
-            </div>
+        <>
+            {lightbox && <PhotoLightbox photos={lightbox.photos} startIndex={lightbox.index} onClose={() => setLightbox(null)} />}
 
-            {/* Scrollable content */}
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                {/* Hero image */}
-                <div style={{ width: '100%', height: '200px', overflow: 'hidden', background: 'var(--color-tan)', flexShrink: 0 }}>
-                    {heroUrl && !imgError
-                        ? <img src={heroUrl} alt={city.city} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, var(--color-tan), var(--color-terracotta))', fontSize: '3rem' }}>🌍</div>
-                    }
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md) var(--space-lg)', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+                    <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--color-text-light)', display: 'flex', alignItems: 'center', marginLeft: '-4px' }}>
+                        <Icon name="ChevronLeft" size={24} />
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', color: 'var(--color-navy)', margin: 0, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{city.city}</h2>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{city.country} · {formatDateRange(city.startDate, city.endDate)}</div>
+                    </div>
+                    <span style={{ background: bg, color, fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', border: `1.5px solid ${borderColor}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {label}
+                    </span>
                 </div>
 
-                <div style={{ padding: 'var(--space-lg)' }}>
-                    {/* AI Summary */}
-                    <Section title="About">
-                        {summaryLoading
-                            ? <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', color: 'var(--color-text-light)', fontSize: '0.9rem' }}>
-                                <div style={{ width: '16px', height: '16px', border: '2px solid var(--color-tan)', borderTopColor: 'var(--color-terracotta)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
-                                Generating summary…
-                            </div>
-                            : <div className="markdown-content" style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--color-text)' }} dangerouslySetInnerHTML={{ __html: marked.parse(summary || '') }} />
+                {/* Scrollable content */}
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {/* Hero image */}
+                    <div style={{ width: '100%', height: '200px', overflow: 'hidden', background: 'var(--color-tan)', flexShrink: 0 }}>
+                        {heroUrl && !imgError
+                            ? <img src={getThumbUrl(heroUrl, 800)} alt={city.city} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, var(--color-tan), var(--color-terracotta))', fontSize: '3rem' }}>🌍</div>
                         }
-                    </Section>
+                    </div>
 
-                    {/* Family Photos (only if we have any) */}
-                    {cityPhotos.length > 0 && (
-                        <Section title={`📸 Our Photos (${cityPhotos.length})`}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-sm)' }}>
-                                {cityPhotos.slice(0, 6).map(e => (
-                                    <div key={e.id} style={{ aspectRatio: '1', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--color-tan)' }}>
-                                        <img
-                                            src={e.photoUrl.replace('/upload/', '/upload/w_300,c_fill,q_auto,f_auto/')}
-                                            alt={e.entryText || ''}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
+                    <div style={{ padding: 'var(--space-lg)' }}>
+                        {/* AI Summary */}
+                        <Section title="About">
+                            {summaryLoading
+                                ? <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', color: 'var(--color-text-light)', fontSize: '0.9rem' }}>
+                                    <div style={{ width: '16px', height: '16px', border: '2px solid var(--color-tan)', borderTopColor: 'var(--color-terracotta)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                                    Generating summary…
+                                </div>
+                                : <div className="markdown-content" style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--color-text)' }} dangerouslySetInnerHTML={{ __html: marked.parse(summary || '') }} />
+                            }
                         </Section>
-                    )}
 
-                    {/* Planned Activities */}
-                    {cityActivities.length > 0 && (
-                        <Section title="🎯 What's Planned">
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                {cityActivities.map(a => {
-                                    const isApproved = a.status === 'approved'
-                                    const isPending = a.status === 'submitted'
-                                    return (
-                                        <div key={a.id} style={{
-                                            background: 'white', borderRadius: 'var(--radius-md)',
-                                            padding: 'var(--space-sm) var(--space-md)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            gap: 'var(--space-sm)',
-                                        }}>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
-                                                <div style={{ fontSize: '0.73rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{a.userName || a.kidName}</div>
+                        {/* Family Photos */}
+                        {cityPhotos.length > 0 && (
+                            <Section title={`📸 Our Photos (${cityPhotos.length})`}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-sm)' }}>
+                                    {cityPhotos.map((e, i) => (
+                                        <button
+                                            key={e.id}
+                                            onClick={() => setLightbox({ photos: cityPhotos, index: i })}
+                                            style={{ aspectRatio: '1', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--color-tan)', border: 'none', padding: 0, cursor: 'pointer' }}
+                                        >
+                                            <img
+                                                src={getThumbUrl(e.photoUrl, 300)}
+                                                alt={e.entryText || ''}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            </Section>
+                        )}
+
+                        {/* Planned Activities */}
+                        {cityActivities.length > 0 && (
+                            <Section title="🎯 What's Planned">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                    {cityActivities.map(a => {
+                                        const isApproved = a.status === 'approved'
+                                        const isPending = a.status === 'submitted'
+                                        return (
+                                            <div key={a.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-sm) var(--space-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                                                    <div style={{ fontSize: '0.73rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{a.userName || a.kidName}</div>
+                                                </div>
+                                                <span style={{
+                                                    fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap', flexShrink: 0,
+                                                    background: isApproved ? '#f0fdf4' : isPending ? '#fef9ec' : '#fef2f2',
+                                                    color: isApproved ? '#16a34a' : isPending ? '#b45309' : '#dc2626',
+                                                    border: `1px solid ${isApproved ? '#86efac' : isPending ? '#fcd34d' : '#fca5a5'}`,
+                                                }}>
+                                                    {isApproved ? '✓ Approved' : isPending ? 'Pending' : 'Needs Revision'}
+                                                </span>
                                             </div>
-                                            <span style={{
-                                                fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: 'var(--radius-full)',
-                                                whiteSpace: 'nowrap', flexShrink: 0,
-                                                background: isApproved ? '#f0fdf4' : isPending ? '#fef9ec' : '#fef2f2',
-                                                color: isApproved ? '#16a34a' : isPending ? '#b45309' : '#dc2626',
-                                                border: `1px solid ${isApproved ? '#86efac' : isPending ? '#fcd34d' : '#fca5a5'}`,
-                                            }}>
-                                                {isApproved ? '✓ Approved' : isPending ? 'Pending' : 'Needs Revision'}
-                                            </span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </Section>
-                    )}
+                                        )
+                                    })}
+                                </div>
+                            </Section>
+                        )}
 
-                    {/* Language Phrases */}
-                    {phrases.length > 0 && (
-                        <Section title={`🗣️ Key ${city.language} Phrases`}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                {phrases.map((p, i) => (
-                                    <div key={i} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-sm) var(--space-md)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
-                                            <div style={{ fontWeight: 700, color: 'var(--color-terracotta)', fontSize: '0.95rem' }}>{p.local}</div>
-                                            <div style={{ fontSize: '0.73rem', color: 'var(--color-text-light)', fontStyle: 'italic', whiteSpace: 'nowrap', flexShrink: 0 }}>{p.pronunciation}</div>
+                        {/* Language Phrases */}
+                        {phrases.length > 0 && (
+                            <Section title={`🗣️ Key ${city.language} Phrases`}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                    {phrases.map((p, i) => (
+                                        <div key={i} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-sm) var(--space-md)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
+                                                <div style={{ fontWeight: 700, color: 'var(--color-terracotta)', fontSize: '0.95rem' }}>{p.local}</div>
+                                                <div style={{ fontSize: '0.73rem', color: 'var(--color-text-light)', fontStyle: 'italic', whiteSpace: 'nowrap', flexShrink: 0 }}>{p.pronunciation}</div>
+                                            </div>
+                                            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{p.english} · <span style={{ opacity: 0.75 }}>{p.when}</span></div>
                                         </div>
-                                        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{p.english} · <span style={{ opacity: 0.75 }}>{p.when}</span></div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Section>
-                    )}
+                                    ))}
+                                </div>
+                            </Section>
+                        )}
 
-                    <div style={{ height: 'var(--space-xl)' }} />
+                        <div style={{ height: 'var(--space-xl)' }} />
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     )
 }
 
@@ -336,7 +386,6 @@ export const CityGuidesModal = ({ onClose, itinerary, activities, journalEntries
         setTimeout(onClose, 300)
     }
 
-    // Build city list from itinerary — filter noise, dedupe repeats (Frankfurt)
     const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
     const seen = new Set()
     const cities = tripItinerary.filter(c => {
@@ -350,43 +399,20 @@ export const CityGuidesModal = ({ onClose, itinerary, activities, journalEntries
 
     return (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            {/* Backdrop */}
-            <div
-                onClick={handleClose}
-                style={{
-                    position: 'absolute', inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    opacity: visible ? 1 : 0,
-                    transition: 'opacity 0.3s ease',
-                }}
-            />
-
-            {/* Sheet */}
+            <div onClick={handleClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', opacity: visible ? 1 : 0, transition: 'opacity 0.3s ease' }} />
             <div style={{
-                position: 'relative',
-                background: 'var(--color-cream)',
-                borderRadius: '20px 20px 0 0',
-                height: '90vh',
-                display: 'flex',
-                flexDirection: 'column',
+                position: 'relative', background: 'var(--color-cream)',
+                borderRadius: '20px 20px 0 0', height: '90vh',
+                display: 'flex', flexDirection: 'column',
                 transform: visible ? 'translateY(0)' : 'translateY(100%)',
                 transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
-                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-                overflow: 'hidden',
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)', overflow: 'hidden',
             }}>
-                {/* Drag handle */}
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-sm) 0 0', flexShrink: 0 }}>
                     <div style={{ width: '36px', height: '4px', background: 'var(--color-border)', borderRadius: '2px' }} />
                 </div>
-
                 {selectedCity
-                    ? <CityDetail
-                        city={selectedCity}
-                        activities={activities}
-                        journalEntries={journalEntries}
-                        onBack={() => setSelectedCity(null)}
-                        summaryCache={summaryCache}
-                    />
+                    ? <CityDetail city={selectedCity} activities={activities} journalEntries={journalEntries} onBack={() => setSelectedCity(null)} summaryCache={summaryCache} />
                     : <CityGrid cities={cities} onSelect={setSelectedCity} onClose={handleClose} />
                 }
             </div>
