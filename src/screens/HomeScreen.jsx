@@ -1,7 +1,7 @@
 import React from 'react'
 import { Icon } from '../components/Icon'
 
-export const HomeScreen = ({ onExplorer, onFollowAlong }) => (
+export const HomeScreen = ({ onExplorer, onFollowAlong, onOpenCityGuides }) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-2xl) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
         <header style={{ textAlign: 'center', paddingBottom: 'var(--space-xl)', animation: 'slideUp 0.6s ease-out' }}>
             <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
@@ -31,6 +31,18 @@ export const HomeScreen = ({ onExplorer, onFollowAlong }) => (
                 <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>See where we're headed and what we have planned</div>
                 <div style={{ marginTop: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-terracotta)', fontSize: '0.9rem', fontWeight: 600 }}>
                     View trip <Icon name="ChevronRight" size={16} color="var(--color-terracotta)" />
+                </div>
+            </button>
+
+            <button
+                onClick={onOpenCityGuides}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: 'var(--space-xl)', background: 'var(--color-cream)', color: 'var(--color-text)', border: '2px solid var(--color-tan)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: 'slideUp 0.5s ease-out 0.45s both', textAlign: 'left', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-navy)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-tan)' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--color-navy)' }}>Our Cities</div>
+                <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)', marginTop: 'var(--space-xs)', lineHeight: 1.5 }}>Explore destinations — summaries, activities &amp; local phrases</div>
+                <div style={{ marginTop: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-navy)', fontSize: '0.9rem', fontWeight: 600 }}>
+                    Explore <Icon name="ChevronRight" size={16} color="var(--color-navy)" />
                 </div>
             </button>
         </div>
