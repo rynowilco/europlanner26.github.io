@@ -17,31 +17,33 @@ export const PollsScreen = ({ onBack }) => {
                     <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>🗳️ Family Polls</div>
                     <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>Vote on what to do next</div>
                 </div>
-            </div>
-            {/* Toolbar */}
-            <div style={{ background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm) var(--space-lg)', display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end', flexShrink: 0 }}>
-                <button onClick={() => setShowHowItWorks(true)} style={{ background: 'var(--color-cream)', border: '1.5px solid var(--color-border)', borderRadius: '50%', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-light)', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
+                <button onClick={() => setShowHowItWorks(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
                     ?
-                </button>
-                <button onClick={() => setShowComingSoon(true)} style={{ background: '#4a7fc1', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 16px', color: 'white', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
-                    + New Poll
                 </button>
             </div>
 
-            {/* Empty state */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-2xl) var(--space-lg)', gap: 'var(--space-lg)', textAlign: 'center' }}>
-                <div style={{ width: '80px', height: '80px', background: '#e8f0fb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px' }}>
-                    🗳️
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+
+                {/* Sticky Create Poll button */}
+                <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-md) var(--space-lg)' }}>
+                    <button onClick={() => setShowComingSoon(true)} style={{ width: '100%', background: '#4a7fc1', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                        🗳️ Create Poll
+                    </button>
                 </div>
-                <div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>No polls yet</div>
-                    <div style={{ fontSize: '0.95rem', color: 'var(--color-text-light)', lineHeight: 1.6, maxWidth: '260px' }}>
-                        Can't decide what to do? Create a poll and let the family vote.
+
+                {/* Empty state */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-2xl) var(--space-lg)', gap: 'var(--space-lg)', textAlign: 'center' }}>
+                    <div style={{ width: '80px', height: '80px', background: '#e8f0fb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px' }}>
+                        🗳️
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>No polls yet</div>
+                        <div style={{ fontSize: '0.95rem', color: 'var(--color-text-light)', lineHeight: 1.6, maxWidth: '260px' }}>
+                            Can't decide what to do? Create a poll and let the family vote.
+                        </div>
                     </div>
                 </div>
-                <button onClick={() => setShowComingSoon(true)} style={{ background: '#4a7fc1', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: 'var(--space-md) var(--space-xl)', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-md)' }}>
-                    🗳️ Create First Poll
-                </button>
             </div>
 
             {/* How it works modal */}
