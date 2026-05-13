@@ -13,10 +13,13 @@ const HERO_IMAGES = {
     'lucca':        'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611561/hero_lucca_amyzzo.jpg',
     'noce':         'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611563/hero_noce_btwsq5.jpg',
     'verona':       'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611566/hero_verona_tpctfp.jpg',
-    'dolomites':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'ortisei':      'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'val gardena':  'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'val di funes': 'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'dolomites':              'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'ortisei':                'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'ortisei/st. ulrich':     'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'ortisei / st. ulrich':   'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'st. ulrich':             'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'val gardena':            'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'val di funes':           'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
     'innsbruck':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611559/hero_innsbruck_iraymb.jpg',
 }
 
