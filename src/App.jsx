@@ -38,6 +38,13 @@ const App = () => {
         return !lastSeen || latest > lastSeen
     })()
 
+    const newPollAvailable = (() => {
+        if (!store.polls?.length) return false
+        const latest = [...store.polls].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.createdAt
+        const lastSeen = localStorage.getItem('euroPlanner_lastSeenPoll')
+        return !lastSeen || latest > lastSeen
+    })()
+
     const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat') }
     const handleSelectMemories = (userId, initialPrompt = null) => { setCurrentUser(userId); setMemoriesInitialPrompt(initialPrompt); setScreen('memories') }
     const handleBack = () => {
@@ -94,7 +101,7 @@ const App = () => {
                 onDismiss={() => setBannerDismissed(true)}
             />
             {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} onOpenCityGuides={() => setShowCityGuides(true)} />}
-            {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} itinerary={store.itinerary} onOpenPolls={() => setScreen('polls')} onOpenScavengerHunt={() => setScreen('scavengerHunt')} onOpenDailyStories={handleOpenDailyStories} newStoryAvailable={newStoryAvailable} />}
+            {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} itinerary={store.itinerary} onOpenPolls={() => setScreen('polls')} onOpenScavengerHunt={() => setScreen('scavengerHunt')} onOpenDailyStories={handleOpenDailyStories} newStoryAvailable={newStoryAvailable} newPollAvailable={newPollAvailable} />}
             {screen === 'dailyStories' && <DailyStoriesScreen onBack={handleBack} journalDigest={store.journalDigest} journalEntries={store.journalEntries} itinerary={store.itinerary} currentUser={currentUser} userProfiles={store.userProfiles} onSaveStory={store.saveJournalStory} canGenerate={true} />}
             {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
             {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} initialPrompt={memoriesInitialPrompt} />}
