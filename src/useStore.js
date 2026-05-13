@@ -30,6 +30,7 @@ export const useStore = () => {
     const [bookingItems, setBookingItems] = useState(() => safeParseJSON('euroPlanner_bookingItems', []))
     const [journalEntries, setJournalEntries] = useState(() => safeParseJSON('euroPlanner_journalEntries', []))
     const [comments, setComments] = useState(() => safeParseJSON('euroPlanner_comments', []))
+    const [journalDigest, setJournalDigest] = useState(() => safeParseJSON('euroPlanner_journalDigest', []))
     const [userProfiles, setUserProfiles] = useState(() => safeParseJSON('euroPlanner_profiles', CONFIG.users))
     const [itinerary, setItinerary] = useState(CONFIG.itinerary)
     const [sheetsLoaded, setSheetsLoaded] = useState(false)
@@ -48,7 +49,8 @@ export const useStore = () => {
                     ideasResult,
                     bookingResult,
                     journalResult,
-                    commentsResult
+                    commentsResult,
+                    digestResult
                 ] = await Promise.allSettled([
                     SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
@@ -56,7 +58,8 @@ export const useStore = () => {
                     SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.journal),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.comments)
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.comments),
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.journalDigest)
                 ])
 
                 // ── Activities ──────────────────────────────────────────────
@@ -158,6 +161,19 @@ export const useStore = () => {
                     console.warn('Comments sheet read failed:', commentsResult.reason)
                 }
 
+                // ── Journal Digest ───────────────────────────────────────────
+                if (digestResult.status === 'fulfilled' && digestResult.value?.length > 1) {
+                    try {
+                        const parsedDigest = SheetsAPI.parseJournalDigest(digestResult.value)
+                        if (parsedDigest.length > 0) {
+                            setJournalDigest(parsedDigest)
+                            console.log('Loaded journal digest:', parsedDigest.length, 'stories')
+                        }
+                    } catch (e) { console.warn('parseJournalDigest error:', e) }
+                } else if (digestResult.status === 'rejected') {
+                    console.warn('Journal Digest sheet read failed:', digestResult.reason)
+                }
+
                 // ── Flush unsynced local activities ─────────────────────────
                 const localActivities = safeParseJSON('euroPlanner_activities', [])
                 const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
@@ -186,6 +202,7 @@ export const useStore = () => {
     useEffect(() => { localStorage.setItem('euroPlanner_bookingItems', JSON.stringify(bookingItems)) }, [bookingItems])
     useEffect(() => { localStorage.setItem('euroPlanner_journalEntries', JSON.stringify(journalEntries)) }, [journalEntries])
     useEffect(() => { localStorage.setItem('euroPlanner_comments', JSON.stringify(comments)) }, [comments])
+    useEffect(() => { localStorage.setItem('euroPlanner_journalDigest', JSON.stringify(journalDigest)) }, [journalDigest])
 
     // ── Saved Ideas ─────────────────────────────────────────────────────────
     const addSavedIdea = async (idea) => {
@@ -510,6 +527,27 @@ export const useStore = () => {
         } catch (e) { console.error('Failed to sync heart to Sheets:', e) }
     }
 
+    // ── Journal Digest ──────────────────────────────────────────────────────
+    const saveJournalStory = async (date, storyText, generatedBy) => {
+        const now = new Date().toISOString()
+        const entry = { date, story: storyText, generatedAt: now, generatedBy: generatedBy || '' }
+        const exists = journalDigest.some(d => d.date === date)
+        if (exists) {
+            setJournalDigest(prev => prev.map(d => d.date === date ? entry : d))
+            try {
+                await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.journalDigest, date, SheetsAPI.digestToRow(entry))
+                console.log('Story updated in Sheets for', date)
+            } catch (e) { console.error('Failed to update story in Sheets:', e) }
+        } else {
+            setJournalDigest(prev => [entry, ...prev].sort((a, b) => b.date.localeCompare(a.date)))
+            try {
+                await SheetsAPI.append(CONFIG.SHEET_NAMES.journalDigest, SheetsAPI.digestToRow(entry))
+                console.log('Story saved to Sheets for', date)
+            } catch (e) { console.error('Failed to save story to Sheets:', e) }
+        }
+        return entry
+    }
+
     const addComment = async (entryId, entryType, commenterName, commentText) => {
         const comment = {
             id: 'CMT-' + Date.now(),
@@ -565,6 +603,8 @@ export const useStore = () => {
         heartJournalEntry,
         comments,
         addComment,
+        journalDigest,
+        saveJournalStory,
         EmailService
     }
 }

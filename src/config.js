@@ -27,7 +27,8 @@ export const CONFIG = {
         journal: 'Journal',
         photos: 'Photos',
         messages: 'Messages',
-        comments: 'Comments'
+        comments: 'Comments',
+        journalDigest: 'Journal Digest'
     },
 
     EMAILJS_SERVICE_ID: 'service_3uu6sr7',

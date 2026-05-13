@@ -15,6 +15,7 @@ import { MemoriesScreen } from './screens/MemoriesScreen'
 import { FamilyFeedScreen } from './screens/FamilyFeedScreen'
 import { PollsScreen } from './screens/PollsScreen'
 import { ScavengerHuntScreen } from './screens/ScavengerHuntScreen'
+import { DailyStoriesScreen } from './screens/DailyStoriesScreen'
 
 const App = () => {
     const [screen, setScreen] = useState('home')
@@ -29,6 +30,14 @@ const App = () => {
     const [memoriesInitialPrompt, setMemoriesInitialPrompt] = useState(null)
     const store = useStore()
 
+    // Badge: true if there's a story newer than the last one the user saw
+    const newStoryAvailable = (() => {
+        if (!store.journalDigest?.length) return false
+        const latest = [...store.journalDigest].sort((a, b) => b.date.localeCompare(a.date))[0]?.date
+        const lastSeen = localStorage.getItem('euroPlanner_lastSeenStory')
+        return !lastSeen || latest > lastSeen
+    })()
+
     const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat') }
     const handleSelectMemories = (userId, initialPrompt = null) => { setCurrentUser(userId); setMemoriesInitialPrompt(initialPrompt); setScreen('memories') }
     const handleBack = () => {
@@ -40,7 +49,9 @@ const App = () => {
         else if (screen === 'map') { setScreen(previousScreen) }
         else if (screen === 'polls') { setScreen('welcome') }
         else if (screen === 'scavengerHunt') { setScreen('welcome') }
+        else if (screen === 'dailyStories') { setScreen('welcome'); }
     }
+    const handleOpenDailyStories = (userId) => { if (userId) setCurrentUser(userId); setScreen('dailyStories') }
     const handleOpenAdmin = () => setShowFingerprintModal(true)
     const handleOpenDashboard = () => setScreen('dashboard')
     const handleOpenMap = () => { setPreviousScreen(screen); setScreen('map') }
@@ -83,7 +94,8 @@ const App = () => {
                 onDismiss={() => setBannerDismissed(true)}
             />
             {screen === 'home' && <HomeScreen onExplorer={() => setScreen('welcome')} onFollowAlong={() => setScreen('tracker')} onOpenCityGuides={() => setShowCityGuides(true)} />}
-            {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} itinerary={store.itinerary} onOpenPolls={() => setScreen('polls')} onOpenScavengerHunt={() => setScreen('scavengerHunt')} />}
+            {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} itinerary={store.itinerary} onOpenPolls={() => setScreen('polls')} onOpenScavengerHunt={() => setScreen('scavengerHunt')} onOpenDailyStories={handleOpenDailyStories} newStoryAvailable={newStoryAvailable} />}
+            {screen === 'dailyStories' && <DailyStoriesScreen onBack={handleBack} journalDigest={store.journalDigest} journalEntries={store.journalEntries} itinerary={store.itinerary} currentUser={currentUser} userProfiles={store.userProfiles} onSaveStory={store.saveJournalStory} canGenerate={true} />}
             {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
             {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} initialPrompt={memoriesInitialPrompt} />}
             {screen === 'familyFeed' && <FamilyFeedScreen onBack={handleBack} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} />}

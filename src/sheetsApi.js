@@ -297,6 +297,20 @@ export const SheetsAPI = {
         ]
     },
 
+    parseJournalDigest(rows) {
+        if (!rows || rows.length < 2) return []
+        return rows.slice(1).filter(row => row[0]).map(row => ({
+            date:        row[0] || '',
+            story:       row[1] || '',
+            generatedAt: row[2] || '',
+            generatedBy: row[3] || ''
+        }))
+    },
+
+    digestToRow(entry) {
+        return [entry.date, entry.story, entry.generatedAt, entry.generatedBy || '']
+    },
+
     async findAndUpdateRow(sheetName, id, values) {
         const data = await this.read(sheetName)
         if (!data || data.length < 2) return false
