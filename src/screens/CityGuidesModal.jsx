@@ -13,13 +13,13 @@ const HERO_IMAGES = {
     'lucca':        'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611561/hero_lucca_amyzzo.jpg',
     'noce':         'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611563/hero_noce_btwsq5.jpg',
     'verona':       'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611566/hero_verona_tpctfp.jpg',
-    'dolomites':              'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'ortisei':                'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'ortisei/st. ulrich':     'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'ortisei / st. ulrich':   'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'st. ulrich':             'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'val gardena':            'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
-    'val di funes':           'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611554/hero_dolomites_d9bapx.jpg',
+    'dolomites':              'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
+    'ortisei':                'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
+    'ortisei/st. ulrich':     'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
+    'ortisei / st. ulrich':   'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
+    'st. ulrich':             'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
+    'val gardena':            'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
+    'val di funes':           'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
     'innsbruck':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611559/hero_innsbruck_iraymb.jpg',
 }
 
@@ -32,7 +32,14 @@ const STATUS_CONFIG = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getHeroUrl(cityName) {
-    return HERO_IMAGES[cityName.toLowerCase()] || null
+    if (!cityName) return null
+    const lower = cityName.toLowerCase().trim()
+    if (HERO_IMAGES[lower]) return HERO_IMAGES[lower]
+    // Fuzzy: handle compound names like "Ortisei/St. Ulrich" or "Noce (Dolomites)"
+    for (const [key, url] of Object.entries(HERO_IMAGES)) {
+        if (lower.includes(key) || key.includes(lower)) return url
+    }
+    return null
 }
 
 function getCityStatus(city) {
