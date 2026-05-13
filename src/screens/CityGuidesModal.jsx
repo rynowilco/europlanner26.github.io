@@ -159,10 +159,16 @@ const Section = ({ title, children }) => (
 // ─── City Card ────────────────────────────────────────────────────────────────
 
 const CityCard = ({ city, onSelect }) => {
-    const [imgError, setImgError] = useState(false)
+    const heroUrl = getHeroUrl(city.city)
+    const [heroSrc, setHeroSrc] = useState(() => heroUrl ? getThumbUrl(heroUrl, 400) : null)
+    const [heroFailed, setHeroFailed] = useState(false)
     const status = getCityStatus(city)
     const { borderColor, label, color } = STATUS_CONFIG[status]
-    const heroUrl = getHeroUrl(city.city)
+
+    const handleHeroError = () => {
+        if (heroSrc !== heroUrl && heroUrl) { setHeroSrc(heroUrl) }
+        else { setHeroFailed(true) }
+    }
 
     return (
         <button
@@ -179,8 +185,8 @@ const CityCard = ({ city, onSelect }) => {
             onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)' }}
         >
             <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', position: 'relative', background: 'var(--color-tan)' }}>
-                {heroUrl && !imgError
-                    ? <img src={getThumbUrl(heroUrl, 400)} alt={city.city} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {heroSrc && !heroFailed
+                    ? <img src={heroSrc} alt={city.city} onError={handleHeroError} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, var(--color-tan), var(--color-terracotta))', fontSize: '2rem' }}>🌍</div>
                 }
                 <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(255,255,255,0.95)', borderRadius: 'var(--radius-full)', padding: '2px 8px', fontSize: '0.68rem', fontWeight: 700, color, boxShadow: '0 1px 4px rgba(0,0,0,0.15)', backdropFilter: 'blur(4px)' }}>
@@ -234,12 +240,18 @@ const CityGrid = ({ cities, onSelect, onClose }) => (
 const CityDetail = ({ city, activities, journalEntries, onBack, onClose, summaryCache }) => {
     const [summary, setSummary] = useState(summaryCache.current[city.city] || null)
     const [summaryLoading, setSummaryLoading] = useState(!summaryCache.current[city.city])
-    const [imgError, setImgError] = useState(false)
     const [lightbox, setLightbox] = useState(null) // { photos, index }
 
     const status = getCityStatus(city)
     const { borderColor, label, color, bg } = STATUS_CONFIG[status]
     const heroUrl = getHeroUrl(city.city)
+    const [heroSrc, setHeroSrc] = useState(() => heroUrl ? getThumbUrl(heroUrl, 800) : null)
+    const [heroFailed, setHeroFailed] = useState(false)
+
+    const handleHeroError = () => {
+        if (heroSrc !== heroUrl && heroUrl) { setHeroSrc(heroUrl) }
+        else { setHeroFailed(true) }
+    }
 
     const cityActivities = (activities || []).filter(a =>
         a.city?.toLowerCase() === city.city.toLowerCase() &&
@@ -291,8 +303,8 @@ const CityDetail = ({ city, activities, journalEntries, onBack, onClose, summary
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {/* Hero image */}
                     <div style={{ width: '100%', height: '200px', overflow: 'hidden', background: 'var(--color-tan)', flexShrink: 0 }}>
-                        {heroUrl && !imgError
-                            ? <img src={getThumbUrl(heroUrl, 800)} alt={city.city} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {heroSrc && !heroFailed
+                            ? <img src={heroSrc} alt={city.city} onError={handleHeroError} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, var(--color-tan), var(--color-terracotta))', fontSize: '3rem' }}>🌍</div>
                         }
                     </div>
