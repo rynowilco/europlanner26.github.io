@@ -225,7 +225,7 @@ const CityGrid = ({ cities, onSelect, onClose }) => (
 
 // ─── City Detail ──────────────────────────────────────────────────────────────
 
-const CityDetail = ({ city, activities, journalEntries, onBack, summaryCache }) => {
+const CityDetail = ({ city, activities, journalEntries, onBack, onClose, summaryCache }) => {
     const [summary, setSummary] = useState(summaryCache.current[city.city] || null)
     const [summaryLoading, setSummaryLoading] = useState(!summaryCache.current[city.city])
     const [imgError, setImgError] = useState(false)
@@ -271,9 +271,14 @@ const CityDetail = ({ city, activities, journalEntries, onBack, summaryCache }) 
                         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', color: 'var(--color-navy)', margin: 0, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{city.city}</h2>
                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', marginTop: '2px' }}>{city.country} · {formatDateRange(city.startDate, city.endDate)}</div>
                     </div>
-                    <span style={{ background: bg, color, fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', border: `1.5px solid ${borderColor}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {label}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span style={{ background: bg, color, fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', border: `1.5px solid ${borderColor}`, whiteSpace: 'nowrap' }}>
+                            {label}
+                        </span>
+                        <button onClick={onClose} style={{ background: 'var(--color-cream)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                            <Icon name="X" size={18} color="var(--color-text-light)" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Scrollable content */}
@@ -377,13 +382,33 @@ const CityDetail = ({ city, activities, journalEntries, onBack, summaryCache }) 
 export const CityGuidesModal = ({ onClose, itinerary, activities, journalEntries }) => {
     const [visible, setVisible] = useState(false)
     const [selectedCity, setSelectedCity] = useState(null)
+    const [dragY, setDragY] = useState(0)
     const summaryCache = useRef({})
+    const touchStartY = useRef(null)
+    const isDragging = useRef(false)
 
     useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
 
     const handleClose = () => {
+        setDragY(0)
         setVisible(false)
         setTimeout(onClose, 300)
+    }
+
+    const handleHandleTouchStart = (e) => {
+        touchStartY.current = e.touches[0].clientY
+        isDragging.current = true
+    }
+    const handleHandleTouchMove = (e) => {
+        if (!isDragging.current || touchStartY.current === null) return
+        const dy = e.touches[0].clientY - touchStartY.current
+        if (dy > 0) setDragY(dy)
+    }
+    const handleHandleTouchEnd = (e) => {
+        isDragging.current = false
+        const dy = e.changedTouches[0].clientY - (touchStartY.current || 0)
+        touchStartY.current = null
+        if (dy > 80) { handleClose() } else { setDragY(0) }
     }
 
     const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
@@ -404,15 +429,19 @@ export const CityGuidesModal = ({ onClose, itinerary, activities, journalEntries
                 position: 'relative', background: 'var(--color-cream)',
                 borderRadius: '20px 20px 0 0', height: '90vh',
                 display: 'flex', flexDirection: 'column',
-                transform: visible ? 'translateY(0)' : 'translateY(100%)',
-                transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+                transform: visible ? `translateY(${dragY}px)` : 'translateY(100%)',
+                transition: dragY > 0 ? 'none' : 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
                 paddingBottom: 'env(safe-area-inset-bottom, 0px)', overflow: 'hidden',
             }}>
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-sm) 0 0', flexShrink: 0 }}>
+                <div
+                    onTouchStart={handleHandleTouchStart}
+                    onTouchMove={handleHandleTouchMove}
+                    onTouchEnd={handleHandleTouchEnd}
+                    style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-md) 0', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}>
                     <div style={{ width: '36px', height: '4px', background: 'var(--color-border)', borderRadius: '2px' }} />
                 </div>
                 {selectedCity
-                    ? <CityDetail city={selectedCity} activities={activities} journalEntries={journalEntries} onBack={() => setSelectedCity(null)} summaryCache={summaryCache} />
+                    ? <CityDetail city={selectedCity} activities={activities} journalEntries={journalEntries} onBack={() => setSelectedCity(null)} onClose={handleClose} summaryCache={summaryCache} />
                     : <CityGrid cities={cities} onSelect={setSelectedCity} onClose={handleClose} />
                 }
             </div>

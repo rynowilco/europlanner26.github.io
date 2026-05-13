@@ -160,14 +160,15 @@ const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, comme
     )
 }
 
-export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, onHeartEntry, comments, onAddComment }) => {
+export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, onHeartEntry, comments, onAddComment, journalDigest }) => {
     const mapRef = useRef(null)
     const mapInstanceRef = useRef(null)
     const [selectedCity, setSelectedCity] = useState(null)
     const [aiSummary, setAiSummary] = useState(null)
     const [loadingSummary, setLoadingSummary] = useState(false)
-    const [trackerTab, setTrackerTab] = useState('map')
+    const [trackerTab, setTrackerTab] = useState('familyFeed')
     const [lightbox, setLightbox] = useState(null) // { photos, index }
+    const [expandedStory, setExpandedStory] = useState(null)
     const [expandedComments, setExpandedComments] = useState(() => {
         const ids = (comments || []).map(c => c.entryId)
         return new Set(ids)
@@ -318,14 +319,34 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
 
             {/* Tab bar */}
             <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-                {[{ key: 'map', label: '🗺️ Trip Map' }, { key: 'memories', label: '📸 Memories' }].map(t => (
-                    <button key={t.key} onClick={() => setTrackerTab(t.key)} style={{ flex: 1, padding: 'var(--space-md)', background: 'none', border: 'none', borderBottom: trackerTab === t.key ? '2px solid var(--color-terracotta)' : '2px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: trackerTab === t.key ? 600 : 400, color: trackerTab === t.key ? 'var(--color-terracotta)' : 'var(--color-text-light)', transition: 'all 0.15s', position: 'relative' }}>
-                        {t.label}
-                        {t.key === 'memories' && (comments || []).length > 0 && (
-                            <span style={{ position: 'absolute', top: '8px', right: '12px', width: '8px', height: '8px', background: 'var(--color-terracotta)', borderRadius: '50%' }} />
-                        )}
-                    </button>
-                ))}
+                {[
+                    { key: 'familyFeed', label: '📸 Family Feed' },
+                    { key: 'dailyStories', label: '✨ Daily Stories' },
+                    { key: 'map', label: '🗺️ Trip Map' }
+                ].map(t => {
+                    const hasBadge =
+                        (t.key === 'familyFeed' && (comments || []).length > 0) ||
+                        (t.key === 'dailyStories' && (() => {
+                            if (!journalDigest?.length) return false
+                            const latest = [...journalDigest].sort((a, b) => b.date.localeCompare(a.date))[0]?.date
+                            const lastSeen = localStorage.getItem('euroPlanner_lastSeenStory')
+                            return !lastSeen || latest > lastSeen
+                        })())
+                    return (
+                        <button key={t.key} onClick={() => {
+                            setTrackerTab(t.key)
+                            if (t.key === 'dailyStories' && journalDigest?.length > 0) {
+                                const latest = [...journalDigest].sort((a, b) => b.date.localeCompare(a.date))[0]?.date
+                                try { localStorage.setItem('euroPlanner_lastSeenStory', latest) } catch {}
+                            }
+                        }} style={{ flex: 1, padding: 'var(--space-md) var(--space-sm)', background: 'none', border: 'none', borderBottom: trackerTab === t.key ? '2px solid var(--color-terracotta)' : '2px solid transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: trackerTab === t.key ? 600 : 400, color: trackerTab === t.key ? 'var(--color-terracotta)' : 'var(--color-text-light)', transition: 'all 0.15s', position: 'relative' }}>
+                            {t.label}
+                            {hasBadge && (
+                                <span style={{ position: 'absolute', top: '8px', right: '6px', width: '8px', height: '8px', background: 'var(--color-terracotta)', borderRadius: '50%' }} />
+                            )}
+                        </button>
+                    )
+                })}
             </div>
 
             {/* Map tab — always mounted, hidden via CSS to keep Leaflet initialized */}
@@ -384,8 +405,8 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                 )}
             </div>
 
-            {/* Memories tab — photos + journal entries grouped by date */}
-            {trackerTab === 'memories' && (
+            {/* Family Feed tab — photos + journal entries grouped by date */}
+            {trackerTab === 'familyFeed' && (
                 <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', background: 'var(--color-cream)' }}>
                     {allEntries.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
@@ -456,6 +477,46 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                                             </div>
                                         )
                                     })}
+                                </div>
+                            )
+                        })
+                    )}
+                </div>
+            )}
+
+            {/* Daily Stories tab */}
+            {trackerTab === 'dailyStories' && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', background: 'var(--color-cream)' }}>
+                    {(!journalDigest || journalDigest.length === 0) ? (
+                        <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
+                            <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📖</div>
+                            <p style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.05rem', marginBottom: 'var(--space-sm)' }}>No stories yet</p>
+                            <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+                                Check back once Team Wonder &amp; Awe hits the road — daily stories will appear here!
+                            </p>
+                        </div>
+                    ) : (
+                        [...journalDigest].sort((a, b) => b.date.localeCompare(a.date)).map(entry => {
+                            const isOpen = expandedStory === entry.date
+                            const fmt = d => { const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) }
+                            return (
+                                <div key={entry.date} style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 'var(--space-lg)', marginBottom: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', animation: 'slideUp 0.4s ease-out', cursor: 'pointer' }}
+                                    onClick={() => setExpandedStory(isOpen ? null : entry.date)}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-md)' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px' }}>✨ Daily Story</div>
+                                            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-navy)', marginTop: '2px' }}>{fmt(entry.date)}</div>
+                                        </div>
+                                        <Icon name={isOpen ? 'ChevronUp' : 'ChevronDown'} size={18} color="var(--color-text-light)" />
+                                    </div>
+                                    <p style={{ fontSize: '0.95rem', lineHeight: 1.75, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                                        {isOpen ? entry.story : (entry.story?.slice(0, 180) + (entry.story?.length > 180 ? '…' : ''))}
+                                    </p>
+                                    {isOpen && entry.generatedBy && (
+                                        <div style={{ marginTop: 'var(--space-md)', paddingTop: 'var(--space-sm)', borderTop: '1px solid var(--color-border)', fontSize: '0.78rem', color: 'var(--color-text-light)' }}>
+                                            Written by Claude · curated by {entry.generatedBy}
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })

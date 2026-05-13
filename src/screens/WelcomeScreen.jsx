@@ -126,11 +126,11 @@ export const WelcomeScreen = ({
                                 </div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                {/* Plan the Trip */}
+                                {/* Make Plans */}
                                 <button onClick={() => { setForkUser(null); onSelectUser(forkUser) }} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'var(--color-navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 600, textAlign: 'left' }}>
                                     <span style={{ fontSize: '24px' }}>💬</span>
                                     <div>
-                                        <div>Plan the Trip</div>
+                                        <div>Make Plans</div>
                                         <div style={{ fontSize: '0.8rem', fontWeight: 400, opacity: 0.75 }}>Chat with your AI travel buddy</div>
                                     </div>
                                 </button>
