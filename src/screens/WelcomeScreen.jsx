@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 export const WelcomeScreen = ({
     onSelectUser, onSelectMemories, userProfiles, activities,
     onOpenAdmin, onOpenDashboard, onOpenMap, onOpenFamilyFeed, onBack,
-    onOpenPolls, onOpenScavengerHunt, onOpenDailyStories, newStoryAvailable
+    onOpenPolls, onOpenScavengerHunt, onOpenDailyStories, newStoryAvailable, newPollAvailable
 }) => {
     const [forkUser, setForkUser] = useState(null)
     const [reminderDismissed, setReminderDismissed] = useState(true) // default true until check runs
@@ -98,8 +98,11 @@ export const WelcomeScreen = ({
 
                 {/* ── Action buttons row 2: Polls + Scavenger Hunt ──────────────── */}
                 <div style={{ display: 'flex', gap: 'var(--space-sm)', animation: 'fadeIn 0.6s ease-out 0.58s both' }}>
-                    <button onClick={onOpenPolls} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-md)', background: '#4a7fc1', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+                    <button onClick={onOpenPolls} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-md)', background: '#4a7fc1', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, position: 'relative' }}>
                         🗳️ Polls
+                        {newPollAvailable && (
+                            <span style={{ background: 'white', color: '#4a7fc1', fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 'var(--radius-full)', lineHeight: 1.4 }}>NEW</span>
+                        )}
                     </button>
                     <button onClick={onOpenScavengerHunt} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-md)', background: '#5a9e6f', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
                         🔍 Hunt
