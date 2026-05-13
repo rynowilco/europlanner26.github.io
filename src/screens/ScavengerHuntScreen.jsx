@@ -92,20 +92,19 @@ export const ScavengerHuntScreen = ({ onBack, itinerary }) => {
                     <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>🔍 Scavenger Hunt</div>
                     <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>{cityName}</div>
                 </div>
-                <button onClick={() => setShowHowItWorks(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
-                    ?
-                </button>
-                {/* Points badge */}
-                <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 'var(--radius-md)', padding: '6px 12px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 'var(--radius-md)', padding: '6px 12px', textAlign: 'center', flexShrink: 0 }}>
                     <div style={{ color: 'white', fontSize: '1rem', fontWeight: 700 }}>0 pts</div>
                     <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.65rem', fontWeight: 600 }}>TOTAL</div>
                 </div>
             </div>
 
             {/* Sticky Generate sub-bar */}
-            <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-md) var(--space-lg)', flexShrink: 0 }}>
-                <button onClick={() => setShowComingSoon(true)} style={{ width: '100%', background: '#5a9e6f', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-md) var(--space-lg)', display: 'flex', gap: 'var(--space-sm)', flexShrink: 0 }}>
+                <button onClick={() => setShowComingSoon(true)} style={{ flex: 1, background: '#5a9e6f', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
                     🔍 Generate {cityName} Hunt
+                </button>
+                <button onClick={() => setShowHowItWorks(true)} style={{ background: 'rgba(255,255,255,0.0)', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-light)', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
+                    ?
                 </button>
             </div>
 

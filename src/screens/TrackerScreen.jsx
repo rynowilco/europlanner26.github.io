@@ -258,7 +258,15 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
     // Invalidate Leaflet map size when switching to map tab — it initializes hidden
     useEffect(() => {
         if (trackerTab === 'map' && mapInstanceRef.current) {
-            setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50)
+            setTimeout(() => {
+                mapInstanceRef.current?.invalidateSize()
+                // Re-fit bounds now that the container has real dimensions
+                const mainCities = tripItinerary.filter(c => !isTransferCity(c))
+                if (mainCities.length > 1) {
+                    const bounds = L.latLngBounds(mainCities.map(c => [c.lat, c.lng]))
+                    mapInstanceRef.current?.fitBounds(bounds, { padding: [60, 60] })
+                }
+            }, 100)
         }
     }, [trackerTab])
     useEffect(() => {
