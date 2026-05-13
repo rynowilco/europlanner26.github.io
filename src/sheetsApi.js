@@ -129,8 +129,8 @@ export const SheetsAPI = {
         }
 
         return rows.slice(1).filter(row => row[0]).map((row, index, allRows) => {
-            const city = row[0]
-            const country = row[1] || ''
+            const city = (row[0] || '').trim()
+            const country = (row[1] || '').trim()
             const cityLower = city.toLowerCase()
             const isTransfer = cityLower.includes('transfer') || cityLower.includes('kids choice')
 
