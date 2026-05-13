@@ -31,6 +31,7 @@ export const useStore = () => {
     const [journalEntries, setJournalEntries] = useState(() => safeParseJSON('euroPlanner_journalEntries', []))
     const [comments, setComments] = useState(() => safeParseJSON('euroPlanner_comments', []))
     const [journalDigest, setJournalDigest] = useState(() => safeParseJSON('euroPlanner_journalDigest', []))
+    const [polls, setPolls] = useState(() => safeParseJSON('euroPlanner_polls', []))
     const [userProfiles, setUserProfiles] = useState(() => safeParseJSON('euroPlanner_profiles', CONFIG.users))
     const [itinerary, setItinerary] = useState(CONFIG.itinerary)
     const [sheetsLoaded, setSheetsLoaded] = useState(false)
@@ -50,7 +51,8 @@ export const useStore = () => {
                     bookingResult,
                     journalResult,
                     commentsResult,
-                    digestResult
+                    digestResult,
+                    pollsResult
                 ] = await Promise.allSettled([
                     SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
@@ -59,7 +61,8 @@ export const useStore = () => {
                     SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.journal),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.comments),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.journalDigest)
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.journalDigest),
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.polls)
                 ])
 
                 // ── Activities ──────────────────────────────────────────────
@@ -174,6 +177,17 @@ export const useStore = () => {
                     console.warn('Journal Digest sheet read failed:', digestResult.reason)
                 }
 
+                // ── Polls ────────────────────────────────────────────────────
+                if (pollsResult.status === 'fulfilled' && pollsResult.value?.length > 1) {
+                    try {
+                        const parsedPolls = SheetsAPI.parsePolls(pollsResult.value)
+                        setPolls(parsedPolls)
+                        console.log('Loaded polls:', parsedPolls.length)
+                    } catch (e) { console.warn('parsePolls error:', e) }
+                } else if (pollsResult.status === 'rejected') {
+                    console.warn('Polls sheet read failed:', pollsResult.reason)
+                }
+
                 // ── Flush unsynced local activities ─────────────────────────
                 const localActivities = safeParseJSON('euroPlanner_activities', [])
                 const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
@@ -203,6 +217,7 @@ export const useStore = () => {
     useEffect(() => { localStorage.setItem('euroPlanner_journalEntries', JSON.stringify(journalEntries)) }, [journalEntries])
     useEffect(() => { localStorage.setItem('euroPlanner_comments', JSON.stringify(comments)) }, [comments])
     useEffect(() => { localStorage.setItem('euroPlanner_journalDigest', JSON.stringify(journalDigest)) }, [journalDigest])
+    useEffect(() => { localStorage.setItem('euroPlanner_polls', JSON.stringify(polls)) }, [polls])
 
     // ── Saved Ideas ─────────────────────────────────────────────────────────
     const addSavedIdea = async (idea) => {
@@ -568,6 +583,66 @@ export const useStore = () => {
         return comment
     }
 
+    // ── Polls ────────────────────────────────────────────────────────────────
+    const createPoll = async (question, options, createdBy) => {
+        const poll = {
+            pollId: 'POLL-' + Date.now(),
+            question: question.trim(),
+            options,
+            votes: {},
+            createdBy,
+            createdAt: new Date().toISOString(),
+            status: 'open'
+        }
+        setPolls(prev => [poll, ...prev])
+        try {
+            await SheetsAPI.append(CONFIG.SHEET_NAMES.polls, SheetsAPI.pollToRow(poll))
+            console.log('Poll created:', poll.pollId)
+        } catch (e) {
+            console.error('Failed to save poll to Sheets:', e)
+        }
+        return poll
+    }
+
+    const castVote = async (pollId, userId, optionIndex) => {
+        let updatedPoll = null
+        setPolls(prev => prev.map(p => {
+            if (p.pollId !== pollId) return p
+            const newVotes = { ...p.votes, [userId]: optionIndex }
+            updatedPoll = { ...p, votes: newVotes }
+            return updatedPoll
+        }))
+        if (!updatedPoll) return
+        try {
+            await SheetsAPI.findAndUpdateRow(
+                CONFIG.SHEET_NAMES.polls,
+                pollId,
+                SheetsAPI.pollToRow(updatedPoll)
+            )
+        } catch (e) {
+            console.error('Failed to sync vote to Sheets:', e)
+        }
+    }
+
+    const resolvePoll = async (pollId) => {
+        let updatedPoll = null
+        setPolls(prev => prev.map(p => {
+            if (p.pollId !== pollId) return p
+            updatedPoll = { ...p, status: 'resolved' }
+            return updatedPoll
+        }))
+        if (!updatedPoll) return
+        try {
+            await SheetsAPI.findAndUpdateRow(
+                CONFIG.SHEET_NAMES.polls,
+                pollId,
+                SheetsAPI.pollToRow(updatedPoll)
+            )
+        } catch (e) {
+            console.error('Failed to resolve poll in Sheets:', e)
+        }
+    }
+
     return {
         activities,
         savedIdeas,
@@ -605,6 +680,10 @@ export const useStore = () => {
         addComment,
         journalDigest,
         saveJournalStory,
+        polls,
+        createPoll,
+        castVote,
+        resolvePoll,
         EmailService
     }
 }

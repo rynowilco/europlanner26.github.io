@@ -101,12 +101,12 @@ const App = () => {
             {screen === 'familyFeed' && <FamilyFeedScreen onBack={handleBack} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} />}
             {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} onAddBooking={handleAddBooking} />}
             {screen === 'map' && <MapScreen onBack={handleBack} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />}
-            {screen === 'tracker' && <TrackerScreen onBack={() => setScreen('home')} activities={store.activities} itinerary={store.itinerary} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} onAddComment={store.addComment} />}
+            {screen === 'tracker' && <TrackerScreen onBack={() => setScreen('home')} activities={store.activities} itinerary={store.itinerary} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} onAddComment={store.addComment} journalDigest={store.journalDigest} />}
             {showFingerprintModal && <FingerprintModal onSuccess={handleFingerprintSuccess} onCancel={() => setShowFingerprintModal(false)} />}
             {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
             {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
             {showCityGuides && <CityGuidesModal onClose={() => setShowCityGuides(false)} itinerary={store.itinerary} activities={store.activities} journalEntries={store.journalEntries} />}
-            {screen === 'polls' && <PollsScreen onBack={handleBack} />}
+            {screen === 'polls' && <PollsScreen onBack={handleBack} polls={store.polls} currentUser={currentUser} userProfiles={store.userProfiles} itinerary={store.itinerary} onCreatePoll={store.createPoll} onCastVote={store.castVote} onResolvePoll={store.resolvePoll} />}
             {screen === 'scavengerHunt' && <ScavengerHuntScreen onBack={handleBack} itinerary={store.itinerary} />}
         </div>
     )

@@ -311,6 +311,37 @@ export const SheetsAPI = {
         return [entry.date, entry.story, entry.generatedAt, entry.generatedBy || '']
     },
 
+    parsePolls(rows) {
+        if (!rows || rows.length < 2) return []
+        return rows.slice(1).filter(row => row[0]).map(row => {
+            let options = []
+            let votes = {}
+            try { options = JSON.parse(row[2] || '[]') } catch { options = [] }
+            try { votes = JSON.parse(row[3] || '{}') } catch { votes = {} }
+            return {
+                pollId:    row[0] || '',
+                question:  row[1] || '',
+                options,
+                votes,
+                createdBy: row[4] || '',
+                createdAt: row[5] || '',
+                status:    row[6] || 'open'
+            }
+        })
+    },
+
+    pollToRow(poll) {
+        return [
+            poll.pollId,
+            poll.question,
+            JSON.stringify(poll.options || []),
+            JSON.stringify(poll.votes || {}),
+            poll.createdBy,
+            poll.createdAt,
+            poll.status || 'open'
+        ]
+    },
+
     async findAndUpdateRow(sheetName, id, values) {
         const data = await this.read(sheetName)
         if (!data || data.length < 2) return false
