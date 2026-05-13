@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 export const WelcomeScreen = ({
     onSelectUser, onSelectMemories, userProfiles, activities,
     onOpenAdmin, onOpenDashboard, onOpenMap, onOpenFamilyFeed, onBack,
-    onOpenPolls, onOpenScavengerHunt
+    onOpenPolls, onOpenScavengerHunt, onOpenDailyStories, newStoryAvailable
 }) => {
     const [forkUser, setForkUser] = useState(null)
     const [reminderDismissed, setReminderDismissed] = useState(true) // default true until check runs
@@ -143,6 +143,20 @@ export const WelcomeScreen = ({
                                             {reminderDismissed ? 'Journal, photos & moments' : 'Daily Reminder: A quick journal entry earns Euros!'}
                                         </div>
                                     </div>
+                                </button>
+                                {/* Daily Stories — gold highlight when new story available */}
+                                <button onClick={() => { setForkUser(null); onOpenDailyStories && onOpenDailyStories(forkUser) }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: newStoryAvailable ? 'linear-gradient(135deg, #b8860b, #d4a017)' : 'white', color: newStoryAvailable ? 'white' : 'var(--color-navy)', border: newStoryAvailable ? 'none' : '2px solid var(--color-navy)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 600, textAlign: 'left', transition: 'all 0.2s', position: 'relative' }}>
+                                    <span style={{ fontSize: '24px' }}>✨</span>
+                                    <div style={{ flex: 1 }}>
+                                        <div>Daily Stories</div>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 400, color: newStoryAvailable ? 'rgba(255,255,255,0.88)' : 'var(--color-text-light)' }}>
+                                            {newStoryAvailable ? 'New story ready to read!' : 'AI-written trip narratives'}
+                                        </div>
+                                    </div>
+                                    {newStoryAvailable && (
+                                        <span style={{ background: 'white', color: '#b8860b', fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: 'var(--radius-full)' }}>NEW</span>
+                                    )}
                                 </button>
                             </div>
                             <button onClick={() => setForkUser(null)} style={{ width: '100%', marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.9rem', cursor: 'pointer' }}>Cancel</button>
