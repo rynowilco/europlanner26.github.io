@@ -255,7 +255,12 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
         }
     }, [])
 
-    // Fetch AI summary when a non-transfer city is selected
+    // Invalidate Leaflet map size when switching to map tab — it initializes hidden
+    useEffect(() => {
+        if (trackerTab === 'map' && mapInstanceRef.current) {
+            setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50)
+        }
+    }, [trackerTab])
     useEffect(() => {
         if (!selectedCity || isTransferCity(selectedCity)) return
 

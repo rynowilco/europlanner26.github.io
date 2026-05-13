@@ -408,11 +408,15 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
           <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>{user.emoji} {user.name}'s Memories</div>
           <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>{myEntries.length} {myEntries.length === 1 ? 'moment' : 'moments'}</div>
         </div>
-        <button onClick={() => setShowPhotoUpload(true)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 12px', color: 'white', fontSize: '1.1rem', cursor: 'pointer' }}>
-          📸
+      </div>
+
+      {/* Action sub-bar */}
+      <div style={{ background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm) var(--space-lg)', display: 'flex', gap: 'var(--space-sm)', flexShrink: 0 }}>
+        <button onClick={() => setShowPhotoUpload(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-cream)', color: 'var(--color-navy)', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
+          📸 Add Photos
         </button>
-        <button onClick={() => setShowCompose(true)} style={{ background: 'var(--color-terracotta)', border: 'none', borderRadius: 'var(--radius-md)', padding: '8px 16px', color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer' }}>
-          + Write
+        <button onClick={() => setShowCompose(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
+          ✍️ Write Entry
         </button>
       </div>
 

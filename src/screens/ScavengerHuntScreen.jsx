@@ -102,6 +102,13 @@ export const ScavengerHuntScreen = ({ onBack, itinerary }) => {
                 </div>
             </div>
 
+            {/* Sticky Generate sub-bar */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-md) var(--space-lg)', flexShrink: 0 }}>
+                <button onClick={() => setShowComingSoon(true)} style={{ width: '100%', background: '#5a9e6f', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                    🔍 Generate {cityName} Hunt
+                </button>
+            </div>
+
             {/* Body */}
             <div style={{ flex: 1, overflow: 'auto', padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
 
@@ -157,10 +164,6 @@ export const ScavengerHuntScreen = ({ onBack, itinerary }) => {
                     </div>
                 </div>
 
-                {/* CTA */}
-                <button onClick={() => setShowComingSoon(true)} style={{ width: '100%', background: '#5a9e6f', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: 'var(--space-md) var(--space-xl)', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-md)' }}>
-                    🔍 Generate {cityName} Hunt
-                </button>
             </div>
 
             {/* How it works modal */}
