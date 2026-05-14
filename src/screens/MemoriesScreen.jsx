@@ -371,7 +371,7 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
   )
 }
 
-export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack, initialPrompt }) => {
+export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack, initialPrompt, onOpenSlideshow }) => {
   const [showCompose, setShowCompose] = useState(!!initialPrompt)
   const [checkInPrompt] = useState(initialPrompt || null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
@@ -383,6 +383,8 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
 
   const myEntries = journalEntries.filter(e => e.userId === userId && (e.entryText || e.photoUrl))
   const allPhotos = myEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
+  const allFamilyPhotos = journalEntries.filter(e => e.photoUrl)
+  const slideshowReady = allFamilyPhotos.length >= 15
 
   const grouped = myEntries.reduce((acc, e) => {
     const key = e.date || (e.timestamp ? e.timestamp.split('T')[0] : 'Unknown')
@@ -410,13 +412,21 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         </div>
       </div>
 
-      {/* Action sub-bar */}
-      <div style={{ background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm) var(--space-lg)', display: 'flex', gap: 'var(--space-sm)', flexShrink: 0 }}>
-        <button onClick={() => setShowPhotoUpload(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-cream)', color: 'var(--color-navy)', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
-          📸 Add Photos
-        </button>
-        <button onClick={() => setShowCompose(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
-          ✍️ Write Entry
+      {/* Action sub-bar — stacked */}
+      <div style={{ background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm) var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <button onClick={() => setShowPhotoUpload(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-cream)', color: 'var(--color-navy)', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
+            📸 Add Photos
+          </button>
+          <button onClick={() => setShowCompose(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
+            ✍️ Write Entry
+          </button>
+        </div>
+        <button
+          onClick={slideshowReady ? onOpenSlideshow : undefined}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: 'var(--space-sm)', background: slideshowReady ? 'linear-gradient(135deg, #1a1a2e 0%, #2e3b6e 100%)' : 'var(--color-cream)', color: slideshowReady ? 'white' : 'var(--color-text-light)', border: slideshowReady ? 'none' : '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: slideshowReady ? 'pointer' : 'default', fontWeight: 600, fontSize: '0.9rem' }}
+        >
+          {slideshowReady ? '▶ Play Slideshow' : `▶ Slideshow — ${allFamilyPhotos.length}/15 photos`}
         </button>
       </div>
 
