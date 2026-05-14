@@ -29,7 +29,17 @@ export const CONFIG = {
         messages: 'Messages',
         comments: 'Comments',
         journalDigest: 'Journal Digest',
-        polls: 'Polls'
+        polls: 'Polls',
+        euroLedger: 'Euro Ledger'
+    },
+
+    // Euro earning rates — Session 16
+    EURO_RATES: {
+        journalEntry: 1.00,      // per entry (min 100 words)
+        photoUpload: 0.10,       // per photo uploaded
+        photoDailyCap: 3.00,     // max photo earnings per day per kid
+        postcard: 1.00,          // per postcard sent (wired when Postcards feature ships)
+        postcardDailyCap: 3.00,  // max postcard earnings per day per kid
     },
 
     EMAILJS_SERVICE_ID: 'service_3uu6sr7',

@@ -32,6 +32,7 @@ export const useStore = () => {
     const [comments, setComments] = useState(() => safeParseJSON('euroPlanner_comments', []))
     const [journalDigest, setJournalDigest] = useState(() => safeParseJSON('euroPlanner_journalDigest', []))
     const [polls, setPolls] = useState(() => safeParseJSON('euroPlanner_polls', []))
+    const [euroLedger, setEuroLedger] = useState(() => safeParseJSON('euroPlanner_euroLedger', []))
     const [userProfiles, setUserProfiles] = useState(() => safeParseJSON('euroPlanner_profiles', CONFIG.users))
     const [itinerary, setItinerary] = useState(CONFIG.itinerary)
     const [sheetsLoaded, setSheetsLoaded] = useState(false)
@@ -52,7 +53,8 @@ export const useStore = () => {
                     journalResult,
                     commentsResult,
                     digestResult,
-                    pollsResult
+                    pollsResult,
+                    euroLedgerResult
                 ] = await Promise.allSettled([
                     SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
@@ -62,7 +64,8 @@ export const useStore = () => {
                     SheetsAPI.read(CONFIG.SHEET_NAMES.journal),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.comments),
                     SheetsAPI.read(CONFIG.SHEET_NAMES.journalDigest),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.polls)
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.polls),
+                    SheetsAPI.read(CONFIG.SHEET_NAMES.euroLedger)
                 ])
 
                 // ── Activities ──────────────────────────────────────────────
@@ -188,6 +191,17 @@ export const useStore = () => {
                     console.warn('Polls sheet read failed:', pollsResult.reason)
                 }
 
+                // ── Euro Ledger ──────────────────────────────────────────────
+                if (euroLedgerResult.status === 'fulfilled' && euroLedgerResult.value?.length > 1) {
+                    try {
+                        const parsedLedger = SheetsAPI.parseEuroLedger(euroLedgerResult.value)
+                        setEuroLedger(parsedLedger)
+                        console.log('Loaded euro ledger:', parsedLedger.length, 'entries')
+                    } catch (e) { console.warn('parseEuroLedger error:', e) }
+                } else if (euroLedgerResult.status === 'rejected') {
+                    console.warn('Euro Ledger sheet read failed:', euroLedgerResult.reason)
+                }
+
                 // ── Flush unsynced local activities ─────────────────────────
                 const localActivities = safeParseJSON('euroPlanner_activities', [])
                 const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
@@ -218,6 +232,7 @@ export const useStore = () => {
     useEffect(() => { localStorage.setItem('euroPlanner_comments', JSON.stringify(comments)) }, [comments])
     useEffect(() => { localStorage.setItem('euroPlanner_journalDigest', JSON.stringify(journalDigest)) }, [journalDigest])
     useEffect(() => { localStorage.setItem('euroPlanner_polls', JSON.stringify(polls)) }, [polls])
+    useEffect(() => { localStorage.setItem('euroPlanner_euroLedger', JSON.stringify(euroLedger)) }, [euroLedger])
 
     // ── Saved Ideas ─────────────────────────────────────────────────────────
     const addSavedIdea = async (idea) => {
@@ -496,9 +511,46 @@ export const useStore = () => {
         }
     }
 
+    // ── Euro Ledger ─────────────────────────────────────────────────────────
+
+    // Compute a user's current balance from the in-memory ledger
+    const getEuroBalance = (userId) => {
+        const total = euroLedger
+            .filter(e => e.userId === userId)
+            .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+        return Math.max(0, parseFloat(total.toFixed(2)))
+    }
+
+    // Award Euros to a kid — appends a positive entry to ledger + Sheets
+    // Use reason strings: 'journal_entry', 'photo_upload', 'postcard', 'bonus'
+    const awardEuros = async (userId, amount, reason) => {
+        if (!userId || !amount) return
+        const entry = {
+            id: 'EUR-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+            userId,
+            amount: parseFloat(amount.toFixed(2)),
+            reason,
+            timestamp: new Date().toISOString()
+        }
+        setEuroLedger(prev => [entry, ...prev])
+        try {
+            await SheetsAPI.append(CONFIG.SHEET_NAMES.euroLedger, SheetsAPI.ledgerEntryToRow(entry))
+            console.log('💶 Euro award:', userId, '+€' + amount, '(' + reason + ')')
+        } catch (e) {
+            console.error('Failed to sync euro award to Sheets:', e)
+        }
+        return entry
+    }
+
+    // Process a withdrawal (parent manually subtracts from a kid's balance)
+    // amount is always passed as a positive number; stored as negative in ledger
+    const processWithdrawal = async (userId, amount, reason) => {
+        return awardEuros(userId, -Math.abs(parseFloat(amount)), reason || 'withdrawal')
+    }
+
     // ── Journal ─────────────────────────────────────────────────────────────
     // entryType: 'journal' (default) or 'photo'
-    // photoUrl: Drive URL for photo entries (empty string for journal entries)
+    // photoUrl: Cloudinary URL for photo entries (empty string for journal entries)
     const addJournalEntry = async (userId, userName, city, entryText, mood, lat, lng, entryType = 'journal', photoUrl = '') => {
         const now = new Date()
         const entry = {
@@ -519,6 +571,28 @@ export const useStore = () => {
             await SheetsAPI.append(CONFIG.SHEET_NAMES.journal, SheetsAPI.journalEntryToRow(entry))
             console.log('Journal entry saved to Sheets:', entry.id, '(' + entryType + ')')
         } catch (e) { console.error('Failed to save journal entry:', e) }
+
+        // ── Auto-earn Euros for kids ───────────────────────────────────────
+        if (!CONFIG.users[userId]?.isParent) {
+            if (entryType === 'journal') {
+                // Award €1 for journal entries meeting the 100-word minimum
+                const wordCount = (entryText || '').trim().split(/\s+/).filter(Boolean).length
+                if (wordCount >= 100) {
+                    await awardEuros(userId, CONFIG.EURO_RATES.journalEntry, 'journal_entry')
+                }
+            } else if (entryType === 'photo') {
+                // Award €0.10 per photo, capped at €3/day
+                const today = entry.date
+                const todayPhotoEarnings = euroLedger
+                    .filter(e => e.userId === userId && e.reason === 'photo_upload' && e.timestamp.startsWith(today))
+                    .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+                if (todayPhotoEarnings < CONFIG.EURO_RATES.photoDailyCap) {
+                    await awardEuros(userId, CONFIG.EURO_RATES.photoUpload, 'photo_upload')
+                }
+            }
+            // POSTCARD STUB: awardEuros(userId, CONFIG.EURO_RATES.postcard, 'postcard') — wire here when Postcards ships
+        }
+
         return entry
     }
 
@@ -684,6 +758,10 @@ export const useStore = () => {
         createPoll,
         castVote,
         resolvePoll,
+        euroLedger,
+        awardEuros,
+        processWithdrawal,
+        getEuroBalance,
         EmailService
     }
 }

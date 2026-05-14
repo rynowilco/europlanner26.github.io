@@ -119,7 +119,7 @@ export const SheetsAPI = {
             'innbruck':                { lat: 47.2692, lng: 11.4041 },
             'ampass':                  { lat: 47.2667, lng: 11.4667 },
             'train day - kids choice': { lat: 46.0,    lng:  9.0    },
-            'portland':                { lat: 45.5051, lng: -122.6750 }
+            'portland':                { lat: 45.5051, lng: -122.6750 } // TEMP
         }
         const countryLanguages = {
             'italy': 'Italian', 'france': 'French', 'spain': 'Spanish',
@@ -339,6 +339,29 @@ export const SheetsAPI = {
             poll.createdBy,
             poll.createdAt,
             poll.status || 'open'
+        ]
+    },
+
+    // ── Euro Ledger ─────────────────────────────────────────────────────────
+    // Sheet columns: ID | User | Amount | Reason | Timestamp
+    parseEuroLedger(rows) {
+        if (!rows || rows.length < 2) return []
+        return rows.slice(1).filter(row => row[0]).map(row => ({
+            id:        row[0] || '',
+            userId:    (row[1] || '').toLowerCase(),
+            amount:    parseFloat(row[2]) || 0,
+            reason:    row[3] || '',
+            timestamp: row[4] || ''
+        }))
+    },
+
+    ledgerEntryToRow(entry) {
+        return [
+            entry.id,
+            entry.userId,
+            entry.amount,
+            entry.reason,
+            entry.timestamp
         ]
     },
 
