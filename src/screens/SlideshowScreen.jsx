@@ -24,6 +24,11 @@ export const SlideshowScreen = ({ onBack, journalEntries, userProfiles }) => {
 
     const hasMusic = !!CONFIG.SLIDESHOW_MUSIC_URL
 
+    // Preload all photos on mount so crossfade is smooth from the first slide
+    useEffect(() => {
+        photos.forEach(p => { if (p.photoUrl) { const img = new Image(); img.src = p.photoUrl } })
+    }, [])
+
     // Crossfade to a new index
     const goTo = useCallback((idx) => {
         setOpacity(0)
