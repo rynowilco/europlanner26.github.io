@@ -262,7 +262,11 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPromp
   const cityOptions = [...new Set(tripItinerary.filter(c => !c.isTransfer).map(c => c.city))]
   const [city, setCity] = useState(currentCity ? currentCity.city : '')
   const moods = ['😊', '🤩', '😄', '😴', '😤', '😐']
-  const canSubmit = entryText.trim().length > 0 && city
+  const wordCount = entryText.trim().split(/\s+/).filter(Boolean).length
+  const isParent = user?.isParent || false
+  const MIN_WORDS = 100
+  // Parents: no word count gate. Kids: must hit 100 words to unlock Save.
+  const canSubmit = isParent ? (entryText.trim().length > 0 && city) : (wordCount >= MIN_WORDS && city)
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
       <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', padding: 'var(--space-xl)', width: '100%', maxHeight: '92vh', overflowY: 'auto', animation: 'slideUp 0.3s ease-out' }}>
@@ -299,7 +303,16 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPromp
         <div style={{ marginBottom: 'var(--space-lg)' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>What happened today?</label>
           <textarea value={entryText} onChange={e => setEntryText(e.target.value)} placeholder="Write about your day, a moment that stood out, something that surprised you..." rows={6} autoFocus style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', textAlign: 'right', marginTop: '4px' }}>{entryText.length} chars</div>
+          {!isParent && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+              <div style={{ height: '4px', width: '80px', background: 'var(--color-tan)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, (wordCount / MIN_WORDS) * 100)}%`, background: wordCount >= MIN_WORDS ? 'var(--color-sage)' : 'var(--color-terracotta)', borderRadius: 'var(--radius-full)', transition: 'width 0.2s ease' }} />
+              </div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: wordCount >= MIN_WORDS ? 'var(--color-sage)' : 'var(--color-text-light)' }}>
+                {wordCount} / {MIN_WORDS} words {wordCount >= MIN_WORDS ? '✓' : ''}
+              </span>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
           <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>

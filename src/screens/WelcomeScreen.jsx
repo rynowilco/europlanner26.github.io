@@ -4,7 +4,8 @@ import { Icon } from '../components/Icon'
 export const WelcomeScreen = ({
     onSelectUser, onSelectMemories, userProfiles, activities,
     onOpenAdmin, onOpenDashboard, onOpenMap, onOpenFamilyFeed, onBack,
-    onOpenPolls, onOpenScavengerHunt, onOpenDailyStories, newStoryAvailable, newPollAvailable
+    onOpenPolls, onOpenScavengerHunt, onOpenDailyStories, newStoryAvailable, newPollAvailable,
+    euroLedger
 }) => {
     const [forkUser, setForkUser] = useState(null)
     const [reminderDismissed, setReminderDismissed] = useState(true) // default true until check runs
@@ -35,6 +36,14 @@ export const WelcomeScreen = ({
         onSelectMemories(user)
     }
 
+    // Compute euro balance for a user from ledger
+    const getEuroBalance = (userId) => {
+        const total = (euroLedger || [])
+            .filter(e => e.userId === userId)
+            .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+        return Math.max(0, parseFloat(total.toFixed(2)))
+    }
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
             <header style={{ textAlign: 'center', paddingTop: 'var(--space-xl)', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out', position: 'relative' }}>
@@ -50,6 +59,7 @@ export const WelcomeScreen = ({
 
                 {Object.entries(userProfiles).filter(([key]) => !userProfiles[key].isParent).map(([key, user], index) => {
                     const approved = activities.filter(a => a.kidId === key && a.status === 'approved' && !a.isSample).length
+                    const balance = getEuroBalance(key)
                     return (
                         <button key={key} onClick={() => handleCardTap(key)}
                             style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: 'white', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: `slideUp 0.5s ease-out ${0.3 + index * 0.1}s both`, textAlign: 'left', transition: 'all 0.2s' }}
@@ -59,6 +69,10 @@ export const WelcomeScreen = ({
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{user.name}</div>
                                 <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)' }}>{approved}/3 activities</div>
+                            </div>
+                            {/* Euro balance badge */}
+                            <div style={{ background: '#e8f5ec', color: '#2a7a45', fontSize: '0.85rem', fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap' }}>
+                                💶 €{balance.toFixed(2)}
                             </div>
                             <Icon name="ChevronRight" size={24} color="var(--color-text-light)" />
                         </button>
@@ -118,6 +132,7 @@ export const WelcomeScreen = ({
             {/* ── Journey Mode Fork — bottom sheet ─────────────────────────────── */}
             {forkUser && (() => {
                 const u = userProfiles[forkUser] || {}
+                const balance = !u.isParent ? getEuroBalance(forkUser) : null
                 return (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 500, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-out' }} onClick={() => setForkUser(null)}>
                         <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', padding: 'var(--space-xl)', width: '100%', animation: 'slideUp 0.25s ease-out' }} onClick={e => e.stopPropagation()}>
@@ -125,7 +140,11 @@ export const WelcomeScreen = ({
                                 <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-md)', background: u.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>{u.emoji}</div>
                                 <div>
                                     <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Hey {u.name}!</div>
-                                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>What do you want to do?</div>
+                                    {balance !== null ? (
+                                        <div style={{ fontSize: '0.9rem', color: '#2a7a45', fontWeight: 700 }}>💶 €{balance.toFixed(2)} earned</div>
+                                    ) : (
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>What do you want to do?</div>
+                                    )}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>

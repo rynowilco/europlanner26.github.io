@@ -2,6 +2,16 @@ import React, { useState, useMemo } from 'react'
 import { CONFIG } from '../config'
 import { Icon } from '../components/Icon'
 
+// Friendly display labels for ledger reasons
+const REASON_LABELS = {
+    journal_entry: '✍️ Journal Entry',
+    photo_upload:  '📸 Photo Upload',
+    postcard:      '📮 Postcard Sent',
+    bonus:         '⭐ Parent Bonus',
+    withdrawal:    '💸 Cash Out',
+}
+const reasonLabel = (reason) => REASON_LABELS[reason] || reason
+
 const ActivityCard = ({ activity, isAdmin, onApprove, onFeedback }) => {
     const statusColors = {
         draft: { bg: 'var(--color-tan)', color: 'var(--color-text-light)' },
@@ -83,7 +93,214 @@ const IdeaCard = ({ idea, isOwner, onRefine, onSubmit, onDelete, userProfiles })
     )
 }
 
-export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea, onToggleBooked, onDeleteBooking, onAddBooking }) => {
+// ── EurosTab ─────────────────────────────────────────────────────────────────
+
+const EurosTab = ({ isAdmin, currentUserId, userProfiles, euroLedger, awardEuros, processWithdrawal }) => {
+    const [awardUser, setAwardUser] = useState('abby')
+    const [awardAmount, setAwardAmount] = useState('')
+    const [awardReason, setAwardReason] = useState('')
+    const [awardLoading, setAwardLoading] = useState(false)
+    const [withdrawUser, setWithdrawUser] = useState('abby')
+    const [withdrawAmount, setWithdrawAmount] = useState('')
+    const [withdrawLoading, setWithdrawLoading] = useState(false)
+
+    const kids = Object.entries(userProfiles).filter(([, u]) => !u.isParent)
+
+    const getBalance = (userId) => {
+        const total = (euroLedger || [])
+            .filter(e => e.userId === userId)
+            .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+        return Math.max(0, parseFloat(total.toFixed(2)))
+    }
+
+    const getRecentEntries = (userId, limit = 10) =>
+        (euroLedger || [])
+            .filter(e => e.userId === userId)
+            .slice(0, limit)
+
+    const handleAward = async () => {
+        const amt = parseFloat(awardAmount)
+        if (!amt || amt <= 0) return
+        setAwardLoading(true)
+        await awardEuros(awardUser, amt, awardReason.trim() || 'bonus')
+        setAwardAmount('')
+        setAwardReason('')
+        setAwardLoading(false)
+    }
+
+    const handleWithdraw = async () => {
+        const amt = parseFloat(withdrawAmount)
+        if (!amt || amt <= 0) return
+        setWithdrawLoading(true)
+        await processWithdrawal(withdrawUser, amt, 'withdrawal')
+        setWithdrawAmount('')
+        setWithdrawLoading(false)
+    }
+
+    const formatDate = (ts) => {
+        if (!ts) return ''
+        try { return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+        catch { return '' }
+    }
+
+    // Admin view
+    if (isAdmin) {
+        return (
+            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+
+                {/* All kids' balances */}
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
+                    {kids.map(([id, u]) => (
+                        <div key={id} style={{ flex: 1, background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '28px', marginBottom: '4px' }}>{u.emoji}</div>
+                            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>{u.name}</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-sage)' }}>€{getBalance(id).toFixed(2)}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Award Euros */}
+                <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', marginBottom: 'var(--space-md)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-md)' }}>⭐ Award Euros</h3>
+                    <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
+                        <select value={awardUser} onChange={e => setAwardUser(e.target.value)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.95rem', fontFamily: 'var(--font-body)' }}>
+                            {kids.map(([id, u]) => <option key={id} value={id}>{u.emoji} {u.name}</option>)}
+                        </select>
+                        <input
+                            type="number" min="0" step="0.25" placeholder="€ amount"
+                            value={awardAmount} onChange={e => setAwardAmount(e.target.value)}
+                            style={{ width: '100px', padding: '10px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.95rem', fontFamily: 'var(--font-body)' }}
+                        />
+                    </div>
+                    <input
+                        type="text" placeholder="Reason (optional)"
+                        value={awardReason} onChange={e => setAwardReason(e.target.value)}
+                        style={{ width: '100%', padding: '10px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.95rem', fontFamily: 'var(--font-body)', marginBottom: 'var(--space-sm)', boxSizing: 'border-box' }}
+                    />
+                    <button
+                        onClick={handleAward}
+                        disabled={!awardAmount || parseFloat(awardAmount) <= 0 || awardLoading}
+                        style={{ width: '100%', padding: 'var(--space-md)', background: !awardAmount || parseFloat(awardAmount) <= 0 ? 'var(--color-tan)' : 'var(--color-sage)', color: !awardAmount || parseFloat(awardAmount) <= 0 ? 'var(--color-text-light)' : 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: !awardAmount || parseFloat(awardAmount) <= 0 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.95rem' }}
+                    >
+                        {awardLoading ? 'Awarding...' : '⭐ Award Euros'}
+                    </button>
+                </div>
+
+                {/* Process Withdrawal */}
+                <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', marginBottom: 'var(--space-lg)' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-md)' }}>💸 Process Withdrawal</h3>
+                    <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
+                        <select value={withdrawUser} onChange={e => setWithdrawUser(e.target.value)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.95rem', fontFamily: 'var(--font-body)' }}>
+                            {kids.map(([id, u]) => <option key={id} value={id}>{u.emoji} {u.name}</option>)}
+                        </select>
+                        <input
+                            type="number" min="0" step="0.25" placeholder="€ amount"
+                            value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
+                            style={{ width: '100px', padding: '10px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.95rem', fontFamily: 'var(--font-body)' }}
+                        />
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', marginBottom: 'var(--space-sm)' }}>
+                        Balance after: €{Math.max(0, getBalance(withdrawUser) - (parseFloat(withdrawAmount) || 0)).toFixed(2)}
+                    </div>
+                    <button
+                        onClick={handleWithdraw}
+                        disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > getBalance(withdrawUser) || withdrawLoading}
+                        style={{ width: '100%', padding: 'var(--space-md)', background: !withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > getBalance(withdrawUser) ? 'var(--color-tan)' : 'var(--color-terracotta)', color: !withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > getBalance(withdrawUser) ? 'var(--color-text-light)' : 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}
+                    >
+                        {withdrawLoading ? 'Processing...' : '💸 Process Withdrawal'}
+                    </button>
+                </div>
+
+                {/* Recent ledger entries — all kids */}
+                <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>Recent Activity</h3>
+                {(euroLedger || []).slice(0, 20).map(e => {
+                    const u = userProfiles[e.userId]
+                    const isPositive = e.amount >= 0
+                    return (
+                        <div key={e.id} style={{ background: 'white', borderRadius: 'var(--radius-sm)', padding: '10px var(--space-md)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', border: '1px solid var(--color-border)' }}>
+                            <span style={{ fontSize: '20px' }}>{u?.emoji || '👤'}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{reasonLabel(e.reason)}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>{u?.name} · {formatDate(e.timestamp)}</div>
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: '0.95rem', color: isPositive ? 'var(--color-sage)' : 'var(--color-terracotta)', whiteSpace: 'nowrap' }}>
+                                {isPositive ? '+' : ''}€{e.amount.toFixed(2)}
+                            </span>
+                        </div>
+                    )
+                })}
+                {(euroLedger || []).length === 0 && (
+                    <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--color-text-light)' }}>
+                        <div style={{ fontSize: '40px', marginBottom: '8px' }}>💶</div>
+                        <p style={{ fontSize: '0.9rem' }}>No earnings yet — starts when the trip begins!</p>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    // Kid view
+    const myBalance = getBalance(currentUserId)
+    const myEntries = getRecentEntries(currentUserId)
+    const u = userProfiles[currentUserId] || {}
+
+    return (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+            {/* Balance card */}
+            <div style={{ background: `linear-gradient(135deg, var(--color-navy) 0%, #2e3b6e 100%)`, borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', marginBottom: 'var(--space-lg)', textAlign: 'center', color: 'white' }}>
+                <div style={{ fontSize: '40px', marginBottom: '8px' }}>💶</div>
+                <div style={{ fontSize: '0.85rem', opacity: 0.75, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Your Balance</div>
+                <div style={{ fontSize: '3rem', fontWeight: 700, letterSpacing: '-1px' }}>€{myBalance.toFixed(2)}</div>
+                <div style={{ fontSize: '0.85rem', opacity: 0.7, marginTop: '8px' }}>Keep making memories to earn more!</div>
+            </div>
+
+            {/* How to earn */}
+            <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 'var(--space-sm)' }}>How to earn 💰</div>
+                {[
+                    { icon: '✍️', label: 'Write a journal entry (100+ words)', amount: '+€1.00' },
+                    { icon: '📸', label: 'Upload a photo', amount: '+€0.10', note: 'up to €3/day' },
+                    { icon: '📮', label: 'Send a postcard', amount: '+€1.00', note: 'coming soon' },
+                    { icon: '⭐', label: 'Parent bonus — any time!', amount: 'varies' },
+                ].map((item, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: '6px 0', borderBottom: i < 3 ? '1px solid var(--color-border)' : 'none' }}>
+                        <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>{item.icon}</span>
+                        <div style={{ flex: 1, fontSize: '0.85rem' }}>
+                            {item.label}
+                            {item.note && <span style={{ color: 'var(--color-text-light)', fontSize: '0.75rem' }}> ({item.note})</span>}
+                        </div>
+                        <span style={{ fontWeight: 700, color: 'var(--color-sage)', fontSize: '0.85rem' }}>{item.amount}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Recent earnings */}
+            <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)' }}>Recent Earnings</h3>
+            {myEntries.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--color-text-light)' }}>
+                    <p style={{ fontSize: '0.9rem' }}>No earnings yet — write your first journal entry or upload a photo!</p>
+                </div>
+            ) : myEntries.map(e => {
+                const isPositive = e.amount >= 0
+                return (
+                    <div key={e.id} style={{ background: 'white', borderRadius: 'var(--radius-sm)', padding: '12px var(--space-md)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', border: '1px solid var(--color-border)' }}>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{reasonLabel(e.reason)}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>{formatDate(e.timestamp)}</div>
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: '1rem', color: isPositive ? 'var(--color-sage)' : 'var(--color-terracotta)' }}>
+                            {isPositive ? '+' : ''}€{e.amount.toFixed(2)}
+                        </span>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+// ── DashboardScreen ───────────────────────────────────────────────────────────
+
+export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, userProfiles, isAdmin, currentUserId, onApprove, onFeedback, onRefineIdea, onSubmitIdea, onDeleteIdea, onToggleBooked, onDeleteBooking, onAddBooking, euroLedger, awardEuros, processWithdrawal }) => {
     const [filter, setFilter] = useState('all')
     const [activeTab, setActiveTab] = useState('ideas')
 
@@ -121,18 +338,21 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
             </header>
 
             {/* Tab switcher */}
-            <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
-                <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)', overflowX: 'auto' }}>
+                <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                     💡 Ideas ({savedIdeas.length})
                 </button>
-                <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                     ✅ Submitted ({activities.filter(a => !a.isSample).length})
                 </button>
-                <button onClick={() => setActiveTab('approved')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'approved' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'approved' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'approved' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <button onClick={() => setActiveTab('approved')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'approved' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'approved' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'approved' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                     ⭐ Approved ({activities.filter(a => a.status === 'approved' && !a.isSample).length})
                 </button>
+                <button onClick={() => setActiveTab('euros')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'euros' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'euros' ? '3px solid #2a9d4a' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'euros' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                    💶 Euros
+                </button>
                 {isAdmin && (
-                    <button onClick={() => setActiveTab('bookings')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'bookings' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'bookings' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'bookings' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <button onClick={() => setActiveTab('bookings')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'bookings' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'bookings' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'bookings' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                         🎟️ Book ({bookingItems.length})
                     </button>
                 )}
@@ -229,6 +449,18 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
                         })
                     })()}
                 </div>
+            )}
+
+            {/* Euros Tab */}
+            {activeTab === 'euros' && (
+                <EurosTab
+                    isAdmin={isAdmin}
+                    currentUserId={currentUserId}
+                    userProfiles={userProfiles}
+                    euroLedger={euroLedger || []}
+                    awardEuros={awardEuros}
+                    processWithdrawal={processWithdrawal}
+                />
             )}
 
             {/* Booking List Tab — admin only */}
