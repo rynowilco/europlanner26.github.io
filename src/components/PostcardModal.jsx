@@ -27,11 +27,21 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
   const [claudeLoading, setClaudeLoading] = useState(false)
   const [euroEarned, setEuroEarned] = useState(0)
   const [sendError, setSendError] = useState(null)
+  const [selectedRecipients, setSelectedRecipients] = useState(
+    () => (CONFIG.POSTCARD_RECIPIENTS || []).map(r => r.email)
+  )
 
   const photos = (allFamilyPhotos || []).filter(e => e.photoUrl).slice().reverse()
   const cityName = currentCity?.city || 'Europe'
-  const recipientCount = CONFIG.POSTCARD_RECIPIENTS?.length || 0
-  const templateReady = !!(CONFIG.EMAILJS_POSTCARD_TEMPLATE_ID && recipientCount > 0)
+  const allRecipients = CONFIG.POSTCARD_RECIPIENTS || []
+  const templateReady = !!(CONFIG.EMAILJS_POSTCARD_TEMPLATE_ID && allRecipients.length > 0)
+  const canSend = templateReady && selectedRecipients.length > 0
+
+  const toggleRecipient = (email) => {
+    setSelectedRecipients(prev =>
+      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
+    )
+  }
 
   const handleClaudeHelp = async () => {
     setClaudeLoading(true)
@@ -63,7 +73,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
     setStep('sending')
     setSendError(null)
     try {
-      for (const recipientEmail of CONFIG.POSTCARD_RECIPIENTS) {
+      for (const email of selectedRecipients) {
         await emailjs.send(
           CONFIG.EMAILJS_SERVICE_ID,
           CONFIG.EMAILJS_POSTCARD_TEMPLATE_ID,
@@ -72,7 +82,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
             from_city: cityName,
             message: message.trim(),
             photo_url: selectedPhoto?.photoUrl || '',
-            to_email: recipientEmail
+            to_email: email
           },
           CONFIG.EMAILJS_PUBLIC_KEY
         )
@@ -231,16 +241,36 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
               </p>
             </div>
           </div>
-          {/* Recipients info */}
+          {/* Recipients selector */}
           <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', border: '1px solid var(--color-border)', marginBottom: 'var(--space-sm)' }}>
             {!templateReady ? (
               <p style={{ color: 'var(--color-text-light)', fontSize: '0.85rem', textAlign: 'center', margin: 0 }}>
                 📭 Recipients not configured yet — set <code>POSTCARD_RECIPIENTS</code> and <code>EMAILJS_POSTCARD_TEMPLATE_ID</code> in config.js.
               </p>
             ) : (
-              <p style={{ color: 'var(--color-text-light)', fontSize: '0.85rem', margin: 0 }}>
-                📬 Sending to <strong>{recipientCount}</strong> {recipientCount === 1 ? 'recipient' : 'recipients'}
-              </p>
+              <>
+                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 var(--space-sm) 0' }}>
+                  📬 Send to
+                </p>
+                {allRecipients.map(r => (
+                  <label key={r.email} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--color-border)', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedRecipients.includes(r.email)}
+                      onChange={() => toggleRecipient(r.email)}
+                      style={{ width: '18px', height: '18px', accentColor: 'var(--color-terracotta)', cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: '0.95rem', color: 'var(--color-text)', fontWeight: selectedRecipients.includes(r.email) ? 600 : 400 }}>
+                      {r.name}
+                    </span>
+                  </label>
+                ))}
+                {selectedRecipients.length === 0 && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-terracotta)', margin: 'var(--space-sm) 0 0 0' }}>
+                    Pick at least one recipient to send.
+                  </p>
+                )}
+              </>
             )}
           </div>
           {sendError && (
@@ -252,10 +282,10 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
         <div style={{ padding: 'var(--space-md) var(--space-lg)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
           <button
             onClick={handleSend}
-            disabled={!templateReady}
-            style={{ width: '100%', padding: 'var(--space-md)', background: templateReady ? 'var(--color-terracotta)' : 'var(--color-tan)', color: templateReady ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: templateReady ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}
+            disabled={!canSend}
+            style={{ width: '100%', padding: 'var(--space-md)', background: canSend ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSend ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSend ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}
           >
-            {templateReady ? '📮 Send Postcard' : 'Recipients not set up yet'}
+            {!templateReady ? 'Recipients not set up yet' : selectedRecipients.length === 0 ? 'Select a recipient' : `📮 Send Postcard`}
           </button>
         </div>
       </div>
@@ -283,7 +313,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
           <div style={{ fontSize: '56px', marginBottom: '12px' }}>📮</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>Postcard sent!</div>
           <div style={{ fontSize: '0.9rem', color: 'var(--color-text-light)', marginBottom: euroEarned > 0 ? '16px' : '24px', lineHeight: 1.5 }}>
-            On its way to {recipientCount} {recipientCount === 1 ? 'person' : 'people'} back home!
+            On its way to {selectedRecipients.length} {selectedRecipients.length === 1 ? 'person' : 'people'} back home!
           </div>
           {euroEarned > 0 && (
             <div style={{ background: '#f0faf4', borderRadius: 'var(--radius-md)', padding: '16px', marginBottom: '24px' }}>
