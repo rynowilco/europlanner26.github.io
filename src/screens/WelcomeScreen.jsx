@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Icon } from '../components/Icon'
-import { CONFIG } from '../config'
+import { CONFIG, localDate } from '../config'
 
 export const WelcomeScreen = ({
     onSelectUser, onSelectMemories, userProfiles, activities,
@@ -15,20 +15,20 @@ export const WelcomeScreen = ({
 
     // Check if today's journal reminder has been dismissed
     useEffect(() => {
-        const today = new Date().toISOString().split('T')[0]
+        const today = localDate()
         const dismissed = localStorage.getItem(`ep26_reminder_${today}`) === 'dismissed'
         setReminderDismissed(dismissed)
     }, [])
 
     const dismissReminder = () => {
-        const today = new Date().toISOString().split('T')[0]
+        const today = localDate()
         try { localStorage.setItem(`ep26_reminder_${today}`, 'dismissed') } catch {}
         setReminderDismissed(true)
     }
 
     // Generate (or retrieve cached) Claude check-in prompt for today
     const generateCheckInPrompt = async (user, itinerary) => {
-        const today = new Date().toISOString().split('T')[0]
+        const today = localDate()
         const cacheKey = `ep26_checkin_prompt_${today}`
 
         // Use cached prompt if we already generated one today

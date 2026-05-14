@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { CONFIG } from '../config'
+import { CONFIG, localDate } from '../config'
 import { Icon } from '../components/Icon'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
   const fileInputRef = useRef(null)
 
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDate()
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
   const cityOptions = ['En Route', ...new Set(tripItinerary.filter(c => !c.isTransfer).map(c => c.city))]
 
@@ -258,7 +258,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPromp
   const [mood, setMood] = useState('')
   const [showWordWarning, setShowWordWarning] = useState(false)
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDate()
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
   const cityOptions = [...new Set(tripItinerary.filter(c => !c.isTransfer).map(c => c.city))]
   const [city, setCity] = useState(currentCity ? currentCity.city : '')
@@ -432,7 +432,7 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
   }, [pendingEuroReward])
 
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDate()
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
 
   const myEntries = journalEntries.filter(e => e.userId === userId && (e.entryText || e.photoUrl))
