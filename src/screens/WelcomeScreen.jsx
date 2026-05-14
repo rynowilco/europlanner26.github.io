@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Icon } from '../components/Icon'
+import { CONFIG } from '../config'
 
 export const WelcomeScreen = ({
     onSelectUser, onSelectMemories, userProfiles, activities,
@@ -9,6 +10,7 @@ export const WelcomeScreen = ({
 }) => {
     const [forkUser, setForkUser] = useState(null)
     const [reminderDismissed, setReminderDismissed] = useState(true) // default true until check runs
+    const [checkInLoading, setCheckInLoading] = useState(false)
     const journalActive = true
 
     // Check if today's journal reminder has been dismissed
@@ -24,16 +26,61 @@ export const WelcomeScreen = ({
         setReminderDismissed(true)
     }
 
+    // Generate (or retrieve cached) Claude check-in prompt for today
+    const generateCheckInPrompt = async (user, itinerary) => {
+        const today = new Date().toISOString().split('T')[0]
+        const cacheKey = `ep26_checkin_prompt_${today}`
+
+        // Use cached prompt if we already generated one today
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) return cached
+
+        const currentCityEntry = (itinerary || []).find(c => c.startDate <= today && today <= c.endDate)
+        const cityName = currentCityEntry?.city || 'Europe'
+
+        try {
+            const res = await fetch('/api/claude', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: CONFIG.CLAUDE_MODEL,
+                    max_tokens: 80,
+                    system: 'You write short, warm, city-specific journal prompts for kids on a family trip to Europe. Keep it to 1-2 sentences. Be specific and enthusiastic — reference something real and interesting about the city. Sound like a fun travel guide, not a teacher.',
+                    messages: [{ role: 'user', content: `The family is in ${cityName} today. Write a brief, fun journal prompt to get the kids excited to write about their day.` }]
+                })
+            })
+            if (!res.ok) throw new Error('API error')
+            const data = await res.json()
+            const prompt = data.content?.[0]?.text?.trim() || ''
+            if (prompt) {
+                try { localStorage.setItem(cacheKey, prompt) } catch {}
+            }
+            return prompt || null
+        } catch (e) {
+            console.warn('Check-in prompt generation failed:', e)
+            return null
+        }
+    }
+
     const handleCardTap = (key) => {
         if (journalActive) { setForkUser(key) }
         else { onSelectUser(key) }
     }
 
-    const handleMakeMemories = () => {
+    const handleMakeMemories = async () => {
         const user = forkUser
-        if (!reminderDismissed) dismissReminder()
-        setForkUser(null)
-        onSelectMemories(user)
+        if (!reminderDismissed) {
+            // Reminder is active — generate a city-specific Claude prompt
+            setCheckInLoading(true)
+            const prompt = await generateCheckInPrompt(userProfiles[user], itinerary)
+            setCheckInLoading(false)
+            dismissReminder()
+            setForkUser(null)
+            onSelectMemories(user, prompt)
+        } else {
+            setForkUser(null)
+            onSelectMemories(user)
+        }
     }
 
     // Compute euro balance for a user from ledger
@@ -157,12 +204,15 @@ export const WelcomeScreen = ({
                                     </div>
                                 </button>
                                 {/* Make Memories — terracotta with daily reminder if not yet dismissed today */}
-                                <button onClick={handleMakeMemories} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: reminderDismissed ? 'white' : 'linear-gradient(135deg, #c8603a, #d97f55)', color: reminderDismissed ? 'var(--color-navy)' : 'white', border: reminderDismissed ? '2px solid var(--color-navy)' : 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '1rem', fontWeight: 600, textAlign: 'left', transition: 'all 0.2s' }}>
-                                    <span style={{ fontSize: '24px' }}>📖</span>
+                                <button onClick={handleMakeMemories} disabled={checkInLoading} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', background: reminderDismissed ? 'white' : 'linear-gradient(135deg, #c8603a, #d97f55)', color: reminderDismissed ? 'var(--color-navy)' : 'white', border: reminderDismissed ? '2px solid var(--color-navy)' : 'none', borderRadius: 'var(--radius-md)', cursor: checkInLoading ? 'wait' : 'pointer', fontSize: '1rem', fontWeight: 600, textAlign: 'left', transition: 'all 0.2s', opacity: checkInLoading ? 0.85 : 1 }}>
+                                    {checkInLoading
+                                        ? <div style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.35)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+                                        : <span style={{ fontSize: '24px' }}>📖</span>
+                                    }
                                     <div>
-                                        <div>Make Memories</div>
+                                        <div>{checkInLoading ? 'Getting your prompt...' : 'Make Memories'}</div>
                                         <div style={{ fontSize: '0.8rem', fontWeight: 400, color: reminderDismissed ? 'var(--color-text-light)' : 'rgba(255,255,255,0.88)' }}>
-                                            {reminderDismissed ? 'Journal, photos & moments' : 'Daily Reminder: A quick journal entry earns Euros!'}
+                                            {checkInLoading ? 'Just a moment ✨' : reminderDismissed ? 'Journal, photos & moments' : 'Daily Reminder: A quick journal entry earns Euros!'}
                                         </div>
                                     </div>
                                 </button>
