@@ -4,6 +4,7 @@ export const Icon = ({ name, size = 24, color = "currentColor" }) => {
     const icons = {
         ArrowLeft: <path d="M19 12H5M12 19l-7-7 7-7"/>,
         ChevronRight: <path d="m9 18 6-6-6-6"/>,
+        ChevronLeft: <path d="m15 18-6-6 6-6"/>,
         ChevronDown: <path d="m6 9 6 6 6-6"/>,
         ChevronUp: <path d="m18 15-6-6-6 6"/>,
         Send: <><path d="m22 2-7 20-4-9-9-4 20-7z"/><path d="M22 2 11 13"/></>,
