@@ -10,6 +10,14 @@ marked.setOptions({ renderer })
 
 export { marked }
 
+// Returns today's date as YYYY-MM-DD in the device's local timezone.
+// Never use new Date().toISOString().split('T')[0] — that gives UTC date,
+// which is tomorrow's date for anyone in US timezones after ~5pm PT.
+export const localDate = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export const CONFIG = {
     CLAUDE_MODEL: 'claude-sonnet-4-20250514',
 

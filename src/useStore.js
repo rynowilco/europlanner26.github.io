@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CONFIG } from './config'
+import { CONFIG, localDate } from './config'
 import { SheetsAPI } from './sheetsApi'
 import { EmailService } from './emailService'
 
@@ -239,8 +239,8 @@ export const useStore = () => {
         const newIdea = {
             ...idea,
             id: 'IDEA-' + Date.now(),
-            dateSaved: new Date().toISOString().split('T')[0],
-            dateUpdated: new Date().toISOString().split('T')[0],
+            dateSaved: localDate(),
+            dateUpdated: localDate(),
             syncedToSheets: false
         }
         setSavedIdeas(prev => [...prev, newIdea])
@@ -256,7 +256,7 @@ export const useStore = () => {
 
     const updateSavedIdea = async (id, updates) => {
         const updatedIdeas = savedIdeas.map(idea =>
-            idea.id === id ? { ...idea, ...updates, dateUpdated: new Date().toISOString().split('T')[0] } : idea
+            idea.id === id ? { ...idea, ...updates, dateUpdated: localDate() } : idea
         )
         setSavedIdeas(updatedIdeas)
         const updated = updatedIdeas.find(i => i.id === id)
@@ -305,8 +305,8 @@ export const useStore = () => {
         const newActivity = {
             ...activity,
             id: `ACT-${Date.now()}`,
-            dateSubmitted: new Date().toISOString().split('T')[0],
-            dateUpdated: new Date().toISOString().split('T')[0],
+            dateSubmitted: localDate(),
+            dateUpdated: localDate(),
             status: 'submitted',
             syncedToSheets: false
         }
@@ -369,7 +369,7 @@ export const useStore = () => {
     const updateActivity = async (id, updates) => {
         const activity = activities.find(a => a.id === id)
         if (!activity) return
-        const updated = { ...activity, ...updates, dateUpdated: new Date().toISOString().split('T')[0] }
+        const updated = { ...activity, ...updates, dateUpdated: localDate() }
         setActivities(prev => prev.map(a => a.id === id ? updated : a))
         try {
             await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.activities, id, SheetsAPI.activityToRow(updated))
@@ -381,7 +381,7 @@ export const useStore = () => {
     const approveActivity = async (id) => {
         const activity = activities.find(a => a.id === id)
         if (!activity || activity.isSample) return
-        const updated = { ...activity, status: 'approved', dateUpdated: new Date().toISOString().split('T')[0] }
+        const updated = { ...activity, status: 'approved', dateUpdated: localDate() }
         setActivities(prev => prev.map(a => a.id === id ? updated : a))
         setUserProfiles(prev => ({
             ...prev,
@@ -434,7 +434,7 @@ export const useStore = () => {
         try {
             const row = [
                 userProfiles[userId]?.name || userId,
-                new Date().toISOString().split('T')[0],
+                localDate(),
                 summary.topics || '',
                 summary.ideas || '',
                 summary.notes || '',
@@ -453,7 +453,7 @@ export const useStore = () => {
             ...item,
             id: 'BOOK-' + Date.now(),
             status: 'pending',
-            dateAdded: new Date().toISOString().split('T')[0],
+            dateAdded: localDate(),
             dateBooked: null,
             syncedToSheets: false
         }
@@ -479,7 +479,7 @@ export const useStore = () => {
         const updated = {
             ...item,
             status: item.status === 'booked' ? 'pending' : 'booked',
-            dateBooked: item.status === 'booked' ? null : new Date().toISOString().split('T')[0]
+            dateBooked: item.status === 'booked' ? null : localDate()
         }
         setBookingItems(prev => prev.map(b => b.id === id ? updated : b))
         try {
@@ -556,7 +556,7 @@ export const useStore = () => {
         const entry = {
             id: 'JRNL-' + Date.now(),
             userId, userName, city,
-            date: now.toISOString().split('T')[0],
+            date: localDate(),
             entryText: entryText || '',
             mood: mood || '',
             lat: lat || null,
