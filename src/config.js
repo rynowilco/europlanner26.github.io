@@ -55,6 +55,8 @@ export const CONFIG = {
     EMAILJS_PUBLIC_KEY: 'vp0WzqrRRXnzh_y58',
     JOURNAL_MODE_DATE: '2026-06-06',
     SLIDESHOW_MUSIC_URL: null, // Set to a hosted audio URL (MP3/OGG) to enable music in the slideshow
+    EMAILJS_POSTCARD_TEMPLATE_ID: '', // Create a postcard template in EmailJS; variables: from_name, from_city, message, photo_url, to_email
+    POSTCARD_RECIPIENTS: [],          // Add recipient email addresses here (not just grandparents!)
     PARENT_EMAILS: ['katieheindel@gmail.com', 'talentonian@gmail.com'],
 
     users: {
