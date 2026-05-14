@@ -99,31 +99,17 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
     }
   }
 
-  // ── Shared header ───────────────────────────────────────────────────────────
-  const Header = ({ subtitle, onBack }) => (
-    <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
-      <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '8px 12px', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 500 }}>
-        ←
-      </button>
-      <div>
-        <div style={{ color: 'white', fontWeight: 600, fontSize: '1.1rem' }}>📮 Send a Postcard</div>
-        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>{subtitle}</div>
-      </div>
-    </div>
-  )
-
-  // ── Wrapper ─────────────────────────────────────────────────────────────────
-  const Wrapper = ({ children }) => (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
-      {children}
-    </div>
-  )
-
   // ── STEP: Pick photo ────────────────────────────────────────────────────────
   if (step === 'pick') {
     return (
-      <Wrapper>
-        <Header subtitle="Pick a photo" onBack={onClose} />
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '8px 12px', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 500 }}>←</button>
+          <div>
+            <div style={{ color: 'white', fontWeight: 600, fontSize: '1.1rem' }}>📮 Send a Postcard</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>Pick a photo</div>
+          </div>
+        </div>
         <div style={{ flex: 1, overflowY: 'auto', background: 'var(--color-cream)', padding: 'var(--space-md)' }}>
           <button
             onClick={() => { setSelectedPhoto(null); setStep('compose') }}
@@ -150,7 +136,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
             </div>
           )}
         </div>
-      </Wrapper>
+      </div>
     )
   }
 
@@ -158,8 +144,14 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
   if (step === 'compose') {
     const canNext = message.trim().length > 0
     return (
-      <Wrapper>
-        <Header subtitle="Write your message" onBack={() => setStep('pick')} />
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
+          <button onClick={() => setStep('pick')} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '8px 12px', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 500 }}>←</button>
+          <div>
+            <div style={{ color: 'white', fontWeight: 600, fontSize: '1.1rem' }}>📮 Send a Postcard</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>Write your message</div>
+          </div>
+        </div>
         <div style={{ flex: 1, overflowY: 'auto', background: 'var(--color-cream)', padding: 'var(--space-lg)' }}>
           {selectedPhoto && (
             <div style={{ width: '100%', height: '180px', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: 'var(--space-lg)', boxShadow: 'var(--shadow-md)' }}>
@@ -200,15 +192,21 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
             Preview →
           </button>
         </div>
-      </Wrapper>
+      </div>
     )
   }
 
   // ── STEP: Preview ───────────────────────────────────────────────────────────
   if (step === 'preview') {
     return (
-      <Wrapper>
-        <Header subtitle="Preview" onBack={() => setStep('compose')} />
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
+          <button onClick={() => setStep('compose')} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '8px 12px', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 500 }}>←</button>
+          <div>
+            <div style={{ color: 'white', fontWeight: 600, fontSize: '1.1rem' }}>📮 Send a Postcard</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>Preview</div>
+          </div>
+        </div>
         <div style={{ flex: 1, overflowY: 'auto', background: 'var(--color-cream)', padding: 'var(--space-lg)' }}>
           {/* Postcard card */}
           <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', overflow: 'hidden', marginBottom: 'var(--space-md)' }}>
@@ -260,7 +258,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
             {templateReady ? '📮 Send Postcard' : 'Recipients not set up yet'}
           </button>
         </div>
-      </Wrapper>
+      </div>
     )
   }
 
