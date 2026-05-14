@@ -162,11 +162,11 @@ export const SlideshowScreen = ({ onBack, journalEntries, userProfiles }) => {
             {/* Prev / Next arrows */}
             {showControls && (
                 <>
-                    <button onClick={handlePrev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
-                        <Icon name="ChevronLeft" size={22} color="white" />
+                    <button onClick={handlePrev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                        <Icon name="ChevronLeft" size={26} color="white" />
                     </button>
-                    <button onClick={handleNext} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
-                        <Icon name="ChevronRight" size={22} color="white" />
+                    <button onClick={handleNext} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                        <Icon name="ChevronRight" size={26} color="white" />
                     </button>
                 </>
             )}
