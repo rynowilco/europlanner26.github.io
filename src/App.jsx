@@ -95,7 +95,7 @@ const App = () => {
 
     // Photo entry handler — wraps addJournalEntry with entryType='photo'
     const handleAddPhotoEntry = async (userId, userName, city, caption, lat, lng, photoUrl) => {
-        await store.addJournalEntry(userId, userName, city, caption, '', lat, lng, 'photo', photoUrl)
+        return await store.addJournalEntry(userId, userName, city, caption, '', lat, lng, 'photo', photoUrl)
     }
 
     return (

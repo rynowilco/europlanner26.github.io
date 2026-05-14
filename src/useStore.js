@@ -573,12 +573,14 @@ export const useStore = () => {
         } catch (e) { console.error('Failed to save journal entry:', e) }
 
         // ── Auto-earn Euros for kids ───────────────────────────────────────
+        let euroEarned = 0
         if (!CONFIG.users[userId]?.isParent) {
             if (entryType === 'journal') {
-                // Award €1 for journal entries meeting the 100-word minimum
+                // Award €1 for journal entries meeting the 75-word minimum
                 const wordCount = (entryText || '').trim().split(/\s+/).filter(Boolean).length
-                if (wordCount >= 100) {
+                if (wordCount >= 75) {
                     await awardEuros(userId, CONFIG.EURO_RATES.journalEntry, 'journal_entry')
+                    euroEarned += CONFIG.EURO_RATES.journalEntry
                 }
             } else if (entryType === 'photo') {
                 // Award €0.10 per photo, capped at €3/day
@@ -588,12 +590,13 @@ export const useStore = () => {
                     .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
                 if (todayPhotoEarnings < CONFIG.EURO_RATES.photoDailyCap) {
                     await awardEuros(userId, CONFIG.EURO_RATES.photoUpload, 'photo_upload')
+                    euroEarned += CONFIG.EURO_RATES.photoUpload
                 }
             }
             // POSTCARD STUB: awardEuros(userId, CONFIG.EURO_RATES.postcard, 'postcard') — wire here when Postcards ships
         }
 
-        return entry
+        return { ...entry, euroEarned }
     }
 
     const heartJournalEntry = async (entryId) => {
