@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { CONFIG } from '../config'
 import { Icon } from '../components/Icon'
 
@@ -256,6 +256,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
 const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPrompt }) => {
   const [entryText, setEntryText] = useState('')
   const [mood, setMood] = useState('')
+  const [showWordWarning, setShowWordWarning] = useState(false)
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
   const today = new Date().toISOString().split('T')[0]
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
@@ -264,9 +265,20 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPromp
   const moods = ['😊', '🤩', '😄', '😴', '😤', '😐']
   const wordCount = entryText.trim().split(/\s+/).filter(Boolean).length
   const isParent = user?.isParent || false
-  const MIN_WORDS = 100
-  // Parents: no word count gate. Kids: must hit 100 words to unlock Save.
-  const canSubmit = isParent ? (entryText.trim().length > 0 && city) : (wordCount >= MIN_WORDS && city)
+  const MIN_WORDS = 75
+  // Always submittable when there's text + city — word count only gates earning, not saving
+  const canSubmit = entryText.trim().length > 0 && city
+
+  const handleSubmitTap = () => {
+    if (!canSubmit) return
+    // For kids: if under 75 words, show a gentle warning first
+    if (!isParent && wordCount < MIN_WORDS && !showWordWarning) {
+      setShowWordWarning(true)
+      return
+    }
+    setShowWordWarning(false)
+    onSubmit(entryText.trim(), mood, city)
+  }
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
       <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', padding: 'var(--space-xl)', width: '100%', maxHeight: '92vh', overflowY: 'auto', animation: 'slideUp 0.3s ease-out' }}>
@@ -316,10 +328,29 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel, checkInPromp
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
           <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-          <button onClick={() => canSubmit && onSubmit(entryText.trim(), mood, city)} disabled={!canSubmit} style={{ flex: 2, padding: 'var(--space-md)', background: canSubmit ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSubmit ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}>
+          <button onClick={handleSubmitTap} disabled={!canSubmit} style={{ flex: 2, padding: 'var(--space-md)', background: canSubmit ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSubmit ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}>
             Save Memory ✨
           </button>
         </div>
+        {/* Word count warning — shown when kid submits under 75 words */}
+        {showWordWarning && !isParent && (
+          <div style={{ marginTop: 'var(--space-md)', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', animation: 'slideUp 0.2s ease-out' }}>
+            <div style={{ fontWeight: 600, color: '#E65100', fontSize: '0.9rem', marginBottom: '4px' }}>
+              ✍️ {wordCount} words — {MIN_WORDS - wordCount} more to earn €{(1).toFixed(2)}!
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#bf4500', marginBottom: 'var(--space-md)', lineHeight: 1.4 }}>
+              Write a bit more and earn a Euro. Or save now and skip the reward.
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <button onClick={() => setShowWordWarning(false)} style={{ flex: 2, padding: '10px', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
+                ✍️ Keep Writing
+              </button>
+              <button onClick={() => { setShowWordWarning(false); onSubmit(entryText.trim(), mood, city) }} style={{ flex: 1, padding: '10px', background: 'none', border: '1.5px solid #E65100', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#E65100', fontWeight: 500, fontSize: '0.85rem' }}>
+                Save Anyway
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -389,6 +420,16 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
   const [checkInPrompt] = useState(initialPrompt || null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
   const [lightbox, setLightbox] = useState(null) // { photos, index }
+  const [pendingEuroReward, setPendingEuroReward] = useState(0)
+  const photoEarnedRef = useRef(0) // accumulates euros during a photo upload batch
+
+  // Auto-dismiss the euro splash after 3 seconds
+  useEffect(() => {
+    if (pendingEuroReward > 0) {
+      const t = setTimeout(() => setPendingEuroReward(0), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [pendingEuroReward])
 
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
   const today = new Date().toISOString().split('T')[0]
@@ -514,8 +555,9 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
           itinerary={tripItinerary}
           checkInPrompt={checkInPrompt}
           onSubmit={async (entryText, mood, city) => {
-            await onAddEntry(userId, user.name, city, entryText, mood, null, null)
+            const result = await onAddEntry(userId, user.name, city, entryText, mood, null, null)
             setShowCompose(false)
+            if (result?.euroEarned > 0) setPendingEuroReward(result.euroEarned)
           }}
           onCancel={() => setShowCompose(false)}
         />
@@ -525,12 +567,32 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
           user={user}
           itinerary={tripItinerary}
           onUploadComplete={async (city, caption, lat, lng, photoUrl) => {
-            await onAddPhotoEntry(userId, user.name, city, caption, lat, lng, photoUrl)
+            const result = await onAddPhotoEntry(userId, user.name, city, caption, lat, lng, photoUrl)
+            photoEarnedRef.current += result?.euroEarned || 0
           }}
-          onCancel={() => setShowPhotoUpload(false)}
+          onCancel={() => {
+            setShowPhotoUpload(false)
+            if (photoEarnedRef.current > 0) {
+              setPendingEuroReward(parseFloat(photoEarnedRef.current.toFixed(2)))
+              photoEarnedRef.current = 0
+            }
+          }}
         />
       )}
       {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} />}
+
+      {/* Euro earned splash — auto-dismisses after 3s, tap to dismiss early */}
+      {pendingEuroReward > 0 && (
+        <div onClick={() => setPendingEuroReward(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.25s ease-out' }}>
+          <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '40px 32px', textAlign: 'center', maxWidth: '280px', width: '85%', animation: 'slideUp 0.3s ease-out', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: '56px', marginBottom: '12px' }}>💶</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>Nice work!</div>
+            <div style={{ fontSize: '3rem', fontWeight: 800, color: '#2a7a45', letterSpacing: '-1px', lineHeight: 1, marginBottom: '8px' }}>+€{pendingEuroReward.toFixed(2)}</div>
+            <div style={{ fontSize: '0.95rem', color: 'var(--color-text-light)', marginBottom: '24px' }}>added to your balance</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-light)' }}>Tap anywhere to continue</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

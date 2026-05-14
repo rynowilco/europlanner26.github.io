@@ -337,23 +337,26 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
                 {isAdmin && <span style={{ background: 'var(--color-sage)', color: 'white', padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 500 }}>Admin</span>}
             </header>
 
-            {/* Tab switcher */}
-            <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)', overflowX: 'auto' }}>
-                <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+            {/* Tab bar — row 1: always visible */}
+            <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
+                <button onClick={() => setActiveTab('ideas')} style={{ flex: 1, padding: 'var(--space-sm) var(--space-xs)', background: activeTab === 'ideas' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'ideas' ? '3px solid var(--color-gold)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeTab === 'ideas' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                     💡 Ideas ({savedIdeas.length})
                 </button>
-                <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                    ✅ Submitted ({activities.filter(a => !a.isSample).length})
+                <button onClick={() => setActiveTab('activities')} style={{ flex: 1, padding: 'var(--space-sm) var(--space-xs)', background: activeTab === 'activities' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'activities' ? '3px solid var(--color-sage)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeTab === 'activities' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    ✅ Sub'd ({activities.filter(a => !a.isSample).length})
                 </button>
-                <button onClick={() => setActiveTab('approved')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'approved' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'approved' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'approved' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                <button onClick={() => setActiveTab('approved')} style={{ flex: 1, padding: 'var(--space-sm) var(--space-xs)', background: activeTab === 'approved' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'approved' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeTab === 'approved' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                     ⭐ Approved ({activities.filter(a => a.status === 'approved' && !a.isSample).length})
                 </button>
-                <button onClick={() => setActiveTab('euros')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'euros' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'euros' ? '3px solid #2a9d4a' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'euros' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+            </div>
+            {/* Tab bar — row 2: Euros (everyone) + Bookings (admin only) */}
+            <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
+                <button onClick={() => setActiveTab('euros')} style={{ flex: 1, padding: 'var(--space-sm) var(--space-xs)', background: activeTab === 'euros' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'euros' ? '3px solid #2a9d4a' : '3px solid transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeTab === 'euros' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                     💶 Euros
                 </button>
                 {isAdmin && (
-                    <button onClick={() => setActiveTab('bookings')} style={{ flex: 1, padding: 'var(--space-md)', background: activeTab === 'bookings' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'bookings' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.9rem', fontWeight: activeTab === 'bookings' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                        🎟️ Book ({bookingItems.length})
+                    <button onClick={() => setActiveTab('bookings')} style={{ flex: 1, padding: 'var(--space-sm) var(--space-xs)', background: activeTab === 'bookings' ? 'var(--color-cream)' : 'white', border: 'none', borderBottom: activeTab === 'bookings' ? '3px solid var(--color-terracotta)' : '3px solid transparent', cursor: 'pointer', fontSize: '0.82rem', fontWeight: activeTab === 'bookings' ? 600 : 400, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        🎟️ Bookings ({bookingItems.length})
                     </button>
                 )}
             </div>
