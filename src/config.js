@@ -36,6 +36,7 @@ export const CONFIG = {
     EMAILJS_TEMPLATE_ID: 'template_q5foa71',
     EMAILJS_PUBLIC_KEY: 'vp0WzqrRRXnzh_y58',
     JOURNAL_MODE_DATE: '2026-06-06',
+    SLIDESHOW_MUSIC_URL: null, // Set to a hosted audio URL (MP3/OGG) to enable music in the slideshow
     PARENT_EMAILS: ['katieheindel@gmail.com', 'talentonian@gmail.com'],
 
     users: {
