@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { CONFIG, localDate } from '../config'
 import { Icon } from '../components/Icon'
+import { PostcardModal } from '../components/PostcardModal'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -415,11 +416,12 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
   )
 }
 
-export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack, initialPrompt, onOpenSlideshow }) => {
+export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack, initialPrompt, onOpenSlideshow, euroLedger, awardEuros }) => {
   const [showCompose, setShowCompose] = useState(!!initialPrompt)
   const [checkInPrompt] = useState(initialPrompt || null)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
   const [lightbox, setLightbox] = useState(null) // { photos, index }
+  const [showPostcard, setShowPostcard] = useState(false)
   const [pendingEuroReward, setPendingEuroReward] = useState(0)
   const photoEarnedRef = useRef(0) // accumulates euros during a photo upload batch
 
@@ -476,12 +478,20 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
             ✍️ Write Entry
           </button>
         </div>
-        <button
-          onClick={slideshowReady ? onOpenSlideshow : undefined}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: 'var(--space-sm)', background: slideshowReady ? 'linear-gradient(135deg, #1a1a2e 0%, #2e3b6e 100%)' : 'var(--color-cream)', color: slideshowReady ? 'white' : 'var(--color-text-light)', border: slideshowReady ? 'none' : '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: slideshowReady ? 'pointer' : 'default', fontWeight: 600, fontSize: '0.9rem' }}
-        >
-          {slideshowReady ? '▶ Play Slideshow' : `▶ Slideshow — ${allFamilyPhotos.length}/15 photos`}
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <button
+            onClick={() => setShowPostcard(true)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-cream)', color: 'var(--color-navy)', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+          >
+            📮 Postcard
+          </button>
+          <button
+            onClick={slideshowReady ? onOpenSlideshow : undefined}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: slideshowReady ? 'linear-gradient(135deg, #1a1a2e 0%, #2e3b6e 100%)' : 'var(--color-cream)', color: slideshowReady ? 'white' : 'var(--color-text-light)', border: slideshowReady ? 'none' : '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: slideshowReady ? 'pointer' : 'default', fontWeight: 600, fontSize: '0.85rem' }}
+          >
+            {slideshowReady ? '▶ Slideshow' : `▶ ${allFamilyPhotos.length}/15`}
+          </button>
+        </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
@@ -580,6 +590,18 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         />
       )}
       {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} />}
+
+      {showPostcard && (
+        <PostcardModal
+          user={user}
+          userId={userId}
+          allFamilyPhotos={allFamilyPhotos}
+          currentCity={currentCity}
+          euroLedger={euroLedger}
+          awardEuros={awardEuros}
+          onClose={() => setShowPostcard(false)}
+        />
+      )}
 
       {/* Euro earned splash — auto-dismisses after 3s, tap to dismiss early */}
       {pendingEuroReward > 0 && (
