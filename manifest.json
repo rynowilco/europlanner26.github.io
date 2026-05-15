@@ -1,0 +1,24 @@
+{
+  "name": "Euro Planner '26",
+  "short_name": "Euro Planner",
+  "description": "Wilcoxson family Europe trip planner",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2c3e6b",
+  "background_color": "#2c3e6b",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
