@@ -28,7 +28,6 @@ const App = () => {
     const [showCityGuides, setShowCityGuides] = useState(false)
     const [previousScreen, setPreviousScreen] = useState('welcome')
     const [bannerDismissed, setBannerDismissed] = useState(false)
-    const [memoriesInitialPrompt, setMemoriesInitialPrompt] = useState(null)
     const store = useStore()
 
     // Badge: true if there's a story newer than the last one the user saw
@@ -48,7 +47,7 @@ const App = () => {
     })()
 
     const handleSelectUser = (userId) => { setCurrentUser(userId); setScreen('chat') }
-    const handleSelectMemories = (userId, initialPrompt = null) => { setCurrentUser(userId); setMemoriesInitialPrompt(initialPrompt); setScreen('memories') }
+    const handleSelectMemories = (userId) => { setCurrentUser(userId); setScreen('memories') }
     const handleBack = () => {
         if (screen === 'welcome') { setScreen('home') }
         else if (screen === 'chat') { setScreen('welcome'); setCurrentUser(null); store.setRefiningIdea(null) }
@@ -108,7 +107,7 @@ const App = () => {
             {screen === 'welcome' && <WelcomeScreen onSelectUser={handleSelectUser} onSelectMemories={handleSelectMemories} userProfiles={store.userProfiles} activities={store.activities} onOpenAdmin={handleOpenAdmin} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} onOpenFamilyFeed={handleOpenFamilyFeed} onBack={handleBack} itinerary={store.itinerary} onOpenPolls={() => setScreen('polls')} onOpenScavengerHunt={() => setScreen('scavengerHunt')} onOpenDailyStories={handleOpenDailyStories} newStoryAvailable={newStoryAvailable} newPollAvailable={newPollAvailable} euroLedger={store.euroLedger} />}
             {screen === 'dailyStories' && <DailyStoriesScreen onBack={handleBack} journalDigest={store.journalDigest} journalEntries={store.journalEntries} itinerary={store.itinerary} currentUser={currentUser} userProfiles={store.userProfiles} onSaveStory={store.saveJournalStory} canGenerate={true} />}
             {screen === 'chat' && currentUser && <ChatScreen userId={currentUser} user={store.userProfiles[currentUser]} onBack={handleBack} onOpenDashboard={handleOpenDashboard} onOpenMap={handleOpenMap} store={store} />}
-            {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} initialPrompt={memoriesInitialPrompt} onOpenSlideshow={handleOpenSlideshow} euroLedger={store.euroLedger} awardEuros={store.awardEuros} />}
+            {screen === 'memories' && currentUser && <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser]} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={handleBack} onOpenSlideshow={handleOpenSlideshow} euroLedger={store.euroLedger} awardEuros={store.awardEuros} />}
             {screen === 'slideshow' && <SlideshowScreen onBack={handleBack} journalEntries={store.journalEntries} userProfiles={store.userProfiles} />}
             {screen === 'familyFeed' && <FamilyFeedScreen onBack={handleBack} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} />}
             {screen === 'dashboard' && <DashboardScreen onBack={handleBack} activities={store.activities} savedIdeas={store.savedIdeas} bookingItems={store.bookingItems} userProfiles={store.userProfiles} isAdmin={isAdmin} currentUserId={currentUser} onApprove={handleApprove} onFeedback={handleFeedback} onRefineIdea={handleRefineIdea} onSubmitIdea={handleSubmitIdea} onDeleteIdea={handleDeleteIdea} onToggleBooked={handleToggleBooked} onDeleteBooking={handleDeleteBooking} onAddBooking={handleAddBooking} euroLedger={store.euroLedger} awardEuros={store.awardEuros} processWithdrawal={store.processWithdrawal} />}
