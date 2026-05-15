@@ -22,7 +22,6 @@ const getNearestCity = (lat, lng, itinerary, date) => {
   }
   if (minDist < 120) return nearest?.city
 
-  // Smart En Route: find the leg the photo date falls between
   if (date) {
     const allCities = itinerary.filter(c => !c.isTransfer)
     const before = allCities.filter(c => c.endDate < date).sort((a, b) => b.endDate.localeCompare(a.endDate))
@@ -85,7 +84,6 @@ const readExifGps = async (file) => {
   }
 }
 
-// Cloudinary URLs support on-the-fly transforms via /upload/ path segment
 const getThumbUrl = (url, width = 400) => {
   if (!url) return null
   if (url.includes('cloudinary.com')) {
@@ -267,12 +265,10 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
   const wordCount = entryText.trim().split(/\s+/).filter(Boolean).length
   const isParent = user?.isParent || false
   const MIN_WORDS = 75
-  // Always submittable when there's text + city — word count only gates earning, not saving
   const canSubmit = entryText.trim().length > 0 && city
 
   const handleSubmitTap = () => {
     if (!canSubmit) return
-    // For kids: if under 75 words, show a gentle warning first
     if (!isParent && wordCount < MIN_WORDS && !showWordWarning) {
       setShowWordWarning(true)
       return
@@ -327,7 +323,6 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
             Save Memory ✨
           </button>
         </div>
-        {/* Word count warning — shown when kid submits under 75 words */}
         {showWordWarning && !isParent && (
           <div style={{ marginTop: 'var(--space-md)', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', animation: 'slideUp 0.2s ease-out' }}>
             <div style={{ fontWeight: 600, color: '#E65100', fontSize: '0.9rem', marginBottom: '4px' }}>
@@ -355,7 +350,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
 
 const Lightbox = ({ photos, initialIndex, onClose }) => {
   const [idx, setIdx] = useState(initialIndex)
-  const [dir, setDir] = useState(0) // -1 = going back, 1 = going forward
+  const [dir, setDir] = useState(0)
   const touchStartX = useRef(null)
   const entry = photos[idx]
 
@@ -380,28 +375,23 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
         @keyframes slideInFromRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes slideInFromLeft  { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
       `}</style>
-      {/* Close */}
       <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         <Icon name="X" size={20} color="white" />
       </button>
-      {/* Prev */}
       {photos.length > 1 && (
         <button onClick={prev} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="ChevronLeft" size={26} color="white" />
         </button>
       )}
-      {/* Image */}
       <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
         style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', position: 'relative', zIndex: 5,
           animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out'
         }} />
-      {/* Next */}
       {photos.length > 1 && (
         <button onClick={next} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="ChevronRight" size={26} color="white" />
         </button>
       )}
-      {/* Caption + meta */}
       {entry.entryText && <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px', padding: '0 60px' }}>{entry.entryText}</p>}
       <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 'var(--space-sm)' }}>
         📍 {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}
@@ -410,15 +400,20 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
   )
 }
 
-export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry, onBack, onOpenSlideshow, euroLedger, awardEuros }) => {
-  const [showCompose, setShowCompose] = useState(false)
+export const MemoriesScreen = ({
+  userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry,
+  onBack, showBack = true, onOpenSlideshow, euroLedger, awardEuros,
+  fabAction, onFabActionHandled
+}) => {
+  const [showCompose, setShowCompose]       = useState(false)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
-  const [lightbox, setLightbox] = useState(null) // { photos, index }
-  const [showPostcard, setShowPostcard] = useState(false)
+  const [lightbox, setLightbox]             = useState(null)
+  const [showPostcard, setShowPostcard]     = useState(false)
   const [pendingEuroReward, setPendingEuroReward] = useState(0)
-  const photoEarnedRef = useRef(0) // accumulates euros during a photo upload batch
+  const [photoFilter, setPhotoFilter]       = useState('my') // 'my' | 'family'
+  const photoEarnedRef = useRef(0)
 
-  // Auto-dismiss the euro splash after 3 seconds
+  // Auto-dismiss euro splash
   useEffect(() => {
     if (pendingEuroReward > 0) {
       const t = setTimeout(() => setPendingEuroReward(0), 3000)
@@ -426,43 +421,73 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
     }
   }, [pendingEuroReward])
 
+  // FAB action — open modal when triggered from outside
+  useEffect(() => {
+    if (fabAction === 'journal') { setShowCompose(true);     onFabActionHandled?.() }
+    if (fabAction === 'photo')   { setShowPhotoUpload(true); onFabActionHandled?.() }
+  }, [fabAction])
+
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
   const today = localDate()
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
 
-  const myEntries = journalEntries.filter(e => e.userId === userId && (e.entryText || e.photoUrl))
-  const allPhotos = myEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
+  // My entries vs all family photos
+  const myEntries       = journalEntries.filter(e => e.userId === userId && (e.entryText || e.photoUrl))
+  const myPhotos        = myEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
   const allFamilyPhotos = journalEntries.filter(e => e.photoUrl)
-  const slideshowReady = allFamilyPhotos.length >= 15
+  const slideshowReady  = allFamilyPhotos.length >= 15
 
-  const grouped = myEntries.reduce((acc, e) => {
+  // Active photo set for lightbox
+  const allPhotos = photoFilter === 'my' ? myPhotos : allFamilyPhotos
+
+  // Display set for the grid (filter-aware)
+  const displayEntries = photoFilter === 'my' ? myEntries : allFamilyPhotos
+
+  const displayGrouped = displayEntries.reduce((acc, e) => {
     const key = e.date || (e.timestamp ? e.timestamp.split('T')[0] : 'Unknown')
     if (!acc[key]) acc[key] = []
     acc[key].push(e)
     return acc
   }, {})
-  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
+  const displaySortedDates = Object.keys(displayGrouped).sort((a, b) => b.localeCompare(a))
 
   const formatDay = (dateStr) => {
     if (!dateStr) return 'Unknown Date'
-    const dt = new Date(dateStr + 'T00:00:00')
-    return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
-      <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', flexShrink: 0 }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
-          <Icon name="ArrowLeft" size={20} color="white" />
-        </button>
+
+      {/* Header */}
+      <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', display: 'flex', alignItems: 'center', gap: showBack ? 'var(--space-md)' : 0, flexShrink: 0 }}>
+        {showBack && (
+          <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
+            <Icon name="ArrowLeft" size={20} color="white" />
+          </button>
+        )}
         <div style={{ flex: 1 }}>
           <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>{user.emoji} {user.name}'s Memories</div>
           <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem' }}>{myEntries.length} {myEntries.length === 1 ? 'moment' : 'moments'}</div>
         </div>
       </div>
 
-      {/* Action sub-bar — stacked */}
+      {/* Action sub-bar */}
       <div style={{ background: 'white', borderBottom: '1px solid var(--color-border)', padding: 'var(--space-sm) var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', flexShrink: 0 }}>
+
+        {/* Photo filter toggle */}
+        <div style={{ display: 'flex', background: 'var(--color-cream)', borderRadius: 'var(--radius-sm)', padding: '3px', gap: '2px' }}>
+          {[['my', 'My Photos'], ['family', '👨‍👩‍👧‍👦 Family']].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setPhotoFilter(val)}
+              style={{ flex: 1, padding: '6px', background: photoFilter === val ? 'white' : 'none', border: 'none', borderRadius: 'calc(var(--radius-sm) - 2px)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: photoFilter === val ? 700 : 500, color: photoFilter === val ? 'var(--color-navy)' : 'var(--color-text-light)', boxShadow: photoFilter === val ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
           <button onClick={() => setShowPhotoUpload(true)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: 'var(--space-sm)', background: 'var(--color-cream)', color: 'var(--color-navy)', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
             📸 Add Photos
@@ -487,28 +512,38 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         </div>
       </div>
 
+      {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
-        {myEntries.length === 0 ? (
+        {displayEntries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
-            <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📖</div>
-            <p style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.1rem', marginBottom: 'var(--space-sm)' }}>No memories yet</p>
-            <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 'var(--space-lg)' }}>
-              {currentCity ? `You're in ${currentCity.city} — write your first entry!` : 'Start writing when the adventure begins!'}
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'center' }}>
-              <button onClick={() => setShowPhotoUpload(true)} style={{ padding: 'var(--space-md) var(--space-lg)', background: 'white', color: 'var(--color-navy)', border: '2px solid var(--color-navy)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}>
-                📸 Add Photos
-              </button>
-              <button onClick={() => setShowCompose(true)} style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}>
-                ✍️ Write Entry
-              </button>
-            </div>
+            {photoFilter === 'my' ? (
+              <>
+                <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📖</div>
+                <p style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.1rem', marginBottom: 'var(--space-sm)' }}>No memories yet</p>
+                <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 'var(--space-lg)' }}>
+                  {currentCity ? `You're in ${currentCity.city} — write your first entry!` : 'Start writing when the adventure begins!'}
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'center' }}>
+                  <button onClick={() => setShowPhotoUpload(true)} style={{ padding: 'var(--space-md) var(--space-lg)', background: 'white', color: 'var(--color-navy)', border: '2px solid var(--color-navy)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}>📸 Add Photos</button>
+                  <button onClick={() => setShowCompose(true)} style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}>✍️ Write Entry</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📸</div>
+                <p style={{ fontWeight: 600, color: 'var(--color-navy)', fontSize: '1.1rem', marginBottom: 'var(--space-sm)' }}>No family photos yet</p>
+                <p style={{ color: 'var(--color-text-light)', fontSize: '0.9rem', lineHeight: 1.6 }}>Photos from everyone will show up here once they start uploading.</p>
+              </>
+            )}
           </div>
         ) : (
-          sortedDates.map(dateKey => {
-            const dayEntries = [...grouped[dateKey]].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            const photos = dayEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
-            const journals = dayEntries.filter(e => e.entryType !== 'photo' && !e.photoUrl && e.entryText)
+          displaySortedDates.map(dateKey => {
+            const dayEntries = [...displayGrouped[dateKey]].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            const photos  = dayEntries.filter(e => e.entryType === 'photo' || e.photoUrl)
+            // In family mode, only show photos (all entries in allFamilyPhotos already have photoUrl)
+            const journals = photoFilter === 'my'
+              ? dayEntries.filter(e => e.entryType !== 'photo' && !e.photoUrl && e.entryText)
+              : []
             return (
               <div key={dateKey} style={{ marginBottom: 'var(--space-xl)', animation: 'slideUp 0.4s ease-out' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)', paddingBottom: 'var(--space-xs)', borderBottom: '1px solid var(--color-border)' }}>
@@ -595,7 +630,6 @@ export const MemoriesScreen = ({ userId, user, itinerary, journalEntries, onAddE
         />
       )}
 
-      {/* Euro earned splash — auto-dismisses after 3s, tap to dismiss early */}
       {pendingEuroReward > 0 && (
         <div onClick={() => setPendingEuroReward(0)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.25s ease-out' }}>
           <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '40px 32px', textAlign: 'center', maxWidth: '280px', width: '85%', animation: 'slideUp 0.3s ease-out', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
