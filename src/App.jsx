@@ -249,6 +249,7 @@ const App = () => {
                                 onOpenDailyStories={handleOpenDailyStories}
                                 onOpenJournal={() => { setFabPendingAction('journal'); setActiveTab('memories') }}
                                 onSwitchUser={handleSwitchUser}
+                                itinerary={store.itinerary}
                             />
                         )}
 
