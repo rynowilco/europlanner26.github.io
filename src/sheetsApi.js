@@ -119,7 +119,7 @@ export const SheetsAPI = {
             'innbruck':                { lat: 47.2692, lng: 11.4041 },
             'ampass':                  { lat: 47.2667, lng: 11.4667 },
             'train day - kids choice': { lat: 46.0,    lng:  9.0    },
-            'portland':                { lat: 45.5051, lng: -122.6750 } // TEMP
+            'portland':                { lat: 45.5051, lng: -122.6750 }
         }
         const countryLanguages = {
             'italy': 'Italian', 'france': 'French', 'spain': 'Spanish',
@@ -247,7 +247,6 @@ export const SheetsAPI = {
             lng:        parseFloat(row[8])  || null,
             timestamp:  row[9]  || '',
             heartCount: parseInt(row[10])   || 0,
-            // row[11] = heartedBy (existing col, not used in frontend)
             entryType:  row[12] || 'journal',
             photoUrl:   row[13] || ''
         }))
@@ -266,7 +265,7 @@ export const SheetsAPI = {
             entry.lng || '',
             entry.timestamp,
             entry.heartCount || 0,
-            '',                          // col 11: heartedBy placeholder (unused)
+            '',
             entry.entryType || 'journal',
             entry.photoUrl  || ''
         ]
@@ -311,13 +310,17 @@ export const SheetsAPI = {
         return [entry.date, entry.story, entry.generatedAt, entry.generatedBy || '']
     },
 
+    // ── Polls ────────────────────────────────────────────────────────────────
+    // Sheet columns: pollId | question | options (JSON) | votes (JSON) | createdBy
+    //                | createdAt | status | tieBreak (JSON) | closedBy | closedAt
     parsePolls(rows) {
         if (!rows || rows.length < 2) return []
         return rows.slice(1).filter(row => row[0]).map(row => {
-            let options = []
-            let votes = {}
+            let options = [], votes = {}, tieBreak = null
             try { options = JSON.parse(row[2] || '[]') } catch { options = [] }
             try { votes = JSON.parse(row[3] || '{}') } catch { votes = {} }
+            try { tieBreak = JSON.parse(row[7] || 'null') } catch { tieBreak = null }
+            const rawStatus = row[6] || 'open'
             return {
                 pollId:    row[0] || '',
                 question:  row[1] || '',
@@ -325,7 +328,11 @@ export const SheetsAPI = {
                 votes,
                 createdBy: row[4] || '',
                 createdAt: row[5] || '',
-                status:    row[6] || 'open'
+                // Backward compat: old 'resolved' polls read as 'closed'
+                status:    rawStatus === 'resolved' ? 'closed' : rawStatus,
+                tieBreak,
+                closedBy:  row[8] || '',
+                closedAt:  row[9] || ''
             }
         })
     },
@@ -338,12 +345,14 @@ export const SheetsAPI = {
             JSON.stringify(poll.votes || {}),
             poll.createdBy,
             poll.createdAt,
-            poll.status || 'open'
+            poll.status || 'open',
+            JSON.stringify(poll.tieBreak || null),
+            poll.closedBy || '',
+            poll.closedAt || ''
         ]
     },
 
     // ── Euro Ledger ─────────────────────────────────────────────────────────
-    // Sheet columns: ID | User | Amount | Reason | Timestamp
     parseEuroLedger(rows) {
         if (!rows || rows.length < 2) return []
         return rows.slice(1).filter(row => row[0]).map(row => ({

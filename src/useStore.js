@@ -17,6 +17,20 @@ export const safeParseJSON = (key, fallback) => {
     }
 }
 
+// Total family members who can vote. Update if family size changes.
+const TOTAL_VOTERS = 4
+
+// Determine if a vote object produces a tie, and who wins if not.
+const detectTie = (votes, options) => {
+    const tally = options.map((_, i) =>
+        Object.values(votes || {}).filter(v => v === i).length
+    )
+    const max = Math.max(...tally, 0)
+    if (max === 0) return { isTie: false, tiedIndices: [] }
+    const tiedIndices = tally.map((c, i) => c === max ? i : -1).filter(i => i !== -1)
+    return { isTie: tiedIndices.length > 1, tiedIndices }
+}
+
 export const useStore = () => {
     const [activities, setActivities] = useState(() => safeParseJSON('euroPlanner_activities', []))
     const [savedIdeas, setSavedIdeas] = useState(() => safeParseJSON('euroPlanner_savedIdeas', []))
@@ -68,7 +82,6 @@ export const useStore = () => {
                     SheetsAPI.read(CONFIG.SHEET_NAMES.euroLedger)
                 ])
 
-                // ── Activities ──────────────────────────────────────────────
                 if (activitiesResult.status === 'fulfilled' && activitiesResult.value?.length > 1) {
                     try {
                         const sheetsActivities = SheetsAPI.parseActivities(activitiesResult.value)
@@ -91,7 +104,6 @@ export const useStore = () => {
                     console.warn('Activities sheet read failed:', activitiesResult.reason)
                 }
 
-                // ── User Profiles ───────────────────────────────────────────
                 if (profilesResult.status === 'fulfilled' && profilesResult.value?.length > 1) {
                     try {
                         const parsed = SheetsAPI.parseUserProfiles(profilesResult.value)
@@ -104,7 +116,6 @@ export const useStore = () => {
                     console.warn('User profiles sheet read failed:', profilesResult.reason)
                 }
 
-                // ── Itinerary ───────────────────────────────────────────────
                 if (itineraryResult.status === 'fulfilled' && itineraryResult.value?.length > 1) {
                     try {
                         const parsed = SheetsAPI.parseItinerary(itineraryResult.value)
@@ -117,7 +128,6 @@ export const useStore = () => {
                     console.warn('Itinerary sheet read failed:', itineraryResult.reason)
                 }
 
-                // ── Saved Ideas ─────────────────────────────────────────────
                 if (ideasResult.status === 'fulfilled' && ideasResult.value?.length > 1) {
                     try {
                         const parsedIdeas = SheetsAPI.parseSavedIdeas(ideasResult.value)
@@ -130,7 +140,6 @@ export const useStore = () => {
                     console.warn('Saved ideas sheet read failed:', ideasResult.reason)
                 }
 
-                // ── Booking Items ───────────────────────────────────────────
                 if (bookingResult.status === 'fulfilled' && bookingResult.value?.length > 1) {
                     try {
                         const parsedBookings = SheetsAPI.parseBookingItems(bookingResult.value)
@@ -143,7 +152,6 @@ export const useStore = () => {
                     console.warn('Booking items sheet read failed:', bookingResult.reason)
                 }
 
-                // ── Journal Entries ─────────────────────────────────────────
                 if (journalResult.status === 'fulfilled' && journalResult.value?.length > 1) {
                     try {
                         const parsedJournal = SheetsAPI.parseJournalEntries(journalResult.value)
@@ -156,7 +164,6 @@ export const useStore = () => {
                     console.warn('Journal sheet read failed:', journalResult.reason)
                 }
 
-                // ── Comments ────────────────────────────────────────────────
                 if (commentsResult.status === 'fulfilled' && commentsResult.value?.length > 1) {
                     try {
                         const parsedComments = SheetsAPI.parseComments(commentsResult.value)
@@ -167,7 +174,6 @@ export const useStore = () => {
                     console.warn('Comments sheet read failed:', commentsResult.reason)
                 }
 
-                // ── Journal Digest ───────────────────────────────────────────
                 if (digestResult.status === 'fulfilled' && digestResult.value?.length > 1) {
                     try {
                         const parsedDigest = SheetsAPI.parseJournalDigest(digestResult.value)
@@ -180,7 +186,6 @@ export const useStore = () => {
                     console.warn('Journal Digest sheet read failed:', digestResult.reason)
                 }
 
-                // ── Polls ────────────────────────────────────────────────────
                 if (pollsResult.status === 'fulfilled' && pollsResult.value?.length > 1) {
                     try {
                         const parsedPolls = SheetsAPI.parsePolls(pollsResult.value)
@@ -191,7 +196,6 @@ export const useStore = () => {
                     console.warn('Polls sheet read failed:', pollsResult.reason)
                 }
 
-                // ── Euro Ledger ──────────────────────────────────────────────
                 if (euroLedgerResult.status === 'fulfilled' && euroLedgerResult.value?.length > 1) {
                     try {
                         const parsedLedger = SheetsAPI.parseEuroLedger(euroLedgerResult.value)
@@ -202,7 +206,6 @@ export const useStore = () => {
                     console.warn('Euro Ledger sheet read failed:', euroLedgerResult.reason)
                 }
 
-                // ── Flush unsynced local activities ─────────────────────────
                 const localActivities = safeParseJSON('euroPlanner_activities', [])
                 const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
                 if (unsynced.length > 0) {
@@ -322,7 +325,6 @@ export const useStore = () => {
         return newActivity
     }
 
-    // Deduplicates by ID (primary) and by kidName+title (fallback for legacy activities)
     const syncUnsyncedActivities = async (currentActivities) => {
         const unsynced = (currentActivities || []).filter(a => !a.syncedToSheets && !a.isSample)
         if (unsynced.length === 0) return 0
@@ -341,16 +343,12 @@ export const useStore = () => {
             console.warn('Could not fetch existing IDs for dedup check:', e)
         }
 
-        console.log('Dedup: ' + existingIds.size + ' IDs, ' + existingTitleKeys.size + ' title keys in Sheet')
-        console.log('Attempting to sync ' + unsynced.length + ' local activities')
-
         let synced = 0
         let skipped = 0
         for (const activity of unsynced) {
             const titleKey = activity.kidName.toLowerCase() + '|' + activity.title.toLowerCase()
             if (existingIds.has(activity.id) || existingTitleKeys.has(titleKey)) {
                 setActivities(prev => prev.map(a => a.id === activity.id ? { ...a, syncedToSheets: true } : a))
-                console.log('Skipped duplicate:', activity.title)
                 skipped++
                 continue
             }
@@ -398,7 +396,6 @@ export const useStore = () => {
                 if (rowIndex !== -1) {
                     const sheetRow = rowIndex + 2
                     await SheetsAPI.update(CONFIG.SHEET_NAMES.activities, 'A' + sheetRow + ':N' + sheetRow, [SheetsAPI.activityToRow(updated)])
-                    console.log('Approval synced to Sheets, row', sheetRow)
                 }
             }
         } catch (e) {
@@ -512,8 +509,6 @@ export const useStore = () => {
     }
 
     // ── Euro Ledger ─────────────────────────────────────────────────────────
-
-    // Compute a user's current balance from the in-memory ledger
     const getEuroBalance = (userId) => {
         const total = euroLedger
             .filter(e => e.userId === userId)
@@ -521,8 +516,6 @@ export const useStore = () => {
         return Math.max(0, parseFloat(total.toFixed(2)))
     }
 
-    // Award Euros to a kid — appends a positive entry to ledger + Sheets
-    // Use reason strings: 'journal_entry', 'photo_upload', 'postcard', 'bonus'
     const awardEuros = async (userId, amount, reason) => {
         if (!userId || !amount) return
         const entry = {
@@ -542,15 +535,11 @@ export const useStore = () => {
         return entry
     }
 
-    // Process a withdrawal (parent manually subtracts from a kid's balance)
-    // amount is always passed as a positive number; stored as negative in ledger
     const processWithdrawal = async (userId, amount, reason) => {
         return awardEuros(userId, -Math.abs(parseFloat(amount)), reason || 'withdrawal')
     }
 
     // ── Journal ─────────────────────────────────────────────────────────────
-    // entryType: 'journal' (default) or 'photo'
-    // photoUrl: Cloudinary URL for photo entries (empty string for journal entries)
     const addJournalEntry = async (userId, userName, city, entryText, mood, lat, lng, entryType = 'journal', photoUrl = '') => {
         const now = new Date()
         const entry = {
@@ -572,18 +561,15 @@ export const useStore = () => {
             console.log('Journal entry saved to Sheets:', entry.id, '(' + entryType + ')')
         } catch (e) { console.error('Failed to save journal entry:', e) }
 
-        // ── Auto-earn Euros for kids ───────────────────────────────────────
         let euroEarned = 0
         if (!CONFIG.users[userId]?.isParent) {
             if (entryType === 'journal') {
-                // Award €1 for journal entries meeting the 75-word minimum
                 const wordCount = (entryText || '').trim().split(/\s+/).filter(Boolean).length
                 if (wordCount >= 75) {
                     await awardEuros(userId, CONFIG.EURO_RATES.journalEntry, 'journal_entry')
                     euroEarned += CONFIG.EURO_RATES.journalEntry
                 }
             } else if (entryType === 'photo') {
-                // Award €0.10 per photo, capped at €3/day
                 const today = entry.date
                 const todayPhotoEarnings = euroLedger
                     .filter(e => e.userId === userId && e.reason === 'photo_upload' && e.timestamp.startsWith(today))
@@ -593,7 +579,6 @@ export const useStore = () => {
                     euroEarned += CONFIG.EURO_RATES.photoUpload
                 }
             }
-            // POSTCARD STUB: awardEuros(userId, CONFIG.EURO_RATES.postcard, 'postcard') — wire here when Postcards ships
         }
 
         return { ...entry, euroEarned }
@@ -628,13 +613,11 @@ export const useStore = () => {
             setJournalDigest(prev => prev.map(d => d.date === date ? entry : d))
             try {
                 await SheetsAPI.findAndUpdateRow(CONFIG.SHEET_NAMES.journalDigest, date, SheetsAPI.digestToRow(entry))
-                console.log('Story updated in Sheets for', date)
             } catch (e) { console.error('Failed to update story in Sheets:', e) }
         } else {
             setJournalDigest(prev => [entry, ...prev].sort((a, b) => b.date.localeCompare(a.date)))
             try {
                 await SheetsAPI.append(CONFIG.SHEET_NAMES.journalDigest, SheetsAPI.digestToRow(entry))
-                console.log('Story saved to Sheets for', date)
             } catch (e) { console.error('Failed to save story to Sheets:', e) }
         }
         return entry
@@ -653,7 +636,6 @@ export const useStore = () => {
         setComments(prev => [...prev, comment])
         try {
             await SheetsAPI.append(CONFIG.SHEET_NAMES.comments, SheetsAPI.commentToRow(comment))
-            console.log('Comment saved to Sheets:', comment.id)
         } catch (e) {
             console.error('Failed to save comment:', e)
         }
@@ -661,6 +643,7 @@ export const useStore = () => {
     }
 
     // ── Polls ────────────────────────────────────────────────────────────────
+
     const createPoll = async (question, options, createdBy) => {
         const poll = {
             pollId: 'POLL-' + Date.now(),
@@ -669,7 +652,10 @@ export const useStore = () => {
             votes: {},
             createdBy,
             createdAt: new Date().toISOString(),
-            status: 'open'
+            status: 'open',
+            tieBreak: null,
+            closedBy: '',
+            closedAt: ''
         }
         setPolls(prev => [poll, ...prev])
         try {
@@ -681,15 +667,33 @@ export const useStore = () => {
         return poll
     }
 
+    // castVote: records vote, then auto-closes if all TOTAL_VOTERS have voted.
+    // Auto-close sets status to 'tied' if there's a tie, 'closed' otherwise.
     const castVote = async (pollId, userId, optionIndex) => {
         let updatedPoll = null
+
         setPolls(prev => prev.map(p => {
             if (p.pollId !== pollId) return p
             const newVotes = { ...p.votes, [userId]: optionIndex }
-            updatedPoll = { ...p, votes: newVotes }
+            const voteCount = Object.keys(newVotes).length
+
+            let status = p.status
+            let closedBy = p.closedBy || ''
+            let closedAt = p.closedAt || ''
+
+            if (voteCount >= TOTAL_VOTERS) {
+                const { isTie } = detectTie(newVotes, p.options)
+                status = isTie ? 'tied' : 'closed'
+                closedBy = 'auto'
+                closedAt = new Date().toISOString()
+            }
+
+            updatedPoll = { ...p, votes: newVotes, status, closedBy, closedAt }
             return updatedPoll
         }))
+
         if (!updatedPoll) return
+
         try {
             await SheetsAPI.findAndUpdateRow(
                 CONFIG.SHEET_NAMES.polls,
@@ -701,14 +705,28 @@ export const useStore = () => {
         }
     }
 
-    const resolvePoll = async (pollId) => {
+    // closePoll: owner manually closes voting early.
+    // Sets status to 'tied' if tied, 'closed' if there's a winner.
+    // closedBy is passed from the caller (currentUser in App.jsx).
+    const closePoll = async (pollId, closedBy) => {
         let updatedPoll = null
+
         setPolls(prev => prev.map(p => {
-            if (p.pollId !== pollId) return p
-            updatedPoll = { ...p, status: 'resolved' }
+            if (p.pollId !== pollId || p.status !== 'open') return p
+            const voteCount = Object.keys(p.votes || {}).length
+            if (voteCount === 0) return p // Can't close with no votes
+            const { isTie } = detectTie(p.votes, p.options)
+            updatedPoll = {
+                ...p,
+                status: isTie ? 'tied' : 'closed',
+                closedBy: closedBy || 'manual',
+                closedAt: new Date().toISOString()
+            }
             return updatedPoll
         }))
+
         if (!updatedPoll) return
+
         try {
             await SheetsAPI.findAndUpdateRow(
                 CONFIG.SHEET_NAMES.polls,
@@ -716,11 +734,64 @@ export const useStore = () => {
                 SheetsAPI.pollToRow(updatedPoll)
             )
         } catch (e) {
-            console.error('Failed to resolve poll in Sheets:', e)
+            console.error('Failed to close poll in Sheets:', e)
         }
     }
 
-    // Fetches latest polls from Sheets and updates state — called manually via refresh button
+    // cancelPoll: owner cancels — poll stays visible as 'cancelled'.
+    const cancelPoll = async (pollId) => {
+        let updatedPoll = null
+
+        setPolls(prev => prev.map(p => {
+            if (p.pollId !== pollId) return p
+            updatedPoll = { ...p, status: 'cancelled' }
+            return updatedPoll
+        }))
+
+        if (!updatedPoll) return
+
+        try {
+            await SheetsAPI.findAndUpdateRow(
+                CONFIG.SHEET_NAMES.polls,
+                pollId,
+                SheetsAPI.pollToRow(updatedPoll)
+            )
+        } catch (e) {
+            console.error('Failed to cancel poll in Sheets:', e)
+        }
+    }
+
+    // castTieBreakVote: owner picks the winner from tied options.
+    // Records who broke the tie, closes the poll.
+    const castTieBreakVote = async (pollId, optionIndex, castBy) => {
+        let updatedPoll = null
+
+        setPolls(prev => prev.map(p => {
+            if (p.pollId !== pollId || p.status !== 'tied') return p
+            updatedPoll = {
+                ...p,
+                status: 'closed',
+                tieBreak: { optionIndex, castBy },
+                closedAt: p.closedAt || new Date().toISOString()
+            }
+            return updatedPoll
+        }))
+
+        if (!updatedPoll) return
+
+        try {
+            await SheetsAPI.findAndUpdateRow(
+                CONFIG.SHEET_NAMES.polls,
+                pollId,
+                SheetsAPI.pollToRow(updatedPoll)
+            )
+        } catch (e) {
+            console.error('Failed to save tie-break to Sheets:', e)
+        }
+    }
+
+    // refreshPolls: re-fetches latest poll data from Sheets.
+    // Called manually by non-owners, and on an interval for poll owners.
     const refreshPolls = async () => {
         try {
             const data = await SheetsAPI.read(CONFIG.SHEET_NAMES.polls)
@@ -731,7 +802,7 @@ export const useStore = () => {
             }
         } catch (e) {
             console.error('Failed to refresh polls:', e)
-            throw e // re-throw so PollsScreen can show an error state
+            throw e
         }
     }
 
@@ -775,7 +846,9 @@ export const useStore = () => {
         polls,
         createPoll,
         castVote,
-        resolvePoll,
+        closePoll,
+        cancelPoll,
+        castTieBreakVote,
         refreshPolls,
         euroLedger,
         awardEuros,

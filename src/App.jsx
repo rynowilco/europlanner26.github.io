@@ -21,7 +21,7 @@ import { ScavengerHuntScreen } from './screens/ScavengerHuntScreen'
 import { DailyStoriesScreen } from './screens/DailyStoriesScreen'
 import { SlideshowScreen } from './screens/SlideshowScreen'
 
-// ── Tools hub — module-level component for the Tools tab ─────────────────────
+// ── Tools hub ─────────────────────────────────────────────────────────────────
 
 const toolCardStyle = {
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -64,32 +64,17 @@ const ToolsHub = ({ onOpenMap, onOpenPolls, onOpenHunt, onOpenCityGuides, onOpen
     </div>
 )
 
-const fabItemStyle = {
-    display: 'flex', alignItems: 'center', gap: '10px',
-    padding: '11px 20px', background: 'var(--color-navy)',
-    color: 'white', border: 'none', borderRadius: 'var(--radius-full)',
-    cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600,
-    boxShadow: '0 4px 14px rgba(0,0,0,0.25)', whiteSpace: 'nowrap',
-}
-
 // ── App ───────────────────────────────────────────────────────────────────────
 
 const App = () => {
-    // screen: 'loading' | 'home' | 'familyLanding' | 'explorer' | 'tracker'
     const [screen, setScreen] = useState('loading')
     const [currentUser, setCurrentUser] = useState(null)
-
-    // Explorer sub-routing
-    const [activeTab, setActiveTab]   = useState('home')       // 'home' | 'memories' | 'feed' | 'plan' | 'tools'
-    const [planView, setPlanView]     = useState('chat')       // 'chat' | 'dashboard'
-    const [feedView, setFeedView]     = useState('feed')       // 'feed' | 'slideshow' | 'dailyStories'
-    const [toolsView, setToolsView]   = useState('hub')        // 'hub' | 'map' | 'polls' | 'hunt'
-
-    // FAB
+    const [activeTab, setActiveTab]   = useState('home')
+    const [planView, setPlanView]     = useState('chat')
+    const [feedView, setFeedView]     = useState('feed')
+    const [toolsView, setToolsView]   = useState('hub')
     const [fabOpen, setFabOpen]               = useState(false)
-    const [fabPendingAction, setFabPendingAction] = useState(null) // 'journal' | 'photo' | null
-
-    // Modals / admin
+    const [fabPendingAction, setFabPendingAction] = useState(null)
     const [isAdmin, setIsAdmin]                   = useState(false)
     const [showFingerprintModal, setShowFingerprintModal] = useState(false)
     const [feedbackActivity, setFeedbackActivity] = useState(null)
@@ -115,7 +100,7 @@ const App = () => {
         return !lastSeen || latest > lastSeen
     })()
 
-    // ── Persisted user — restore on mount ─────────────────────────────────────
+    // ── Persisted user ────────────────────────────────────────────────────────
     useEffect(() => {
         try {
             const savedUser = localStorage.getItem('ep26_currentUser')
@@ -206,6 +191,11 @@ const App = () => {
     const handleAddPhotoEntry = async (userId, userName, city, caption, lat, lng, photoUrl) =>
         store.addJournalEntry(userId, userName, city, caption, '', lat, lng, 'photo', photoUrl)
 
+    // ── Poll handlers — pass currentUser so store functions know who's acting ──
+    const handleClosePoll      = (pollId) => store.closePoll(pollId, currentUser)
+    const handleCancelPoll     = (pollId) => store.cancelPoll(pollId)
+    const handleTieBreak       = (pollId, optionIdx) => store.castTieBreakVote(pollId, optionIdx, currentUser)
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div style={{ height: '100%' }}>
@@ -214,10 +204,8 @@ const App = () => {
                 onDismiss={() => setBannerDismissed(true)}
             />
 
-            {/* Loading — blank while localStorage is checked */}
             {screen === 'loading' && <div style={{ height: '100%', background: 'var(--color-warm-white)' }} />}
 
-            {/* Home gate */}
             {screen === 'home' && (
                 <HomeScreen
                     onExplorer={() => setScreen('familyLanding')}
@@ -226,7 +214,6 @@ const App = () => {
                 />
             )}
 
-            {/* Family Landing */}
             {screen === 'familyLanding' && (
                 <FamilyLandingScreen
                     userProfiles={store.userProfiles}
@@ -238,14 +225,10 @@ const App = () => {
                 />
             )}
 
-            {/* Explorer — bottom nav shell */}
             {screen === 'explorer' && currentUser && (
                 <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-
-                    {/* Tab content area */}
                     <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
 
-                        {/* ── Home tab ─────────────────────────────────────── */}
                         {activeTab === 'home' && (
                             <PersonalHomeScreen
                                 userId={currentUser}
@@ -260,7 +243,6 @@ const App = () => {
                             />
                         )}
 
-                        {/* ── Memories tab ─────────────────────────────────── */}
                         {activeTab === 'memories' && (
                             <MemoriesScreen
                                 userId={currentUser}
@@ -279,7 +261,6 @@ const App = () => {
                             />
                         )}
 
-                        {/* ── Feed tab ─────────────────────────────────────── */}
                         {activeTab === 'feed' && feedView === 'feed' && (
                             <FamilyFeedScreen
                                 onBack={() => setActiveTab('home')}
@@ -308,7 +289,6 @@ const App = () => {
                             />
                         )}
 
-                        {/* ── Plan tab ─────────────────────────────────────── */}
                         {activeTab === 'plan' && planView === 'chat' && (
                             <ChatScreen
                                 userId={currentUser}
@@ -342,7 +322,6 @@ const App = () => {
                             />
                         )}
 
-                        {/* ── Tools tab ────────────────────────────────────── */}
                         {activeTab === 'tools' && toolsView === 'hub' && (
                             <ToolsHub
                                 onOpenMap={() => setToolsView('map')}
@@ -370,7 +349,9 @@ const App = () => {
                                 itinerary={store.itinerary}
                                 onCreatePoll={store.createPoll}
                                 onCastVote={store.castVote}
-                                onResolvePoll={store.resolvePoll}
+                                onClosePoll={handleClosePoll}
+                                onCancelPoll={handleCancelPoll}
+                                onTieBreak={handleTieBreak}
                                 onRefresh={store.refreshPolls}
                             />
                         )}
@@ -382,7 +363,6 @@ const App = () => {
                         )}
                     </div>
 
-                    {/* Bottom Nav */}
                     <BottomNav
                         activeTab={activeTab}
                         onTabChange={handleTabChange}
@@ -390,15 +370,11 @@ const App = () => {
                         newPollAvailable={newPollAvailable}
                     />
 
-                    {/* FAB — hidden on Plan tab */}
                     {activeTab !== 'plan' && (
                         <>
-                            {/* Tap-outside dismiss */}
                             {fabOpen && (
                                 <div onClick={() => setFabOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 888 }} />
                             )}
-
-                            {/* Popover card */}
                             {fabOpen && (
                                 <div style={{ position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))', right: 'var(--space-lg)', zIndex: 889, background: 'white', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 28px rgba(0,0,0,0.18)', overflow: 'hidden', minWidth: '160px', animation: 'slideUp 0.15s ease-out' }}>
                                     <button onClick={() => { setFabPendingAction('journal'); setActiveTab('memories'); setFabOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-navy)' }}>
@@ -409,8 +385,6 @@ const App = () => {
                                     </button>
                                 </div>
                             )}
-
-                            {/* FAB button */}
                             <button
                                 onClick={() => setFabOpen(f => !f)}
                                 aria-label="Quick capture"
@@ -423,7 +397,6 @@ const App = () => {
                 </div>
             )}
 
-            {/* Tracker path — unchanged */}
             {screen === 'tracker' && (
                 <TrackerScreen
                     onBack={() => setScreen('home')}
@@ -437,7 +410,6 @@ const App = () => {
                 />
             )}
 
-            {/* Global modals — render above everything */}
             {showFingerprintModal && <FingerprintModal onSuccess={handleFingerprintSuccess} onCancel={() => setShowFingerprintModal(false)} />}
             {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
             {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
