@@ -371,6 +371,7 @@ const App = () => {
                                 onCreatePoll={store.createPoll}
                                 onCastVote={store.castVote}
                                 onResolvePoll={store.resolvePoll}
+                                onRefresh={store.refreshPolls}
                             />
                         )}
                         {activeTab === 'tools' && toolsView === 'hunt' && (

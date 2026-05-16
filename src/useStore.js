@@ -720,6 +720,21 @@ export const useStore = () => {
         }
     }
 
+    // Fetches latest polls from Sheets and updates state — called manually via refresh button
+    const refreshPolls = async () => {
+        try {
+            const data = await SheetsAPI.read(CONFIG.SHEET_NAMES.polls)
+            if (data?.length > 1) {
+                const parsed = SheetsAPI.parsePolls(data)
+                setPolls(parsed)
+                console.log('Polls refreshed:', parsed.length)
+            }
+        } catch (e) {
+            console.error('Failed to refresh polls:', e)
+            throw e // re-throw so PollsScreen can show an error state
+        }
+    }
+
     return {
         activities,
         savedIdeas,
@@ -761,6 +776,7 @@ export const useStore = () => {
         createPoll,
         castVote,
         resolvePoll,
+        refreshPolls,
         euroLedger,
         awardEuros,
         processWithdrawal,
