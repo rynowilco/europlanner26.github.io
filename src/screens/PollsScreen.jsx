@@ -123,7 +123,7 @@ const PollCard = ({ poll, activeUser, userProfiles, onCastVote, onResolve, isPar
                         )
                     })}
 
-                    {/* Lock it in — parents only, open polls */}
+                    {/* Lock it in — parents only (based on persisted login), open polls with at least one vote */}
                     {isParent && !isResolved && totalVotes > 0 && (
                         <button onClick={() => onResolve(poll.pollId)} style={{ marginTop: 'var(--space-xs)', alignSelf: 'flex-end', background: '#27ae60', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: '7px 16px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}>
                             Lock it in ✅
@@ -181,7 +181,6 @@ const CreatePollModal = ({ onClose, onSubmit, currentCity, activeUser, userProfi
         setSuggesting(true)
         try {
             const q = question.trim()
-            // Question provides primary context; currentCity is the fallback hint
             const contextNote = q
                 ? `The family is asking: "${q}". Use the location or activity context from the question itself. If no specific location is mentioned, assume they're in or near ${currentCity}.`
                 : `The family is visiting ${currentCity} and wants activity ideas.`
@@ -229,7 +228,7 @@ const CreatePollModal = ({ onClose, onSubmit, currentCity, activeUser, userProfi
                     <input value={question} onChange={e => setQuestion(e.target.value)} placeholder="What should we do in Tuscany?" style={{ width: '100%', padding: '12px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
                 </div>
 
-                {/* Suggest — no city name in label */}
+                {/* Suggest */}
                 <button onClick={suggestOptions} disabled={suggesting} style={{ width: '100%', marginBottom: 'var(--space-lg)', background: suggesting ? '#f0f0f0' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: suggesting ? 'var(--color-text-light)' : 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: '11px', fontSize: '0.9rem', fontWeight: 600, cursor: suggesting ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                     {suggesting ? '⏳ Getting ideas from Claude…' : '✨ Suggest options'}
                 </button>
@@ -258,13 +257,17 @@ const CreatePollModal = ({ onClose, onSubmit, currentCity, activeUser, userProfi
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export const PollsScreen = ({ onBack, polls = [], currentUser, userProfiles, itinerary, onCreatePoll, onCastVote, onResolvePoll }) => {
+export const PollsScreen = ({ onBack, polls = [], currentUser, userProfiles, itinerary, onCreatePoll, onCastVote, onResolvePoll, onRefresh }) => {
     const [showHowItWorks, setShowHowItWorks] = useState(false)
     const [showCreate, setShowCreate] = useState(false)
     const [activeUser, setActiveUser] = useState(currentUser || null)
     const [shaking, setShaking] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
+    const [showResolved, setShowResolved] = useState(false)
 
-    const isParent = activeUser === 'ryan' || activeUser === 'mom'
+    // Bug 1 fix: isParent is based on the persisted login (currentUser prop),
+    // NOT the IdentityBar selection (activeUser). The bar is vote-identity only.
+    const isParent = currentUser === 'ryan' || currentUser === 'mom'
     const currentCity = useMemo(() => getCurrentCity(itinerary), [itinerary])
 
     const openPolls = polls.filter(p => p.status === 'open')
@@ -292,10 +295,21 @@ export const PollsScreen = ({ onBack, polls = [], currentUser, userProfiles, iti
         await onCreatePoll(question, options, activeUser)
     }
 
+    const handleRefresh = async () => {
+        if (refreshing || !onRefresh) return
+        setRefreshing(true)
+        try {
+            await onRefresh()
+        } catch (e) {
+            console.error('Refresh failed:', e)
+        }
+        setRefreshing(false)
+    }
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
 
-            {/* Shake keyframe */}
+            {/* Shake + spin keyframes */}
             <style>{`
                 @keyframes shake {
                     0%,100% { transform: translateX(0); }
@@ -303,6 +317,10 @@ export const PollsScreen = ({ onBack, polls = [], currentUser, userProfiles, iti
                     40% { transform: translateX(6px); }
                     60% { transform: translateX(-4px); }
                     80% { transform: translateX(4px); }
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                 }
             `}</style>
 
@@ -315,6 +333,15 @@ export const PollsScreen = ({ onBack, polls = [], currentUser, userProfiles, iti
                     <div style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600 }}>🗳️ Family Polls</div>
                     <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>{currentCity} · {openPolls.length} open</div>
                 </div>
+                {/* Refresh button */}
+                <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    title="Refresh votes"
+                    style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer', flexShrink: 0, fontSize: '16px', animation: refreshing ? 'spin 0.7s linear infinite' : 'none' }}
+                >
+                    🔄
+                </button>
                 <button onClick={() => setShowHowItWorks(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>?</button>
             </div>
 
@@ -343,12 +370,27 @@ export const PollsScreen = ({ onBack, polls = [], currentUser, userProfiles, iti
                         </div>
                     </div>
                 )}
+
+                {/* Resolved polls — collapsed by default */}
                 {resolvedPolls.length > 0 && (
                     <div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--space-sm)' }}>Resolved</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                            {resolvedPolls.map(poll => <PollCard key={poll.pollId} poll={poll} activeUser={activeUser} userProfiles={userProfiles} onCastVote={onCastVote} onResolve={onResolvePoll} isParent={isParent} />)}
-                        </div>
+                        {/* Toggle row */}
+                        <button
+                            onClick={() => setShowResolved(s => !s)}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: showResolved ? 'var(--space-sm)' : 0 }}
+                        >
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                ✅ Resolved ({resolvedPolls.length})
+                            </span>
+                            <Icon name={showResolved ? 'ChevronUp' : 'ChevronDown'} size={16} color="var(--color-text-light)" />
+                        </button>
+
+                        {/* Cards */}
+                        {showResolved && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                {resolvedPolls.map(poll => <PollCard key={poll.pollId} poll={poll} activeUser={activeUser} userProfiles={userProfiles} onCastVote={onCastVote} onResolve={onResolvePoll} isParent={isParent} />)}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
