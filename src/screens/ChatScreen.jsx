@@ -720,14 +720,8 @@ export const ChatScreen = ({ userId, user, onBack, onOpenDashboard, onOpenMap, s
                     </div>
 
                     <div style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)' }}>
-                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                            <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} disabled={!!pendingActivity} />
-                            <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading || !!pendingActivity} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() && !pendingActivity ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading && !pendingActivity ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icon name="Send" size={20} />
-                            </button>
-                        </div>
-                        {/* Collapsible suggestions */}
-                        <div style={{ marginTop: 'var(--space-sm)' }}>
+                        {/* Suggestions pill — sits above input row */}
+                        <div style={{ marginBottom: 'var(--space-sm)' }}>
                             <button
                                 onClick={() => setShowSuggestions(s => !s)}
                                 disabled={!!pendingActivity || isLoading}
@@ -759,6 +753,13 @@ export const ChatScreen = ({ userId, user, onBack, onOpenDashboard, onOpenMap, s
                                     ))}
                                 </div>
                             )}
+                        </div>
+                        {/* Input row */}
+                        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                            <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }} placeholder="Tell me what you're thinking..." rows={1} style={{ flex: 1, padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', minHeight: '48px', maxHeight: '120px' }} onFocus={(e) => e.target.style.borderColor = user.color} onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'} disabled={!!pendingActivity} />
+                            <button onClick={sendMessage} disabled={!inputValue.trim() || isLoading || !!pendingActivity} style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-full)', border: 'none', background: inputValue.trim() && !pendingActivity ? user.color : 'var(--color-tan)', color: inputValue.trim() ? 'white' : 'var(--color-text-light)', cursor: inputValue.trim() && !isLoading && !pendingActivity ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Icon name="Send" size={20} />
+                            </button>
                         </div>
                     </div>
                 </>

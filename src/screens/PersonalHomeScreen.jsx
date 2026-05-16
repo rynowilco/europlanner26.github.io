@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 
 // ─── Quick Tools Modal ────────────────────────────────────────────────────────
 
-const QuickToolsModal = ({ onClose, itinerary }) => {
+export const QuickToolsModal = ({ onClose, itinerary }) => {
     const [tab, setTab] = useState('currency')
     const [eurAmount, setEurAmount] = useState('')
 
@@ -96,14 +96,11 @@ const QuickToolsModal = ({ onClose, itinerary }) => {
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                 {phrases.map((p, i) => (
-                                    <div key={i} style={{ background: i % 2 === 0 ? 'var(--color-cream)' : 'white', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-md)' }}>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 700, color: 'var(--color-navy)', fontSize: '1rem', marginBottom: '2px' }}>{p.local}</div>
-                                                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', fontStyle: 'italic', marginBottom: '2px' }}>{p.pronunciation}</div>
-                                                <div style={{ fontSize: '0.82rem', color: 'var(--color-text)' }}>{p.english}</div>
-                                            </div>
-                                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', textAlign: 'right', maxWidth: '110px', lineHeight: 1.3, flexShrink: 0 }}>{p.when}</div>
+                                    <div key={i} style={{ background: i % 2 === 0 ? 'var(--color-cream)' : 'white', borderRadius: 'var(--radius-sm)', padding: '10px var(--space-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                                        <div style={{ flex: '0 0 38%', fontWeight: 700, color: 'var(--color-navy)', fontSize: '0.9rem' }}>{p.english}</div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600, color: 'var(--color-terracotta)', fontSize: '0.95rem' }}>{p.local}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', fontStyle: 'italic' }}>{p.pronunciation}</div>
                                         </div>
                                     </div>
                                 ))}
