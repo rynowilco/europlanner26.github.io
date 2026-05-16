@@ -760,26 +760,6 @@ export const ChatScreen = ({ userId, user, onBack, onOpenDashboard, onOpenMap, s
                                 </div>
                             )}
                         </div>
-                            {(user.isParent ? [
-                                { label: 'Family Status', icon: 'Users', prompt: 'Give me a full family status update — what activities have been submitted and approved for each kid, who still needs more, and what needs my attention.' },
-                                { label: "What's the Plan", icon: 'Calendar', prompt: "Walk me through the full trip plan — cities, dates, transfer days, and anything notable we need to prepare for." },
-                                { label: 'All Activities', icon: 'List', prompt: 'Show me all submitted and approved activities across the whole family.' },
-                                { label: 'Trip Logistics', icon: 'Map', prompt: 'Help me think through the logistics of this trip — trains between cities, what needs booking in advance, transfer day plans, and anything I might be missing.' },
-                                { label: 'Booking List', icon: 'Book', prompt: 'What things do we still need to book or reserve for this trip? Check what has already been flagged and suggest anything else I should be thinking about.' },
-                                { label: "What's the Story", icon: 'BookOpen', prompt: "Tell me the story of our trip so far — what are we doing, what's been proposed, what are we most excited about? Give it to me as a fun narrative, not a list." }
-                            ] : [
-                                { label: 'Give me Ideas', icon: 'Sparkles', prompt: 'Give me some activity ideas for this trip based on my interests!' },
-                                { label: "What's the Plan", icon: 'Calendar', prompt: "What's the full trip plan? Walk me through the cities, transfer days, and dates." },
-                                { label: 'My Activities', icon: 'List', prompt: 'Show me all the activities I have submitted or that have been approved so far.' },
-                                { label: 'All Activities', icon: 'Users', prompt: 'Show me all approved activities for the whole family so I can see what everyone is doing and avoid conflicts.' },
-                                { label: "What's the Story", icon: 'BookOpen', prompt: "Tell me the story of our trip so far — what are we doing, what's been proposed, what are we most excited about? Give it to me as a fun narrative, not a list." },
-                                { label: 'Trip Logistics', icon: 'Map', prompt: 'Help me think through how we get between cities — trains, travel times, what to book in advance.' }
-                            ]).map(({ label, icon, prompt }, i) => (
-                                <button key={i} onClick={() => { sendMessage(prompt) }} disabled={!!pendingActivity || isLoading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: 'var(--space-sm) var(--space-md)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', fontSize: '0.85rem', whiteSpace: 'nowrap', cursor: (pendingActivity || isLoading) ? 'not-allowed' : 'pointer', opacity: (pendingActivity || isLoading) ? 0.5 : 1 }}>
-                                    <Icon name={icon} size={14} /> {label}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </>
             )}
