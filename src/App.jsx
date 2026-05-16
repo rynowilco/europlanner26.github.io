@@ -6,6 +6,7 @@ import { FeedbackModal } from './components/FeedbackModal'
 import { AddBookingModal } from './components/AddBookingModal'
 import { BottomNav } from './components/BottomNav'
 import { CityGuidesModal } from './screens/CityGuidesModal'
+import { QuickToolsModal } from './screens/PersonalHomeScreen'
 import { HomeScreen } from './screens/HomeScreen'
 import { FamilyLandingScreen } from './screens/FamilyLandingScreen'
 import { PersonalHomeScreen } from './screens/PersonalHomeScreen'
@@ -29,7 +30,7 @@ const toolCardStyle = {
     boxShadow: 'var(--shadow-sm)', transition: 'all 0.15s', width: '100%',
 }
 
-const ToolsHub = ({ onOpenMap, onOpenPolls, onOpenHunt, onOpenCityGuides, newPollAvailable }) => (
+const ToolsHub = ({ onOpenMap, onOpenPolls, onOpenHunt, onOpenCityGuides, onOpenQuickTools, newPollAvailable }) => (
     <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 600, color: 'var(--color-navy)', marginBottom: 'var(--space-lg)' }}>🧰 Tools</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
@@ -53,6 +54,11 @@ const ToolsHub = ({ onOpenMap, onOpenPolls, onOpenHunt, onOpenCityGuides, newPol
                 <div style={{ fontSize: '34px', marginBottom: '8px' }}>🏛️</div>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Our Cities</div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Guides &amp; phrases</div>
+            </button>
+            <button onClick={onOpenQuickTools} style={{ ...toolCardStyle, gridColumn: '1 / -1' }}>
+                <div style={{ fontSize: '34px', marginBottom: '8px' }}>🧰</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Quick Tools</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Currency converter · Local phrases</div>
             </button>
         </div>
     </div>
@@ -89,6 +95,7 @@ const App = () => {
     const [feedbackActivity, setFeedbackActivity] = useState(null)
     const [showAddBooking, setShowAddBooking]     = useState(false)
     const [showCityGuides, setShowCityGuides]     = useState(false)
+    const [showQuickTools, setShowQuickTools]     = useState(false)
     const [bannerDismissed, setBannerDismissed]   = useState(false)
 
     const store = useStore()
@@ -342,6 +349,7 @@ const App = () => {
                                 onOpenPolls={() => setToolsView('polls')}
                                 onOpenHunt={() => setToolsView('hunt')}
                                 onOpenCityGuides={() => setShowCityGuides(true)}
+                                onOpenQuickTools={() => setShowQuickTools(true)}
                                 newPollAvailable={newPollAvailable}
                             />
                         )}
@@ -381,48 +389,36 @@ const App = () => {
                         newPollAvailable={newPollAvailable}
                     />
 
-                    {/* FAB backdrop + actions */}
-                    {fabOpen && (
-                        <div
-                            onClick={() => setFabOpen(false)}
-                            style={{ position: 'fixed', inset: 0, zIndex: 890, background: 'rgba(0,0,0,0.2)' }}
-                        >
-                            <div
-                                onClick={e => e.stopPropagation()}
-                                style={{ position: 'absolute', bottom: 'calc(82px + env(safe-area-inset-bottom, 0px))', right: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', animation: 'slideUp 0.18s ease-out' }}
-                            >
-                                <button onClick={() => { setFabPendingAction('journal'); setActiveTab('memories'); setFabOpen(false) }} style={fabItemStyle}>
-                                    📝 Journal
-                                </button>
-                                <button onClick={() => { setFabPendingAction('photo'); setActiveTab('memories'); setFabOpen(false) }} style={fabItemStyle}>
-                                    📸 Photo
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    {/* FAB — hidden on Plan tab */}
+                    {activeTab !== 'plan' && (
+                        <>
+                            {/* Tap-outside dismiss */}
+                            {fabOpen && (
+                                <div onClick={() => setFabOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 888 }} />
+                            )}
 
-                    {/* FAB button */}
-                    <button
-                        onClick={() => setFabOpen(f => !f)}
-                        aria-label="Quick capture"
-                        style={{
-                            position: 'fixed',
-                            bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))',
-                            right: 'var(--space-lg)',
-                            width: '52px', height: '52px',
-                            background: 'var(--color-terracotta)',
-                            color: 'white', border: 'none', borderRadius: '50%',
-                            fontSize: '28px', fontWeight: 300, lineHeight: 1,
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 18px rgba(200,96,58,0.5)',
-                            zIndex: 891,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transform: fabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s ease',
-                        }}
-                    >
-                        +
-                    </button>
+                            {/* Popover card */}
+                            {fabOpen && (
+                                <div style={{ position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))', right: 'var(--space-lg)', zIndex: 889, background: 'white', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 28px rgba(0,0,0,0.18)', overflow: 'hidden', minWidth: '160px', animation: 'slideUp 0.15s ease-out' }}>
+                                    <button onClick={() => { setFabPendingAction('journal'); setActiveTab('memories'); setFabOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', width: '100%', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-navy)' }}>
+                                        📝 Journal
+                                    </button>
+                                    <button onClick={() => { setFabPendingAction('photo'); setActiveTab('memories'); setFabOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-navy)' }}>
+                                        📸 Photo
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* FAB button */}
+                            <button
+                                onClick={() => setFabOpen(f => !f)}
+                                aria-label="Quick capture"
+                                style={{ position: 'fixed', bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))', right: 'var(--space-lg)', width: '44px', height: '44px', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: '50%', fontSize: '24px', fontWeight: 300, lineHeight: 1, cursor: 'pointer', boxShadow: '0 3px 12px rgba(200,96,58,0.45)', zIndex: 890, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                {fabOpen ? '×' : '+'}
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -445,6 +441,7 @@ const App = () => {
             {feedbackActivity && <FeedbackModal activity={feedbackActivity} onSubmit={handleSubmitFeedback} onCancel={() => setFeedbackActivity(null)} />}
             {showAddBooking && <AddBookingModal onSubmit={handleSubmitManualBooking} onCancel={() => setShowAddBooking(false)} />}
             {showCityGuides && <CityGuidesModal onClose={() => setShowCityGuides(false)} itinerary={store.itinerary} activities={store.activities} journalEntries={store.journalEntries} />}
+            {showQuickTools && <QuickToolsModal onClose={() => setShowQuickTools(false)} itinerary={store.itinerary} />}
         </div>
     )
 }
