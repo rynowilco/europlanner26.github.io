@@ -16,12 +16,11 @@ const mapsUrl = (query) => `https://maps.apple.com/?q=${encodeURIComponent(query
 const loadSaved = () => {
     try { return JSON.parse(localStorage.getItem('ep26_fiveIdeas') || 'null') } catch { return null }
 }
-
 const persist = (data) => {
     try { localStorage.setItem('ep26_fiveIdeas', JSON.stringify(data)) } catch {}
 }
 
-// Strip any HTML / citation tags Claude might sneak into text values
+// Strip any HTML / citation tags Claude might include in text values
 const sanitize = (str) => {
     if (!str) return ''
     return str
@@ -31,16 +30,15 @@ const sanitize = (str) => {
         .trim()
 }
 
-// Apply sanitize to every text field on a raw idea object
 const cleanIdea = (raw, index) => ({
-    id: `IDEA-${Date.now()}-${index}`,
-    title:          sanitize(raw.title         || ''),
-    description:    sanitize(raw.description   || ''),
-    whyYoullLikeIt: sanitize(raw.whyYoullLikeIt|| ''),
-    cost:           sanitize(raw.cost          || ''),
-    transport:      sanitize(raw.transport     || ''),
-    duration:       sanitize(raw.duration      || ''),
-    mapsQuery:      sanitize(raw.mapsQuery     || '')
+    id:             `IDEA-${Date.now()}-${index}`,
+    title:          sanitize(raw.title          || ''),
+    description:    sanitize(raw.description    || ''),
+    whyYoullLikeIt: sanitize(raw.whyYoullLikeIt || ''),
+    cost:           sanitize(raw.cost           || ''),
+    transport:      sanitize(raw.transport      || ''),
+    duration:       sanitize(raw.duration       || ''),
+    mapsQuery:      sanitize(raw.mapsQuery      || '')
 })
 
 const LOADING_MSGS = [
@@ -55,21 +53,21 @@ const LOADING_MSGS = [
 
 const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHighlighted, onToggleExpand, onToggleSelect, spinning }) => (
     <div style={{
-        flexShrink: 0,                           // ← never compress when siblings expand
+        flexShrink: 0,
         background: 'white',
         borderRadius: 'var(--radius-lg)',
-        border: isHighlighted
-            ? '2.5px solid var(--color-terracotta)'
-            : isSelected ? '2px solid #4a7fc1' : '1.5px solid var(--color-border)',
-        boxShadow: isHighlighted
-            ? '0 0 18px rgba(200,96,58,0.35)'
-            : isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-        opacity: isDisabled ? 0.45 : 1,
+        border: isHighlighted ? '2.5px solid var(--color-terracotta)'
+              : isSelected    ? '2px solid #4a7fc1'
+              :                 '1.5px solid var(--color-border)',
+        boxShadow: isHighlighted ? '0 0 18px rgba(200,96,58,0.35)'
+                 : isSelected    ? 'var(--shadow-md)'
+                 :                 'var(--shadow-sm)',
+        opacity:   isDisabled ? 0.45 : 1,
         transform: isHighlighted ? 'scale(1.025)' : 'scale(1)',
         transition: 'border 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, transform 0.12s ease',
         overflow: 'hidden'
     }}>
-        {/* Header row — always visible */}
+        {/* Header row */}
         <div
             onClick={() => !spinning && onToggleExpand(idea.id)}
             style={{ padding: '13px 16px', cursor: spinning ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '10px', minHeight: '52px' }}
@@ -80,7 +78,6 @@ const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHigh
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.82rem', fontWeight: 700,
                 color: isHighlighted || isSelected ? 'white' : '#4a7fc1',
-                transition: 'background 0.12s ease, color 0.12s ease',
                 flexShrink: 0
             }}>
                 {isSelected ? '✓' : index + 1}
@@ -95,9 +92,7 @@ const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHigh
                     </div>
                 )}
             </div>
-            {!spinning && (
-                <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={16} color="var(--color-text-light)" />
-            )}
+            {!spinning && <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={16} color="var(--color-text-light)" />}
         </div>
 
         {/* Expanded body */}
@@ -111,9 +106,9 @@ const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHigh
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
                     {[
-                        { icon: '💶', val: idea.cost },
-                        { icon: '🚶', val: idea.transport },
-                        { icon: '⏱️', val: idea.duration },
+                        { icon: '💶', val: idea.cost      },
+                        { icon: '🚶', val: idea.transport  },
+                        { icon: '⏱️', val: idea.duration   },
                     ].filter(item => item.val).map((item, i) => (
                         <div key={i} style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', display: 'flex', alignItems: 'center', gap: '4px', background: '#f7f9fc', padding: '4px 9px', borderRadius: '20px', border: '1px solid var(--color-border)' }}>
                             <span>{item.icon}</span><span>{item.val}</span>
@@ -154,9 +149,9 @@ const ActiveCard = ({ idea, onDone }) => (
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
                 {[
-                    { icon: '💶', label: 'Cost',         value: idea.cost      },
-                    { icon: '🚶', label: 'Getting there', value: idea.transport },
-                    { icon: '⏱️', label: 'Time needed',  value: idea.duration  },
+                    { icon: '💶', label: 'Cost',          value: idea.cost      },
+                    { icon: '🚶', label: 'Getting there',  value: idea.transport },
+                    { icon: '⏱️', label: 'Time needed',   value: idea.duration  },
                 ].filter(item => item.value).map((item, i) => (
                     <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                         <span style={{ fontSize: '18px', flexShrink: 0, marginTop: '1px' }}>{item.icon}</span>
@@ -190,19 +185,19 @@ const ActiveCard = ({ idea, onDone }) => (
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export const FiveIdeasScreen = ({ onBack, itinerary }) => {
-    const [phase, setPhase]             = useState('idle')
-    const [ideas, setIdeas]             = useState([])
-    const [city, setCity]               = useState('')
-    const [locationSource, setLocationSource] = useState(null)
-    const [error, setError]             = useState(null)
-    const [expandedId, setExpandedId]   = useState(null)
-    const [selectedIds, setSelectedIds] = useState(new Set())
-    const [spinning, setSpinning]       = useState(false)
+    const [phase, setPhase]                     = useState('idle')
+    const [ideas, setIdeas]                     = useState([])
+    const [city, setCity]                       = useState('')
+    const [locationSource, setLocationSource]   = useState(null)
+    const [error, setError]                     = useState(null)
+    const [expandedId, setExpandedId]           = useState(null)
+    const [selectedIds, setSelectedIds]         = useState(new Set())
+    const [spinning, setSpinning]               = useState(false)
     const [spinHighlightId, setSpinHighlightId] = useState(null)
-    const [loadingMsgIdx, setLoadingMsgIdx] = useState(0)
-    const [showConfirm, setShowConfirm] = useState(false)
+    const [loadingMsgIdx, setLoadingMsgIdx]     = useState(0)
+    const [showConfirm, setShowConfirm]         = useState(false)
 
-    // ── Restore from localStorage ─────────────────────────────────────────────
+    // ── Restore ───────────────────────────────────────────────────────────────
     useEffect(() => {
         const saved = loadSaved()
         if (saved?.phase && (saved.phase === 'selecting' || saved.phase === 'active') && saved.ideas?.length > 0) {
@@ -223,13 +218,10 @@ export const FiveIdeasScreen = ({ onBack, itinerary }) => {
         return () => clearInterval(interval)
     }, [phase])
 
-    // ── Location detection ────────────────────────────────────────────────────
+    // ── Location ──────────────────────────────────────────────────────────────
     const detectLocation = () => new Promise((resolve) => {
         const fallback = getItineraryCity(itinerary) || 'your location'
-        if (!navigator.geolocation) {
-            resolve({ city: fallback, lat: null, lng: null, source: 'itinerary' })
-            return
-        }
+        if (!navigator.geolocation) { resolve({ city: fallback, lat: null, lng: null, source: 'itinerary' }); return }
         navigator.geolocation.getCurrentPosition(
             pos => resolve({ city: fallback, lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'gps' }),
             ()  => resolve({ city: fallback, lat: null, lng: null, source: 'itinerary' }),
@@ -237,11 +229,10 @@ export const FiveIdeasScreen = ({ onBack, itinerary }) => {
         )
     })
 
-    // ── Generate ideas ────────────────────────────────────────────────────────
+    // ── Generate ──────────────────────────────────────────────────────────────
     const fetchIdeas = useCallback(async () => {
         setPhase('loading')
         setError(null)
-
         try {
             const loc = await detectLocation()
             setCity(loc.city)
@@ -257,7 +248,7 @@ Family of 4: 2 parents, kids aged 11 and 14. They want something fun RIGHT NOW �
 
 Generate exactly 5 diverse, immediately-doable activity ideas. Vary the types (outdoor, food, culture, quirky, active).
 
-CRITICAL: Return ONLY a raw JSON array. No markdown, no code fences, no preamble, no HTML, no citation tags, no markup of any kind in the text values. Plain text strings only.
+CRITICAL: Return ONLY a raw JSON array. No markdown, no code fences, no preamble, no HTML, no citation tags, no markup of any kind. Plain text strings only inside the JSON values.
 
 Each object must have exactly these keys:
 - "title": punchy name, max 6 words, plain text
@@ -274,7 +265,7 @@ Each object must have exactly these keys:
                 body: JSON.stringify({
                     model: CONFIG.CLAUDE_MODEL,
                     max_tokens: 1800,
-                    system: 'You are a spontaneous travel guide. Return ONLY a raw JSON array. Absolutely no markdown, no code fences, no HTML tags, no citation markup, no extra text of any kind. Plain text values in JSON only.',
+                    system: 'You are a spontaneous travel guide. Return ONLY a raw JSON array. Absolutely no markdown, no code fences, no HTML tags, no citation markup, no extra text. Plain text values only.',
                     messages: [{ role: 'user', content: prompt }]
                 })
             })
@@ -282,15 +273,11 @@ Each object must have exactly these keys:
             if (!res.ok) throw new Error(`API ${res.status}`)
             const data = await res.json()
             const text = data.content?.find(b => b.type === 'text')?.text || ''
-            // Strip any markdown fences or stray tags before parsing
             const cleaned = text.replace(/```json|```/g, '').replace(/<[^>]+>/g, '').trim()
             const parsed = JSON.parse(cleaned)
-
             if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty response')
 
-            const newIdeas = parsed.slice(0, 5).map((raw, i) => cleanIdea(raw, i))
-
-            setIdeas(newIdeas)
+            setIdeas(parsed.slice(0, 5).map(cleanIdea))
             setSelectedIds(new Set())
             setExpandedId(null)
             setPhase('selecting')
@@ -302,14 +289,9 @@ Each object must have exactly these keys:
     }, [itinerary])
 
     // ── Handlers ──────────────────────────────────────────────────────────────
-    const handleGetIdeas = () => {
-        if (phase === 'active') { setShowConfirm(true); return }
-        fetchIdeas()
-    }
-
-    const handleToggleExpand  = (id) => setExpandedId(prev => prev === id ? null : id)
-
-    const handleToggleSelect  = (id) => {
+    const handleGetIdeas     = () => { if (phase === 'active') { setShowConfirm(true); return } fetchIdeas() }
+    const handleToggleExpand = (id) => setExpandedId(prev => prev === id ? null : id)
+    const handleToggleSelect = (id) => {
         setSelectedIds(prev => {
             const next = new Set(prev)
             if (next.has(id)) next.delete(id)
@@ -331,44 +313,25 @@ Each object must have exactly these keys:
 
     const handleSpin = () => {
         if (spinning || ideas.length === 0) return
-
-        const pool      = ideas
-        const winner    = pool[Math.floor(Math.random() * pool.length)]
-        const poolIds   = pool.map(i => i.id)
-
-        // Build sequence: 3 full cycles then steer to winner
+        const winner  = ideas[Math.floor(Math.random() * ideas.length)]
+        const poolIds = ideas.map(i => i.id)
         const sequence = []
-        for (let i = 0; i < pool.length * 3; i++) sequence.push(poolIds[i % pool.length])
-
-        let curIdx = sequence.length % pool.length
-        let safety = 0
-        while (poolIds[curIdx] !== winner.id && safety < pool.length) {
-            sequence.push(poolIds[curIdx])
-            curIdx = (curIdx + 1) % pool.length
-            safety++
-        }
+        for (let i = 0; i < ideas.length * 3; i++) sequence.push(poolIds[i % ideas.length])
+        let curIdx = sequence.length % ideas.length, safety = 0
+        while (poolIds[curIdx] !== winner.id && safety < ideas.length) { sequence.push(poolIds[curIdx]); curIdx = (curIdx + 1) % ideas.length; safety++ }
         sequence.push(winner.id)
 
-        setSpinning(true)
-        setExpandedId(null)
-        setSelectedIds(new Set())
-
+        setSpinning(true); setExpandedId(null); setSelectedIds(new Set())
         let step = 0
         const total = sequence.length
-
         const runStep = () => {
             setSpinHighlightId(sequence[step])
             if (step < total - 1) {
                 step++
                 const p = step / total
-                const delay = p < 0.45 ? 55 : p < 0.65 ? 85 : p < 0.8 ? 140 : p < 0.92 ? 220 : 330
-                setTimeout(runStep, delay)
+                setTimeout(runStep, p < 0.45 ? 55 : p < 0.65 ? 85 : p < 0.8 ? 140 : p < 0.92 ? 220 : 330)
             } else {
-                setTimeout(() => {
-                    setSpinning(false)
-                    setSpinHighlightId(null)
-                    confirmSelection(new Set([winner.id]))
-                }, 750)
+                setTimeout(() => { setSpinning(false); setSpinHighlightId(null); confirmSelection(new Set([winner.id])) }, 750)
             }
         }
         setTimeout(runStep, 55)
@@ -380,10 +343,7 @@ Each object must have exactly these keys:
         else setIdeas(remaining)
     }
 
-    const handleStartFresh = () => {
-        setPhase('idle'); setIdeas([]); setCity('')
-        setSelectedIds(new Set()); setExpandedId(null)
-    }
+    const handleStartFresh = () => { setPhase('idle'); setIdeas([]); setCity(''); setSelectedIds(new Set()); setExpandedId(null) }
 
     // ── Shared header ─────────────────────────────────────────────────────────
     const Header = ({ subtitle, rightSlot }) => (
@@ -416,10 +376,7 @@ Each object must have exactly these keys:
                         {error}
                     </div>
                 )}
-                <button
-                    onClick={handleGetIdeas}
-                    style={{ background: 'linear-gradient(135deg, #4a7fc1 0%, #2c5282 100%)', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '16px 36px', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(74,127,193,0.4)', display: 'flex', alignItems: 'center', gap: '10px' }}
-                >
+                <button onClick={handleGetIdeas} style={{ background: 'linear-gradient(135deg, #4a7fc1 0%, #2c5282 100%)', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '16px 36px', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(74,127,193,0.4)' }}>
                     ✨ Get 5 Ideas
                 </button>
             </div>
@@ -431,22 +388,18 @@ Each object must have exactly these keys:
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
             <Header subtitle="One moment…" />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-xl)', padding: 'var(--space-xl)' }}>
-                <div style={{ fontSize: '64px', animation: 'spin 1.4s linear infinite', lineHeight: 1 }}>🌀</div>
+                <div style={{ fontSize: '64px', animation: 'ideaspin 1.4s linear infinite', lineHeight: 1 }}>🌀</div>
                 <div style={{ fontSize: '0.95rem', color: 'var(--color-text-light)', textAlign: 'center', fontStyle: 'italic' }}>
                     {LOADING_MSGS[loadingMsgIdx]}
                 </div>
             </div>
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            <style>{`@keyframes ideaspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
     )
 
     // ── SELECTING ─────────────────────────────────────────────────────────────
     if (phase === 'selecting') {
         const selectedCount = selectedIds.size
-        const canSelect     = selectedCount < 2
-        // Bottom bar height so cards don't hide under it
-        const BOTTOM_BAR = 72
-
         return (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
                 <Header
@@ -462,8 +415,8 @@ Each object must have exactly these keys:
                     }
                 />
 
-                {/* Scrollable card list — paddingBottom clears the fixed bottom bar */}
-                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-lg)', paddingBottom: `${BOTTOM_BAR + 16}px`, display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                {/* Scrollable card list */}
+                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-lg)', paddingBottom: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                     {ideas.map((idea, i) => (
                         <SelectingCard
                             key={idea.id}
@@ -471,33 +424,38 @@ Each object must have exactly these keys:
                             index={i}
                             isExpanded={expandedId === idea.id}
                             isSelected={selectedIds.has(idea.id)}
-                            isDisabled={!canSelect && !selectedIds.has(idea.id)}
+                            isDisabled={selectedCount >= 2 && !selectedIds.has(idea.id)}
                             isHighlighted={spinHighlightId === idea.id}
                             onToggleExpand={handleToggleExpand}
                             onToggleSelect={handleToggleSelect}
                             spinning={spinning}
                         />
                     ))}
-
                     {!spinning && (
-                        <button
-                            onClick={handleStartFresh}
-                            style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.82rem', cursor: 'pointer', padding: '8px', textDecoration: 'underline', alignSelf: 'center', marginTop: 'var(--space-xs)' }}
-                        >
+                        <button onClick={handleStartFresh} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.82rem', cursor: 'pointer', padding: '8px', textDecoration: 'underline', alignSelf: 'center', marginTop: 'var(--space-xs)' }}>
                             🔄 Generate different ideas
                         </button>
                     )}
                 </div>
 
-                {/* Fixed bottom bar */}
-                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'white', borderTop: '1px solid var(--color-border)', padding: '12px var(--space-lg)', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', boxShadow: '0 -4px 16px rgba(0,0,0,0.08)', zIndex: 100 }}>
+                {/* Bottom bar — in the flex flow, sits naturally above BottomNav */}
+                <div style={{ flexShrink: 0, background: 'white', borderTop: '1px solid var(--color-border)', padding: '12px var(--space-lg)', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', boxShadow: '0 -4px 16px rgba(0,0,0,0.06)' }}>
                     <div style={{ flex: 1, fontSize: '0.82rem', color: 'var(--color-text-light)', lineHeight: 1.3 }}>
-                        {selectedCount === 0 ? 'Expand a card, then tap Select' : `${selectedCount} of 2 selected`}
+                        {selectedCount === 0
+                            ? 'Expand a card, then tap Select'
+                            : `${selectedCount} of 2 selected`}
                     </div>
                     <button
                         onClick={handleLetsDoIt}
                         disabled={selectedCount === 0 || spinning}
-                        style={{ background: selectedCount === 0 ? '#c5d6ec' : 'linear-gradient(135deg, #4a7fc1 0%, #2c5282 100%)', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '11px 22px', fontSize: '0.92rem', fontWeight: 700, cursor: selectedCount === 0 ? 'default' : 'pointer', boxShadow: selectedCount > 0 ? '0 2px 10px rgba(74,127,193,0.4)' : 'none', transition: 'all 0.15s ease', whiteSpace: 'nowrap', flexShrink: 0 }}
+                        style={{
+                            background: selectedCount === 0 ? '#c5d6ec' : 'linear-gradient(135deg, #4a7fc1 0%, #2c5282 100%)',
+                            color: 'white', border: 'none', borderRadius: 'var(--radius-full)',
+                            padding: '11px 22px', fontSize: '0.92rem', fontWeight: 700,
+                            cursor: selectedCount === 0 ? 'default' : 'pointer',
+                            boxShadow: selectedCount > 0 ? '0 2px 10px rgba(74,127,193,0.4)' : 'none',
+                            transition: 'all 0.15s ease', whiteSpace: 'nowrap', flexShrink: 0
+                        }}
                     >
                         Let's do it!{selectedCount > 0 ? ` (${selectedCount})` : ''}
                     </button>
@@ -512,17 +470,14 @@ Each object must have exactly these keys:
             <Header
                 subtitle={`📍 ${city} · Tap Done when finished`}
                 rightSlot={
-                    <button
-                        onClick={() => setShowConfirm(true)}
-                        style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 'var(--radius-md)', padding: '7px 12px', color: 'white', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-                    >
+                    <button onClick={() => setShowConfirm(true)} style={{ background: 'rgba(255,255,255,0.2)', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 'var(--radius-md)', padding: '7px 12px', color: 'white', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
                         New ideas
                     </button>
                 }
             />
 
-            {/* Scrollable — paddingBottom clears the FAB button in Tools tab */}
-            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-lg)', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {/* Scrollable — cards may be tall; let the user scroll to Done */}
+            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                 {ideas.map(idea => (
                     <ActiveCard key={idea.id} idea={idea} onDone={handleDone} />
                 ))}
