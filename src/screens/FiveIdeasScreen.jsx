@@ -21,63 +21,101 @@ const persist = (data) => {
     try { localStorage.setItem('ep26_fiveIdeas', JSON.stringify(data)) } catch {}
 }
 
+// Strip any HTML / citation tags Claude might sneak into text values
+const sanitize = (str) => {
+    if (!str) return ''
+    return str
+        .replace(/<cite[^>]*>[\s\S]*?<\/cite>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
+// Apply sanitize to every text field on a raw idea object
+const cleanIdea = (raw, index) => ({
+    id: `IDEA-${Date.now()}-${index}`,
+    title:          sanitize(raw.title         || ''),
+    description:    sanitize(raw.description   || ''),
+    whyYoullLikeIt: sanitize(raw.whyYoullLikeIt|| ''),
+    cost:           sanitize(raw.cost          || ''),
+    transport:      sanitize(raw.transport     || ''),
+    duration:       sanitize(raw.duration      || ''),
+    mapsQuery:      sanitize(raw.mapsQuery     || '')
+})
+
+const LOADING_MSGS = [
+    'Detecting your location…',
+    'Asking Claude what\'s fun nearby…',
+    'Finding spontaneous adventures…',
+    'Picking the good ones…',
+    'Almost ready…'
+]
+
 // ── SelectingCard ─────────────────────────────────────────────────────────────
 
 const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHighlighted, onToggleExpand, onToggleSelect, spinning }) => (
     <div style={{
+        flexShrink: 0,                           // ← never compress when siblings expand
         background: 'white',
         borderRadius: 'var(--radius-lg)',
-        border: isHighlighted ? '2.5px solid var(--color-terracotta)' : isSelected ? '2px solid #4a7fc1' : '1.5px solid var(--color-border)',
-        boxShadow: isHighlighted ? '0 0 18px rgba(200,96,58,0.35)' : isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+        border: isHighlighted
+            ? '2.5px solid var(--color-terracotta)'
+            : isSelected ? '2px solid #4a7fc1' : '1.5px solid var(--color-border)',
+        boxShadow: isHighlighted
+            ? '0 0 18px rgba(200,96,58,0.35)'
+            : isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)',
         opacity: isDisabled ? 0.45 : 1,
         transform: isHighlighted ? 'scale(1.025)' : 'scale(1)',
-        transition: 'all 0.12s ease',
+        transition: 'border 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, transform 0.12s ease',
         overflow: 'hidden'
     }}>
-        {/* Header row */}
+        {/* Header row — always visible */}
         <div
             onClick={() => !spinning && onToggleExpand(idea.id)}
-            style={{ padding: '12px 16px', cursor: spinning ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+            style={{ padding: '13px 16px', cursor: spinning ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '10px', minHeight: '52px' }}
         >
             <div style={{
-                width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%',
                 background: isHighlighted ? 'var(--color-terracotta)' : isSelected ? '#4a7fc1' : '#e8f0fb',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.82rem', fontWeight: 700,
                 color: isHighlighted || isSelected ? 'white' : '#4a7fc1',
-                transition: 'all 0.12s ease'
+                transition: 'background 0.12s ease, color 0.12s ease',
+                flexShrink: 0
             }}>
                 {isSelected ? '✓' : index + 1}
             </div>
-            <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-navy)', lineHeight: 1.3 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-navy)', lineHeight: 1.35 }}>
                     {idea.title}
                 </div>
                 {!isExpanded && !spinning && (
-                    <div style={{ fontSize: '0.76rem', color: 'var(--color-text-light)', marginTop: '2px', lineHeight: 1.4 }}>
-                        {idea.cost} · {idea.duration}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-light)', marginTop: '2px' }}>
+                        {idea.cost}{idea.duration ? ` · ${idea.duration}` : ''}
                     </div>
                 )}
             </div>
-            {!spinning && <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={16} color="var(--color-text-light)" />}
+            {!spinning && (
+                <Icon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} size={16} color="var(--color-text-light)" />
+            )}
         </div>
 
         {/* Expanded body */}
         {isExpanded && !spinning && (
-            <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--color-border)' }}>
-                <p style={{ fontSize: '0.87rem', color: 'var(--color-text)', lineHeight: 1.65, margin: '10px 0 6px' }}>
+            <div style={{ borderTop: '1px solid var(--color-border)', padding: '14px 16px 16px' }}>
+                <p style={{ fontSize: '0.87rem', color: 'var(--color-text)', lineHeight: 1.65, margin: '0 0 8px' }}>
                     {idea.description}
                 </p>
-                <p style={{ fontSize: '0.82rem', color: '#4a7fc1', lineHeight: 1.5, margin: '0 0 12px', fontStyle: 'italic' }}>
+                <p style={{ fontSize: '0.82rem', color: '#4a7fc1', lineHeight: 1.5, margin: '0 0 14px', fontStyle: 'italic' }}>
                     ❤️ {idea.whyYoullLikeIt}
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
                     {[
                         { icon: '💶', val: idea.cost },
                         { icon: '🚶', val: idea.transport },
                         { icon: '⏱️', val: idea.duration },
-                    ].map((item, i) => (
-                        <div key={i} style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', display: 'flex', alignItems: 'center', gap: '4px', background: '#f7f9fc', padding: '4px 8px', borderRadius: '20px' }}>
+                    ].filter(item => item.val).map((item, i) => (
+                        <div key={i} style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', display: 'flex', alignItems: 'center', gap: '4px', background: '#f7f9fc', padding: '4px 9px', borderRadius: '20px', border: '1px solid var(--color-border)' }}>
                             <span>{item.icon}</span><span>{item.val}</span>
                         </div>
                     ))}
@@ -85,12 +123,11 @@ const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHigh
                 <button
                     onClick={() => onToggleSelect(idea.id)}
                     style={{
-                        width: '100%', padding: '9px',
+                        width: '100%', padding: '10px',
                         background: isSelected ? '#e8f0fb' : '#4a7fc1',
                         color: isSelected ? '#4a7fc1' : 'white',
                         border: isSelected ? '2px solid #4a7fc1' : 'none',
-                        borderRadius: 'var(--radius-md)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
-                        transition: 'all 0.15s ease'
+                        borderRadius: 'var(--radius-md)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer'
                     }}
                 >
                     {isSelected ? '✓ Selected — tap to remove' : 'Select this'}
@@ -103,11 +140,8 @@ const SelectingCard = ({ idea, index, isExpanded, isSelected, isDisabled, isHigh
 // ── ActiveCard ────────────────────────────────────────────────────────────────
 
 const ActiveCard = ({ idea, onDone }) => (
-    <div style={{
-        background: 'white', borderRadius: 'var(--radius-lg)',
-        border: '2px solid #4a7fc1', boxShadow: 'var(--shadow-md)', overflow: 'hidden'
-    }}>
-        <div style={{ background: 'linear-gradient(135deg, #4a7fc1 0%, #3a6bad 100%)', padding: '14px 16px' }}>
+    <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '2px solid #4a7fc1', boxShadow: 'var(--shadow-md)', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ background: 'linear-gradient(135deg, #2c5282 0%, #4a7fc1 100%)', padding: '14px 16px' }}>
             <div style={{ color: 'white', fontSize: '1rem', fontWeight: 700, lineHeight: 1.3 }}>{idea.title}</div>
             <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.74rem', marginTop: '3px' }}>Your plan · Let's go!</div>
         </div>
@@ -118,13 +152,12 @@ const ActiveCard = ({ idea, onDone }) => (
             <p style={{ fontSize: '0.83rem', color: '#4a7fc1', lineHeight: 1.5, margin: '0 0 16px', fontStyle: 'italic' }}>
                 ❤️ {idea.whyYoullLikeIt}
             </p>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
                 {[
-                    { icon: '💶', label: 'Cost', value: idea.cost },
+                    { icon: '💶', label: 'Cost',         value: idea.cost      },
                     { icon: '🚶', label: 'Getting there', value: idea.transport },
-                    { icon: '⏱️', label: 'Time needed', value: idea.duration },
-                ].map((item, i) => (
+                    { icon: '⏱️', label: 'Time needed',  value: idea.duration  },
+                ].filter(item => item.value).map((item, i) => (
                     <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                         <span style={{ fontSize: '18px', flexShrink: 0, marginTop: '1px' }}>{item.icon}</span>
                         <div>
@@ -134,28 +167,18 @@ const ActiveCard = ({ idea, onDone }) => (
                     </div>
                 ))}
             </div>
-
             <div style={{ display: 'flex', gap: '8px' }}>
                 <a
                     href={mapsUrl(idea.mapsQuery)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                        padding: '11px', background: '#f0f4fa', border: '1.5px solid #4a7fc1',
-                        borderRadius: 'var(--radius-md)', fontSize: '0.88rem', fontWeight: 600,
-                        color: '#4a7fc1', textDecoration: 'none'
-                    }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', background: '#f0f4fa', border: '1.5px solid #4a7fc1', borderRadius: 'var(--radius-md)', fontSize: '0.88rem', fontWeight: 600, color: '#4a7fc1', textDecoration: 'none' }}
                 >
                     📍 Open in Maps
                 </a>
                 <button
                     onClick={() => onDone(idea.id)}
-                    style={{
-                        flex: 1, padding: '11px', background: '#27ae60', color: 'white',
-                        border: 'none', borderRadius: 'var(--radius-md)', fontSize: '0.88rem',
-                        fontWeight: 700, cursor: 'pointer'
-                    }}
+                    style={{ flex: 1, padding: '12px', background: '#27ae60', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer' }}
                 >
                     ✓ Done
                 </button>
@@ -164,37 +187,20 @@ const ActiveCard = ({ idea, onDone }) => (
     </div>
 )
 
-// ── Loading messages ──────────────────────────────────────────────────────────
-
-const LOADING_MSGS = [
-    'Detecting your location…',
-    'Asking Claude what\'s fun nearby…',
-    'Finding spontaneous adventures…',
-    'Picking the good stuff…',
-    'Almost ready…'
-]
-
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export const FiveIdeasScreen = ({ onBack, itinerary }) => {
-    // phase: 'idle' | 'loading' | 'selecting' | 'active'
-    const [phase, setPhase]           = useState('idle')
-    const [ideas, setIdeas]           = useState([])
-    const [city, setCity]             = useState('')
-    const [locationSource, setLocationSource] = useState(null) // 'gps' | 'itinerary'
-    const [error, setError]           = useState(null)
-
-    // Selecting phase
-    const [expandedId, setExpandedId]         = useState(null)
-    const [selectedIds, setSelectedIds]       = useState(new Set())
-    const [spinning, setSpinning]             = useState(false)
+    const [phase, setPhase]             = useState('idle')
+    const [ideas, setIdeas]             = useState([])
+    const [city, setCity]               = useState('')
+    const [locationSource, setLocationSource] = useState(null)
+    const [error, setError]             = useState(null)
+    const [expandedId, setExpandedId]   = useState(null)
+    const [selectedIds, setSelectedIds] = useState(new Set())
+    const [spinning, setSpinning]       = useState(false)
     const [spinHighlightId, setSpinHighlightId] = useState(null)
-
-    // Loading UX
-    const [loadingMsgIdx, setLoadingMsgIdx]   = useState(0)
-
-    // Confirm replace modal
-    const [showConfirm, setShowConfirm]       = useState(false)
+    const [loadingMsgIdx, setLoadingMsgIdx] = useState(0)
+    const [showConfirm, setShowConfirm] = useState(false)
 
     // ── Restore from localStorage ─────────────────────────────────────────────
     useEffect(() => {
@@ -206,12 +212,10 @@ export const FiveIdeasScreen = ({ onBack, itinerary }) => {
         }
     }, [])
 
-    // ── Persist on change ─────────────────────────────────────────────────────
     useEffect(() => {
         if (phase !== 'loading') persist({ phase, ideas, city })
     }, [phase, ideas, city])
 
-    // ── Cycle loading messages ────────────────────────────────────────────────
     useEffect(() => {
         if (phase !== 'loading') return
         setLoadingMsgIdx(0)
@@ -228,12 +232,12 @@ export const FiveIdeasScreen = ({ onBack, itinerary }) => {
         }
         navigator.geolocation.getCurrentPosition(
             pos => resolve({ city: fallback, lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'gps' }),
-            () => resolve({ city: fallback, lat: null, lng: null, source: 'itinerary' }),
+            ()  => resolve({ city: fallback, lat: null, lng: null, source: 'itinerary' }),
             { timeout: 6000, maximumAge: 300000 }
         )
     })
 
-    // ── Generate ideas via Claude ─────────────────────────────────────────────
+    // ── Generate ideas ────────────────────────────────────────────────────────
     const fetchIdeas = useCallback(async () => {
         setPhase('loading')
         setError(null)
@@ -249,18 +253,20 @@ export const FiveIdeasScreen = ({ onBack, itinerary }) => {
 
             const prompt = `${locationContext}
 
-Family of 4: 2 parents, two kids aged 11 and 14. They want something fun to do RIGHT NOW — spontaneous, no advance booking, ideally walkable or a quick transit ride from where they are.
+Family of 4: 2 parents, kids aged 11 and 14. They want something fun RIGHT NOW — spontaneous, no advance booking, walkable or a short transit ride.
 
-Generate exactly 5 diverse, specific, immediately-doable activity ideas. Vary the types (outdoor, food, culture, quirky, active). Focus on today, no pre-planning required.
+Generate exactly 5 diverse, immediately-doable activity ideas. Vary the types (outdoor, food, culture, quirky, active).
 
-Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. Each object must have exactly these keys:
-- "title": punchy name, max 6 words
-- "description": 2-3 sentences about what it is and what makes it worth doing
-- "whyYoullLikeIt": 1 sentence specific to why a family with curious, energetic teens will love it
-- "cost": rough per-person cost in € (e.g. "Free", "€2–5 per person", "€12 per person")
-- "transport": how to get there from city center (e.g. "5 min walk", "10 min by tram", "You're already here!")
-- "duration": how long to spend (e.g. "30–45 min", "1–2 hours")
-- "mapsQuery": specific Apple Maps search string (e.g. "Mercato Centrale Florence Italy")`
+CRITICAL: Return ONLY a raw JSON array. No markdown, no code fences, no preamble, no HTML, no citation tags, no markup of any kind in the text values. Plain text strings only.
+
+Each object must have exactly these keys:
+- "title": punchy name, max 6 words, plain text
+- "description": 2-3 sentences, plain text only
+- "whyYoullLikeIt": 1 sentence for a family with curious energetic teens, plain text only
+- "cost": e.g. "Free" or "€5–10 per person", plain text only
+- "transport": e.g. "5 min walk" or "10 min by tram", plain text only
+- "duration": e.g. "30–45 min" or "1–2 hours", plain text only
+- "mapsQuery": specific Apple Maps search string, plain text only`
 
             const res = await fetch('/api/claude', {
                 method: 'POST',
@@ -268,7 +274,7 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
                 body: JSON.stringify({
                     model: CONFIG.CLAUDE_MODEL,
                     max_tokens: 1800,
-                    system: 'You are a spontaneous travel guide. Return ONLY a valid JSON array of activity objects. No other text whatsoever.',
+                    system: 'You are a spontaneous travel guide. Return ONLY a raw JSON array. Absolutely no markdown, no code fences, no HTML tags, no citation markup, no extra text of any kind. Plain text values in JSON only.',
                     messages: [{ role: 'user', content: prompt }]
                 })
             })
@@ -276,15 +282,13 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
             if (!res.ok) throw new Error(`API ${res.status}`)
             const data = await res.json()
             const text = data.content?.find(b => b.type === 'text')?.text || ''
-            const cleaned = text.replace(/```json|```/g, '').trim()
+            // Strip any markdown fences or stray tags before parsing
+            const cleaned = text.replace(/```json|```/g, '').replace(/<[^>]+>/g, '').trim()
             const parsed = JSON.parse(cleaned)
 
             if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty response')
 
-            const newIdeas = parsed.slice(0, 5).map((idea, i) => ({
-                ...idea,
-                id: `IDEA-${Date.now()}-${i}`
-            }))
+            const newIdeas = parsed.slice(0, 5).map((raw, i) => cleanIdea(raw, i))
 
             setIdeas(newIdeas)
             setSelectedIds(new Set())
@@ -298,27 +302,24 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
     }, [itinerary])
 
     // ── Handlers ──────────────────────────────────────────────────────────────
-
     const handleGetIdeas = () => {
         if (phase === 'active') { setShowConfirm(true); return }
         fetchIdeas()
     }
 
-    const handleToggleExpand = (id) => {
-        setExpandedId(prev => prev === id ? null : id)
-    }
+    const handleToggleExpand  = (id) => setExpandedId(prev => prev === id ? null : id)
 
-    const handleToggleSelect = (id) => {
+    const handleToggleSelect  = (id) => {
         setSelectedIds(prev => {
             const next = new Set(prev)
-            if (next.has(id)) { next.delete(id) }
-            else if (next.size < 2) { next.add(id) }
+            if (next.has(id)) next.delete(id)
+            else if (next.size < 2) next.add(id)
             return next
         })
     }
 
     const confirmSelection = (ids) => {
-        setIdeas(ideas.filter(i => ids.has(i.id)))
+        setIdeas(prev => prev.filter(i => ids.has(i.id)))
         setSelectedIds(new Set())
         setExpandedId(null)
         setSpinning(false)
@@ -326,31 +327,27 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
         setPhase('active')
     }
 
-    const handleLetsDoIt = () => {
-        if (selectedIds.size === 0) return
-        confirmSelection(selectedIds)
-    }
+    const handleLetsDoIt = () => { if (selectedIds.size > 0) confirmSelection(selectedIds) }
 
     const handleSpin = () => {
         if (spinning || ideas.length === 0) return
 
-        const pool = ideas
-        const winnerIdea = pool[Math.floor(Math.random() * pool.length)]
-        const poolIds = pool.map(i => i.id)
+        const pool      = ideas
+        const winner    = pool[Math.floor(Math.random() * pool.length)]
+        const poolIds   = pool.map(i => i.id)
 
-        // Build sequence: 3 full cycles around pool, then steer to winner
+        // Build sequence: 3 full cycles then steer to winner
         const sequence = []
         for (let i = 0; i < pool.length * 3; i++) sequence.push(poolIds[i % pool.length])
 
-        // Advance from last position until we hit winner
         let curIdx = sequence.length % pool.length
         let safety = 0
-        while (poolIds[curIdx] !== winnerIdea.id && safety < pool.length) {
+        while (poolIds[curIdx] !== winner.id && safety < pool.length) {
             sequence.push(poolIds[curIdx])
             curIdx = (curIdx + 1) % pool.length
             safety++
         }
-        sequence.push(winnerIdea.id) // guaranteed landing
+        sequence.push(winner.id)
 
         setSpinning(true)
         setExpandedId(null)
@@ -367,35 +364,25 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
                 const delay = p < 0.45 ? 55 : p < 0.65 ? 85 : p < 0.8 ? 140 : p < 0.92 ? 220 : 330
                 setTimeout(runStep, delay)
             } else {
-                // Pause on winner, then commit
                 setTimeout(() => {
                     setSpinning(false)
                     setSpinHighlightId(null)
-                    confirmSelection(new Set([winnerIdea.id]))
+                    confirmSelection(new Set([winner.id]))
                 }, 750)
             }
         }
-
         setTimeout(runStep, 55)
     }
 
     const handleDone = (ideaId) => {
         const remaining = ideas.filter(i => i.id !== ideaId)
-        if (remaining.length === 0) {
-            setPhase('idle')
-            setIdeas([])
-            setCity('')
-        } else {
-            setIdeas(remaining)
-        }
+        if (remaining.length === 0) { setPhase('idle'); setIdeas([]); setCity('') }
+        else setIdeas(remaining)
     }
 
     const handleStartFresh = () => {
-        setPhase('idle')
-        setIdeas([])
-        setCity('')
-        setSelectedIds(new Set())
-        setExpandedId(null)
+        setPhase('idle'); setIdeas([]); setCity('')
+        setSelectedIds(new Set()); setExpandedId(null)
     }
 
     // ── Shared header ─────────────────────────────────────────────────────────
@@ -404,26 +391,24 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
             <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                 <Icon name="ArrowLeft" size={20} color="white" />
             </button>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: 'white', fontSize: '1.05rem', fontWeight: 700 }}>✨ 5 Ideas</div>
-                {subtitle && <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.76rem', marginTop: '2px' }}>{subtitle}</div>}
+                {subtitle && <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.76rem', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</div>}
             </div>
             {rightSlot}
         </div>
     )
 
-    // ── IDLE phase ────────────────────────────────────────────────────────────
+    // ── IDLE ──────────────────────────────────────────────────────────────────
     if (phase === 'idle') return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
             <Header subtitle="Spontaneous ideas for right now" />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-xl) var(--space-lg)', textAlign: 'center', gap: 'var(--space-lg)' }}>
                 <div style={{ fontSize: '72px', lineHeight: 1 }}>🗺️</div>
                 <div>
-                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>
-                        Looking for something fun?
-                    </div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>Looking for something fun?</div>
                     <div style={{ fontSize: '0.92rem', color: 'var(--color-text-light)', lineHeight: 1.6, maxWidth: '280px' }}>
-                        Tap below and Claude will suggest 5 spontaneous things to do right where you are — no planning, no booking.
+                        Tap below for 5 spontaneous ideas near you — no planning, no booking.
                     </div>
                 </div>
                 {error && (
@@ -441,7 +426,7 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
         </div>
     )
 
-    // ── LOADING phase ─────────────────────────────────────────────────────────
+    // ── LOADING ───────────────────────────────────────────────────────────────
     if (phase === 'loading') return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
             <Header subtitle="One moment…" />
@@ -455,10 +440,12 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
         </div>
     )
 
-    // ── SELECTING phase ───────────────────────────────────────────────────────
+    // ── SELECTING ─────────────────────────────────────────────────────────────
     if (phase === 'selecting') {
         const selectedCount = selectedIds.size
-        const canSelect = selectedCount < 2
+        const canSelect     = selectedCount < 2
+        // Bottom bar height so cards don't hide under it
+        const BOTTOM_BAR = 72
 
         return (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
@@ -475,8 +462,8 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
                     }
                 />
 
-                {/* Cards */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', paddingBottom: 'calc(80px + var(--space-lg))' }}>
+                {/* Scrollable card list — paddingBottom clears the fixed bottom bar */}
+                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-lg)', paddingBottom: `${BOTTOM_BAR + 16}px`, display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                     {ideas.map((idea, i) => (
                         <SelectingCard
                             key={idea.id}
@@ -502,24 +489,24 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
                     )}
                 </div>
 
-                {/* Bottom bar */}
-                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'white', borderTop: '1px solid var(--color-border)', padding: 'var(--space-md) var(--space-lg)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', boxShadow: '0 -4px 16px rgba(0,0,0,0.08)' }}>
-                    <div style={{ flex: 1, fontSize: '0.82rem', color: 'var(--color-text-light)' }}>
-                        {selectedCount === 0 ? 'Tap a card to explore, then select up to 2' : `${selectedCount} of 2 selected`}
+                {/* Fixed bottom bar */}
+                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'white', borderTop: '1px solid var(--color-border)', padding: '12px var(--space-lg)', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', boxShadow: '0 -4px 16px rgba(0,0,0,0.08)', zIndex: 100 }}>
+                    <div style={{ flex: 1, fontSize: '0.82rem', color: 'var(--color-text-light)', lineHeight: 1.3 }}>
+                        {selectedCount === 0 ? 'Expand a card, then tap Select' : `${selectedCount} of 2 selected`}
                     </div>
                     <button
                         onClick={handleLetsDoIt}
                         disabled={selectedCount === 0 || spinning}
-                        style={{ background: selectedCount === 0 ? '#c5d6ec' : 'linear-gradient(135deg, #4a7fc1 0%, #2c5282 100%)', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '11px 24px', fontSize: '0.92rem', fontWeight: 700, cursor: selectedCount === 0 ? 'default' : 'pointer', boxShadow: selectedCount > 0 ? '0 2px 10px rgba(74,127,193,0.4)' : 'none', transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}
+                        style={{ background: selectedCount === 0 ? '#c5d6ec' : 'linear-gradient(135deg, #4a7fc1 0%, #2c5282 100%)', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '11px 22px', fontSize: '0.92rem', fontWeight: 700, cursor: selectedCount === 0 ? 'default' : 'pointer', boxShadow: selectedCount > 0 ? '0 2px 10px rgba(74,127,193,0.4)' : 'none', transition: 'all 0.15s ease', whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
-                        Let's do it! {selectedCount > 0 ? `(${selectedCount})` : ''}
+                        Let's do it!{selectedCount > 0 ? ` (${selectedCount})` : ''}
                     </button>
                 </div>
             </div>
         )
     }
 
-    // ── ACTIVE phase ──────────────────────────────────────────────────────────
+    // ── ACTIVE ────────────────────────────────────────────────────────────────
     if (phase === 'active') return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
             <Header
@@ -533,30 +520,22 @@ Return ONLY a valid JSON array. No preamble, no markdown fences, no extra text. 
                     </button>
                 }
             />
-            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+
+            {/* Scrollable — paddingBottom clears the FAB button in Tools tab */}
+            <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 'var(--space-lg)', paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                 {ideas.map(idea => (
                     <ActiveCard key={idea.id} idea={idea} onDone={handleDone} />
                 ))}
             </div>
 
-            {/* Confirm replace modal */}
             {showConfirm && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-xl)' }} onClick={() => setShowConfirm(false)}>
                     <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', maxWidth: '300px', width: '100%', boxShadow: 'var(--shadow-lg)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>Get new ideas?</div>
-                        <div style={{ fontSize: '0.88rem', color: 'var(--color-text-light)', lineHeight: 1.5, marginBottom: 'var(--space-lg)' }}>
-                            Your current plan will be cleared. Get 5 new ideas?
-                        </div>
+                        <div style={{ fontSize: '0.88rem', color: 'var(--color-text-light)', lineHeight: 1.5, marginBottom: 'var(--space-lg)' }}>Your current plan will be cleared.</div>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => setShowConfirm(false)} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text)' }}>
-                                Keep plan
-                            </button>
-                            <button
-                                onClick={() => { setShowConfirm(false); fetchIdeas() }}
-                                style={{ flex: 1, padding: '11px', background: '#4a7fc1', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}
-                            >
-                                Get new ideas
-                            </button>
+                            <button onClick={() => setShowConfirm(false)} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text)' }}>Keep plan</button>
+                            <button onClick={() => { setShowConfirm(false); fetchIdeas() }} style={{ flex: 1, padding: '11px', background: '#4a7fc1', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>Get new ideas</button>
                         </div>
                     </div>
                 </div>
