@@ -145,8 +145,11 @@ const CommentSection = ({ entryId, entryType, comments, onAddComment, commenterN
 const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, commenterName, onSetCommenterName }) => {
     const [idx, setIdx] = useState(initialIndex)
     const [dir, setDir] = useState(0)
+    const [imgLoaded, setImgLoaded] = useState(false)
     const touchStartX = useRef(null)
     const entry = photos[idx]
+
+    useEffect(() => { setImgLoaded(false) }, [idx])
 
     const prev = (e) => { e.stopPropagation(); setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
     const next = (e) => { e.stopPropagation(); setDir(1); setIdx(i => (i + 1) % photos.length) }
@@ -177,9 +180,18 @@ const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, comme
                 </button>
             )}
             <div onClick={onClose} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 'calc(48px + env(safe-area-inset-top, 0px))', paddingBottom: 'var(--space-md)', paddingLeft: '60px', paddingRight: '60px' }}>
-                <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
-                    style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain', borderRadius: 'var(--radius-md)',
-                        animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out' }} />
+                <div style={{ position: 'relative', width: '100%', minHeight: imgLoaded ? 0 : '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {!imgLoaded && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: '28px', height: '28px', border: '2.5px solid rgba(255,255,255,0.2)', borderTopColor: 'rgba(255,255,255,0.85)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                        </div>
+                    )}
+                    <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()}
+                        onLoad={() => setImgLoaded(true)}
+                        style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain', borderRadius: 'var(--radius-md)', display: 'block',
+                            opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.2s ease',
+                            animation: imgLoaded ? (dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out') : 'none' }} />
+                </div>
                 {entry.entryText && <p onClick={e => e.stopPropagation()} style={{ color: 'white', marginTop: 'var(--space-sm)', fontSize: '0.9rem', lineHeight: 1.5, textAlign: 'center', maxWidth: '400px' }}>{entry.entryText}</p>}
                 <div onClick={e => e.stopPropagation()} style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: '4px' }}>
                     {entry.userName} · {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}
