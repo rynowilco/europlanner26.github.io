@@ -167,7 +167,7 @@ const App = () => {
             {screen === 'loading' && <div style={{ height: '100%', background: 'var(--color-warm-white)' }} />}
 
             {screen === 'home' && (
-                <HomeScreen onExplorer={() => setScreen('familyLanding')} onFollowAlong={() => setScreen('tracker')} onOpenCityGuides={() => setShowCityGuides(true)} />
+                <HomeScreen onExplorer={() => setScreen('familyLanding')} onFollowAlong={() => setScreen('tracker')} />
             )}
 
             {screen === 'familyLanding' && (
@@ -241,7 +241,18 @@ const App = () => {
             )}
 
             {screen === 'tracker' && (
-                <TrackerScreen onBack={() => setScreen('home')} activities={store.activities} itinerary={store.itinerary} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} onAddComment={store.addComment} journalDigest={store.journalDigest} />
+                <TrackerScreen
+                    onBack={() => setScreen('home')}
+                    activities={store.activities}
+                    itinerary={store.itinerary}
+                    journalEntries={store.journalEntries}
+                    onHeartEntry={store.heartJournalEntry}
+                    comments={store.comments}
+                    onAddComment={store.addComment}
+                    journalDigest={store.journalDigest}
+                    userProfiles={store.userProfiles}
+                    onOpenCityGuides={() => setShowCityGuides(true)}
+                />
             )}
 
             {showFingerprintModal && <FingerprintModal onSuccess={handleFingerprintSuccess} onCancel={() => setShowFingerprintModal(false)} />}
