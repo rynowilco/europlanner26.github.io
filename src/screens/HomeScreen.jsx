@@ -25,7 +25,7 @@ const HomeButton = ({ onClick, bg, color, border, title, subtitle, animationDela
     </button>
 )
 
-export const HomeScreen = ({ onExplorer, onFollowAlong, onOpenCityGuides }) => (
+export const HomeScreen = ({ onExplorer, onFollowAlong }) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-2xl) + env(safe-area-inset-top, 0px))', overflow: 'auto' }}>
         <header style={{ textAlign: 'center', paddingBottom: 'var(--space-lg)', animation: 'slideUp 0.6s ease-out' }}>
             <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>🌍✈️</div>
@@ -50,14 +50,6 @@ export const HomeScreen = ({ onExplorer, onFollowAlong, onOpenCityGuides }) => (
                 title="Follow Along"
                 subtitle="See where we're headed and what we have planned"
                 animationDelay={0.32}
-            />
-            <HomeButton
-                onClick={onOpenCityGuides}
-                bg="rgb(211, 108, 80)"
-                color="white"
-                title="Our Cities"
-                subtitle="Explore destinations — summaries, activities &amp; local phrases"
-                animationDelay={0.44}
             />
         </div>
 
