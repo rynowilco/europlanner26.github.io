@@ -57,6 +57,25 @@ const trackerCardStyle = {
 
 // ── Module-level sub-components ───────────────────────────────────────────────
 
+const PhotoThumb = ({ photo, index, onOpen }) => {
+    const [loaded, setLoaded] = useState(false)
+    return (
+        <div onClick={() => onOpen(index)} style={{ flexShrink: 0, width: '90px', height: '90px', borderRadius: 'var(--radius-md)', overflow: 'hidden', cursor: 'pointer', background: 'var(--color-tan)', border: '2px solid white', boxShadow: 'var(--shadow-sm)', position: 'relative' }}>
+            {!loaded && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.35)', borderTopColor: 'rgba(255,255,255,0.9)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                </div>
+            )}
+            <img
+                src={getThumbUrl(photo.photoUrl, 200)}
+                alt={photo.entryText || ''}
+                onLoad={() => setLoaded(true)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease' }}
+            />
+        </div>
+    )
+}
+
 const SubHeader = ({ title, subtitle, onBack }) => (
     <header style={{ display: 'flex', alignItems: 'center', padding: 'var(--space-md)', paddingTop: 'calc(var(--space-md) + env(safe-area-inset-top, 0px))', background: 'white', boxShadow: 'var(--shadow-sm)', flexShrink: 0, zIndex: 10 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 'var(--space-sm)', cursor: 'pointer', marginRight: 'var(--space-sm)' }}>
@@ -440,11 +459,7 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                             {recentPhotos.length > 0 ? (
                                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                     {recentPhotos.map((photo, i) => (
-                                        <div key={photo.id}
-                                            onClick={() => setLightbox({ photos: recentPhotos, index: i })}
-                                            style={{ flexShrink: 0, width: '90px', height: '90px', borderRadius: 'var(--radius-md)', overflow: 'hidden', cursor: 'pointer', background: 'var(--color-tan)', border: '2px solid white', boxShadow: 'var(--shadow-sm)' }}>
-                                            <img src={getThumbUrl(photo.photoUrl, 200)} alt={photo.entryText || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                        </div>
+                                        <PhotoThumb key={photo.id} photo={photo} index={i} onOpen={(idx) => setLightbox({ photos: recentPhotos, index: idx })} />
                                     ))}
                                 </div>
                             ) : (
