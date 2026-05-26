@@ -28,12 +28,12 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
   const [euroEarned, setEuroEarned] = useState(0)
   const [sendError, setSendError] = useState(null)
   const [selectedRecipients, setSelectedRecipients] = useState(
-    () => (CONFIG.POSTCARD_RECIPIENTS || []).map(r => r.email)
+    () => (CONFIG.TRACKER_FOLLOWERS || []).map(r => r.email)
   )
 
   const photos = (allFamilyPhotos || []).filter(e => e.photoUrl).slice().reverse()
   const cityName = currentCity?.city || 'Europe'
-  const allRecipients = CONFIG.POSTCARD_RECIPIENTS || []
+  const allRecipients = CONFIG.TRACKER_FOLLOWERS || []
   const templateReady = !!(CONFIG.EMAILJS_POSTCARD_TEMPLATE_ID && allRecipients.length > 0)
   const canSend = templateReady && selectedRecipients.length > 0
 
@@ -245,7 +245,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
           <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', border: '1px solid var(--color-border)', marginBottom: 'var(--space-sm)' }}>
             {!templateReady ? (
               <p style={{ color: 'var(--color-text-light)', fontSize: '0.85rem', textAlign: 'center', margin: 0 }}>
-                📭 Recipients not configured yet — set <code>POSTCARD_RECIPIENTS</code> and <code>EMAILJS_POSTCARD_TEMPLATE_ID</code> in config.js.
+                📭 Recipients not configured yet — set <code>TRACKER_FOLLOWERS</code> and <code>EMAILJS_POSTCARD_TEMPLATE_ID</code> in config.js.
               </p>
             ) : (
               <>
