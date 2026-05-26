@@ -28,7 +28,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
   const [euroEarned, setEuroEarned] = useState(0)
   const [sendError, setSendError] = useState(null)
   const [selectedRecipients, setSelectedRecipients] = useState(
-    () => (CONFIG.TRACKER_FOLLOWERS || []).map(r => r.email)
+    () => []
   )
 
   const photos = (allFamilyPhotos || []).filter(e => e.photoUrl).slice().reverse()
@@ -52,10 +52,10 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
         body: JSON.stringify({
           model: CONFIG.CLAUDE_MODEL,
           max_tokens: 150,
-          system: 'You help kids write fun, warm postcard messages to family at home. Write 2-3 sentences — conversational, upbeat, and specific to where they are. No greeting or sign-off, just the message body. Keep it genuine, not cheesy.',
+          system: 'You ghostwrite short postcard messages for kids on a family trip. Write in the first person as the child — use "I", "we", "my". 2-3 sentences, conversational and upbeat. No greeting, no sign-off, just the message body. Do NOT address the child by name or use second person.',
           messages: [{
             role: 'user',
-            content: `I'm ${user.name}${user.age ? `, age ${user.age}` : ''}, and I'm in ${cityName} right now on a family trip through Europe. Write me a quick postcard message to send to family back home!`
+            content: `Write a postcard message in my voice. I am ${user.name}${user.age ? `, age ${user.age}` : ''}. I am in ${cityName} right now on a family trip through Europe.`
           }]
         })
       })
