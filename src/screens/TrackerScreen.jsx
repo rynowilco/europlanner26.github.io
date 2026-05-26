@@ -29,7 +29,7 @@ const fetchCitySummary = async (prompt) => {
     }
 }
 
-const STAR_WARS_NAMES = ['Luke Skywalker', 'Leia Organa', 'Han Solo', 'Yoda', 'Obi-Wan Kenobi', 'Chewbacca']
+const COMMENTERS = (CONFIG.TRACKER_FOLLOWERS || []).filter(f => f.canComment)
 
 const getThumbUrl = (url, width = 400) => {
     if (!url) return null
@@ -126,7 +126,7 @@ const CommentSection = ({ entryId, entryType, comments, onAddComment, commenterN
             <select value={commenterName} onChange={e => onSetCommenterName(e.target.value)}
                 style={{ width: '100%', padding: '6px 8px', border: bd, borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: bg, color: commenterName ? textColor : mutedColor, outline: 'none', marginBottom: '8px' }}>
                 <option value="">Who is commenting?</option>
-                {STAR_WARS_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+                {COMMENTERS.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
             </select>
             <div style={{ display: 'flex', gap: '8px' }}>
                 <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}
