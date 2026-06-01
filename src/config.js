@@ -62,6 +62,7 @@ export const CONFIG = {
         { name: 'Cindy + Cowboy', email: 'chwilcoxson@gmail.com',      canComment: true  },
         { name: 'Auntie J',       email: 'jnntt.e.heindel@gmail.com',  canComment: true  },
         { name: 'Auntie Em',      email: 'minnesota@gmail.com',        canComment: true  },
+        { name: 'Julie H.',       email: 'juliesearsharris@gmail.com',  canComment: true  },
         { name: 'Mylon Filkins',  email: 'mfilkins@bak.rr.com',        canComment: false },
         { name: 'Pat Filkins',    email: 'creightonpat23@gmail.com',    canComment: false },
         { name: 'David Filkins',  email: 'dfilkins@gmail.com',         canComment: false },
