@@ -119,7 +119,6 @@ export const SheetsAPI = {
             'innbruck':                { lat: 47.2692, lng: 11.4041 },
             'ampass':                  { lat: 47.2667, lng: 11.4667 },
             'train day - kids choice': { lat: 46.0,    lng:  9.0    },
-            'portland':                { lat: 45.5051, lng: -122.6750 }
         }
         const countryLanguages = {
             'italy': 'Italian', 'france': 'French', 'spain': 'Spanish',
