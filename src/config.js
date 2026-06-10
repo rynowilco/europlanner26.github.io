@@ -63,6 +63,7 @@ export const CONFIG = {
         { name: 'Auntie J',       email: 'jnntt.e.heindel@gmail.com',  canComment: true  },
         { name: 'Auntie Em',      email: 'minnesota@gmail.com',        canComment: true  },
         { name: 'Julie H.',       email: 'juliesearsharris@gmail.com',  canComment: true  },
+        { name: 'Heather A.',     email: 'hnmcallen@gmail.com',         canComment: true  },
         { name: 'Mylon Filkins',  email: 'mfilkins@bak.rr.com',        canComment: false },
         { name: 'Pat Filkins',    email: 'creightonpat23@gmail.com',    canComment: false },
         { name: 'David Filkins',  email: 'dfilkins@gmail.com',         canComment: false },
@@ -133,6 +134,7 @@ export const CONFIG = {
     },
 
     itinerary: [
+        { city: 'Portland', country: 'USA', startDate: '2026-04-01', endDate: '2026-06-13', lat: 45.5051, lng: -122.6750, language: 'English' }, // TEMP - remove before trip
         { city: 'Frankfurt',              country: 'Germany',       startDate: '2026-06-14', endDate: '2026-06-14', lat: 50.1109, lng:  8.6821, language: 'German'  },
         { city: 'Basel',                  country: 'Switzerland',   startDate: '2026-06-14', endDate: '2026-06-16', lat: 47.5596, lng:  7.5886, language: 'German'  },
         { city: 'Iseltwald',              country: 'Switzerland',   startDate: '2026-06-16', endDate: '2026-06-19', lat: 46.7114, lng:  7.9839, language: 'German'  },
