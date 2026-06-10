@@ -19,6 +19,7 @@ import { FamilyFeedScreen } from './screens/FamilyFeedScreen'
 import { FiveIdeasScreen } from './screens/FiveIdeasScreen'
 import { ScavengerHuntScreen } from './screens/ScavengerHuntScreen'
 import { BookingsScreen } from './screens/BookingsScreen'
+import { FlashCardScreen } from './screens/FlashCardScreen'
 import { DailyStoriesScreen } from './screens/DailyStoriesScreen'
 import { SlideshowScreen } from './screens/SlideshowScreen'
 
@@ -31,7 +32,7 @@ const toolCardStyle = {
     boxShadow: 'var(--shadow-sm)', transition: 'all 0.15s', width: '100%',
 }
 
-const ToolsHub = ({ onOpenMap, onOpenFiveIdeas, onOpenHunt, onOpenCityGuides, onOpenQuickTools, onOpenBookings }) => (
+const ToolsHub = ({ onOpenMap, onOpenFiveIdeas, onOpenHunt, onOpenCityGuides, onOpenQuickTools, onOpenBookings, onOpenFlashCards }) => (
     <div style={{ height: '100%', overflowY: 'auto', padding: 'var(--space-lg)', paddingTop: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 600, color: 'var(--color-navy)', marginBottom: 'var(--space-lg)' }}>🧰 Tools</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
@@ -55,15 +56,20 @@ const ToolsHub = ({ onOpenMap, onOpenFiveIdeas, onOpenHunt, onOpenCityGuides, on
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Our Cities</div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Guides &amp; phrases</div>
             </button>
-            <button onClick={onOpenQuickTools} style={{ ...toolCardStyle, gridColumn: '1 / -1' }}>
+            <button onClick={onOpenFlashCards} style={toolCardStyle}>
+                <div style={{ fontSize: '34px', marginBottom: '8px' }}>🗣️</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Language Game</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Italian &amp; German</div>
+            </button>
+            <button onClick={onOpenQuickTools} style={toolCardStyle}>
                 <div style={{ fontSize: '34px', marginBottom: '8px' }}>🧰</div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Quick Tools</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Currency converter · Local phrases</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Tool Box</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Currency · Phrases</div>
             </button>
             <button onClick={onOpenBookings} style={{ ...toolCardStyle, gridColumn: '1 / -1' }}>
                 <div style={{ fontSize: '34px', marginBottom: '8px' }}>🗝️</div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Bookings</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Hotels · Confirmations · Car rental</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-navy)' }}>Confirmations &amp; Contacts</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)', marginTop: '3px' }}>Hotels · Car rental · Phone numbers</div>
             </button>
         </div>
     </div>
@@ -77,7 +83,7 @@ const App = () => {
     const [activeTab, setActiveTab]   = useState('home')
     const [planView, setPlanView]     = useState('chat')
     const [feedView, setFeedView]     = useState('feed')
-    const [toolsView, setToolsView]   = useState('hub')  // 'hub' | 'map' | 'fiveIdeas' | 'hunt'
+    const [toolsView, setToolsView]   = useState('hub')  // 'hub' | 'map' | 'fiveIdeas' | 'hunt' | 'bookings' | 'flashCards'
     const [fabOpen, setFabOpen]       = useState(false)
     const [fabPendingAction, setFabPendingAction] = useState(null)
     const [isAdmin, setIsAdmin]       = useState(false)
@@ -210,7 +216,7 @@ const App = () => {
                         )}
 
                         {activeTab === 'tools' && toolsView === 'hub' && (
-                            <ToolsHub onOpenMap={() => setToolsView('map')} onOpenFiveIdeas={() => setToolsView('fiveIdeas')} onOpenHunt={() => setToolsView('hunt')} onOpenCityGuides={() => setShowCityGuides(true)} onOpenQuickTools={() => setShowQuickTools(true)} onOpenBookings={() => setToolsView('bookings')} />
+                            <ToolsHub onOpenMap={() => setToolsView('map')} onOpenFiveIdeas={() => setToolsView('fiveIdeas')} onOpenHunt={() => setToolsView('hunt')} onOpenCityGuides={() => setShowCityGuides(true)} onOpenQuickTools={() => setShowQuickTools(true)} onOpenBookings={() => setToolsView('bookings')} onOpenFlashCards={() => setToolsView('flashCards')} />
                         )}
                         {activeTab === 'tools' && toolsView === 'map' && (
                             <MapScreen onBack={() => setToolsView('hub')} activities={store.activities} userProfiles={store.userProfiles} itinerary={store.itinerary} />
@@ -223,6 +229,9 @@ const App = () => {
                         )}
                         {activeTab === 'tools' && toolsView === 'bookings' && (
                             <BookingsScreen onBack={() => setToolsView('hub')} />
+                        )}
+                        {activeTab === 'tools' && toolsView === 'flashCards' && (
+                            <FlashCardScreen onBack={() => setToolsView('hub')} />
                         )}
                     </div>
 
