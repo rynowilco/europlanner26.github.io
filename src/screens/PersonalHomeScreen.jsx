@@ -32,7 +32,7 @@ export const QuickToolsModal = ({ onClose, itinerary }) => {
             <div style={{ background: 'white', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s ease-out', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} onClick={e => e.stopPropagation()}>
 
                 <div style={{ padding: 'var(--space-lg) var(--space-xl) var(--space-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-                    <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-navy)' }}>🧰 Quick Tools</h2>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-navy)' }}>🧰 Tool Box</h2>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
                         <Icon name="X" size={20} color="var(--color-text-light)" />
                     </button>
@@ -189,7 +189,7 @@ export const PersonalHomeScreen = ({
                 <button onClick={() => setShowQuickTools(true)} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', border: 'none', background: 'white', outline: '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', animation: 'slideUp 0.5s ease-out 0.15s both' }}>
                     <div style={{ fontSize: '30px', flexShrink: 0 }}>🧰</div>
                     <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-navy)', marginBottom: '2px' }}>Quick Tools</div>
+                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-navy)', marginBottom: '2px' }}>Tool Box</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>Currency converter · Local phrases</div>
                     </div>
                     <Icon name="ChevronRight" size={18} color="var(--color-text-light)" />
