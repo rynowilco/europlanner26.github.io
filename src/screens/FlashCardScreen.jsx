@@ -35,6 +35,8 @@ const DECKS = {
         { foreign: "Dov'è la spiaggia?",           phonetic: "doh-VEH lah SPYAH-jah",                        english: 'Where is the beach?' },
         { foreign: 'È incredibile!',               phonetic: 'eh een-kreh-DEE-bee-leh',                      english: 'This is amazing!' },
         { foreign: "C'è un bar per vedere i Mondiali?", phonetic: "cheh oon bar pehr veh-DEH-reh ee mon-DYAH-lee", english: 'Is there a bar to watch the World Cup?' },
+        { foreign: 'Birra',                        phonetic: 'BEER-rah',                                     english: 'Beer' },
+        { foreign: 'Albergo',                      phonetic: 'al-BEHR-goh',                                  english: 'Hotel' },
     ],
     German: [
         { foreign: 'Hallo',                        phonetic: 'HAH-loh',                                      english: 'Hello' },
@@ -67,6 +69,8 @@ const DECKS = {
         { foreign: 'Wo ist der Strand?',           phonetic: 'voh ist dehr SHTRAND',                         english: 'Where is the beach?' },
         { foreign: 'Das ist unglaublich!',         phonetic: 'das ist oon-GLOWP-lish',                       english: 'This is amazing!' },
         { foreign: 'Gibt es eine Bar für die Weltmeisterschaft?', phonetic: 'gipt es EYE-neh bar fyur dee VELT-my-ster-shaft', english: 'Is there a bar to watch the World Cup?' },
+        { foreign: 'Bier',                         phonetic: 'BEER',                                         english: 'Beer' },
+        { foreign: 'Hotel',                        phonetic: 'hoh-TEL',                                      english: 'Hotel' },
     ],
 }
 
@@ -168,20 +172,20 @@ const Level2 = ({ cards, onComplete }) => {
     }
 
     return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 'var(--space-xl)', gap: 'var(--space-lg)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 'var(--space-md) var(--space-lg)', gap: 'var(--space-sm)', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 'var(--space-xs)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-text-light)' }}>{index + 1} / {cards.length}</div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-terracotta)' }}>⭐ {score}</div>
             </div>
 
-            <div style={{ background: 'var(--color-navy)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-xl)', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,0.5)', marginBottom: 'var(--space-sm)' }}>How do you say…</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', lineHeight: 1.2 }}>{card.english}</div>
+            <div style={{ background: 'var(--color-navy)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-md) var(--space-lg)', textAlign: 'center', flexShrink: 0 }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>How do you say…</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'white', lineHeight: 1.25 }}>{card.english}</div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', flex: 1, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'center' }}>
                 {options.map((opt, i) => (
-                    <button key={i} onClick={() => handleSelect(opt)} style={getOptionStyle(opt)}>
+                    <button key={i} onClick={() => handleSelect(opt)} style={{ ...getOptionStyle(opt), padding: '11px var(--space-md)', fontSize: opt.length > 30 ? '0.78rem' : '0.9rem' }}>
                         {opt}
                     </button>
                 ))}
@@ -324,15 +328,20 @@ export const FlashCardScreen = ({ onBack }) => {
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
 
             {/* Header */}
-            <div style={{ background: 'var(--color-navy)', padding: 'var(--space-md) var(--space-lg) var(--space-lg)', paddingTop: 'calc(var(--space-lg) + env(safe-area-inset-top, 0px))', flexShrink: 0 }}>
-                <button onClick={view === 'langPick' ? onBack : () => setView(view === 'results' ? 'levelPick' : view === 'playing' ? 'levelPick' : 'langPick')}
-                    style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, marginBottom: 'var(--space-md)' }}>
-                    <Icon name="ChevronLeft" size={16} color="white" />
-                    {view === 'langPick' ? 'Tools' : view === 'levelPick' ? 'Languages' : 'Levels'}
-                </button>
-                <div style={{ fontSize: '1.8rem', marginBottom: '2px' }}>🗣️</div>
-                <h1 style={{ color: 'white', fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>Language Game</h1>
-                {language && <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.82rem', margin: '4px 0 0' }}>{language === 'Italian' ? '🇮🇹' : '🇩🇪'} {language}</p>}
+            <div style={{ background: 'var(--color-navy)', padding: '0 var(--space-lg)', paddingTop: 'calc(var(--space-sm) + env(safe-area-inset-top, 0px))', paddingBottom: 'var(--space-sm)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <button onClick={view === 'langPick' ? onBack : () => setView(view === 'results' ? 'levelPick' : view === 'playing' ? 'levelPick' : 'langPick')}
+                        style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+                        <Icon name="ChevronLeft" size={15} color="white" />
+                        {view === 'langPick' ? 'Tools' : view === 'levelPick' ? 'Languages' : 'Levels'}
+                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🗣️</span>
+                        <span style={{ color: 'white', fontSize: '1rem', fontWeight: 700 }}>Language Game</span>
+                        {language && <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.82rem', marginLeft: '4px' }}>{language === 'Italian' ? '🇮🇹' : '🇩🇪'}</span>}
+                    </div>
+                    <div style={{ width: '70px' }} />{/* spacer to center title */}
+                </div>
             </div>
 
             {/* Language Pick */}
