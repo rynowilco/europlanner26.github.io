@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import emailjs from '@emailjs/browser'
 import { CONFIG, localDate } from '../config'
+import { MicButton } from '../components/MicButton'
 
 const getThumbUrl = (url, width = 400) => {
   if (!url) return null
@@ -180,6 +181,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
             onFocus={e => e.target.style.borderColor = 'var(--color-navy)'}
             onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
           />
+          <MicButton variant="wide" existingValue={message} onTranscript={(t) => setMessage(v => v ? v + ' ' + t : t)} />
           <button
             onClick={handleClaudeHelp}
             disabled={claudeLoading}
