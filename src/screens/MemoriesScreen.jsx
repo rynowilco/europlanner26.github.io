@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { CONFIG, localDate } from '../config'
 import { Icon } from '../components/Icon'
 import { PostcardModal } from '../components/PostcardModal'
+import { MicButton } from '../components/MicButton'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -151,7 +152,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
                     <img src={photo.previewUrl} alt={`Photo ${i + 1}`} style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', display: 'block' }} />
                     <button onClick={() => removePhoto(i)} style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--color-error)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="X" size={12} color="white" /></button>
                   </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <select value={photo.city} onChange={e => updatePhoto(i, 'city', e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none' }}>
                         <option value="">Select city...</option>
@@ -159,7 +160,10 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
                       </select>
                       {photo.lat && <span style={{ flexShrink: 0, fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-sage)', background: 'rgba(100,160,100,0.12)', borderRadius: 'var(--radius-sm)', padding: '3px 6px', whiteSpace: 'nowrap' }}>📍 Detected</span>}
                     </div>
-                    <textarea value={photo.caption} onChange={e => updatePhoto(i, 'caption', e.target.value)} placeholder="Add a caption... (optional)" rows={2} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                      <textarea value={photo.caption} onChange={e => updatePhoto(i, 'caption', e.target.value)} placeholder="Add a caption... (optional)" rows={2} style={{ flex: 1, padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
+                      <MicButton existingValue={photo.caption} onTranscript={(t) => updatePhoto(i, 'caption', photo.caption ? photo.caption + ' ' + t : t)} />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -240,6 +244,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
         <div style={{ marginBottom: 'var(--space-lg)' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>What happened today?</label>
           <textarea value={entryText} onChange={e => setEntryText(e.target.value)} placeholder="Write about your day, a moment that stood out, something that surprised you..." rows={6} autoFocus style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
+          <MicButton variant="wide" existingValue={entryText} onTranscript={(t) => setEntryText(v => v ? v + ' ' + t : t)} />
           {!isParent && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
               <div style={{ height: '4px', width: '80px', background: 'var(--color-tan)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
