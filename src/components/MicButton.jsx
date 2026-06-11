@@ -21,10 +21,12 @@ function ensurePulseStyles() {
 //   variant="wide"               — full-width "Tap to dictate" bar, sits below textareas
 //
 // Props:
-//   onTranscript(text)  — called with final speech result; parent appends to field value
-//   existingValue       — current field value (provided for context; not modified here)
+//   onTranscript(text)  — called with each final speech result; parent appends
+//   existingValue       — current field value (context only, not modified here)
 //   variant             — 'compact' | 'wide'
 export function MicButton({ onTranscript, existingValue, variant = 'compact' }) {
+  // Pass onTranscript directly — the hook stores it in a ref internally
+  // so new function references on each render are handled correctly
   const { isListening, isSupported, startListening, stopListening } = useSpeechInput({ onTranscript })
 
   useEffect(() => { ensurePulseStyles() }, [])
@@ -36,7 +38,7 @@ export function MicButton({ onTranscript, existingValue, variant = 'compact' }) 
     else startListening()
   }
 
-  // ── Wide variant — below textareas (journal, postcard) ──────────────────────
+  // ── Wide variant — below textareas (journal, postcard, planning assistant) ──
   if (variant === 'wide') {
     return (
       <button
@@ -68,7 +70,7 @@ export function MicButton({ onTranscript, existingValue, variant = 'compact' }) 
     )
   }
 
-  // ── Compact variant — inline with input row (chat) ──────────────────────────
+  // ── Compact variant — inline with input row (planning assistant) ────────────
   return (
     <button
       type="button"
