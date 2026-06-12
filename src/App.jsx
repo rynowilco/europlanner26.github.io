@@ -125,7 +125,11 @@ const App = () => {
     useEffect(() => {
         try {
             const savedUser = localStorage.getItem('ep26_currentUser')
-            if (savedUser) { setCurrentUser(savedUser); setScreen('explorer') }
+            if (savedUser) {
+                setCurrentUser(savedUser)
+                if (CONFIG.users[savedUser]?.isParent) setIsAdmin(true)
+                setScreen('explorer')
+            }
             else setScreen('home')
         } catch { setScreen('home') }
     }, [])
@@ -133,6 +137,7 @@ const App = () => {
     // ── Navigation ────────────────────────────────────────────────────────────
     const handleSelectUser = (userId) => {
         setCurrentUser(userId)
+        setIsAdmin(CONFIG.users[userId]?.isParent || false)
         try { localStorage.setItem('ep26_currentUser', userId) } catch {}
         setActiveTab('home'); setPlanView('chat'); setFeedView('feed'); setToolsView('hub')
         setFabOpen(false); setScreen('explorer')
@@ -140,6 +145,7 @@ const App = () => {
 
     const handleSwitchUser = () => {
         setCurrentUser(null)
+        setIsAdmin(false)
         try { localStorage.removeItem('ep26_currentUser') } catch {}
         setScreen('familyLanding')
     }
