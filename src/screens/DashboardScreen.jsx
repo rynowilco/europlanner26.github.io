@@ -536,9 +536,9 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
             )}
 
             {isAdmin && (
-                <footer style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center', flexShrink: 0 }}>
-                    <button onClick={handleResetCache} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.85rem', cursor: 'pointer', padding: 'var(--space-sm) var(--space-md)' }}>
-                        Reset cached data
+                <footer style={{ padding: 'var(--space-sm) var(--space-md)', paddingBottom: 'calc(var(--space-sm) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+                    <button onClick={handleResetCache} title="Reset cached data" style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '1.1rem', cursor: 'pointer', padding: '4px 6px', lineHeight: 1, borderRadius: 'var(--radius-sm)' }}>
+                        ♻️
                     </button>
                 </footer>
             )}
