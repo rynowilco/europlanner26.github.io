@@ -319,12 +319,11 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
 
     const handleResetCache = () => {
         if (confirm('This will clear all cached data and reload from Google Sheets. Continue?')) {
-            localStorage.removeItem('euroPlanner_activities')
-            localStorage.removeItem('euroPlanner_savedIdeas')
-            localStorage.removeItem('euroPlanner_conversations')
-            localStorage.removeItem('euroPlanner_sessionSummaries')
-            localStorage.removeItem('euroPlanner_lastActivity')
-            localStorage.removeItem('euroPlanner_profiles')
+            Object.keys(localStorage)
+                .filter(k => k.startsWith('euroPlanner_'))
+                .forEach(k => localStorage.removeItem(k))
+            // Stamp current version so the auto-check doesn't re-fire on reload
+            localStorage.setItem('euroPlanner_cacheVersion', CONFIG.CACHE_VERSION)
             window.location.reload()
         }
     }
