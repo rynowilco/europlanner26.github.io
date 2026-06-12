@@ -133,6 +133,8 @@ export const PersonalHomeScreen = ({
     const reminderDismissed = (() => {
         try { return localStorage.getItem(`ep26_reminder_${today}`) === 'dismissed' } catch { return true }
     })()
+    // Parents never see the euro-earning reminder — journal card stays neutral
+    const showEuroReminder = !reminderDismissed && !isParent
 
     return (
         <div style={{ height: '100%', overflowY: 'auto', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
@@ -166,13 +168,13 @@ export const PersonalHomeScreen = ({
             <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
 
                 {/* 1. Journal — top priority */}
-                <button onClick={onOpenJournal} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', border: 'none', background: !reminderDismissed ? 'linear-gradient(135deg, #c8603a, #d97f55)' : 'white', color: !reminderDismissed ? 'white' : 'var(--color-navy)', outline: !reminderDismissed ? 'none' : '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: !reminderDismissed ? '0 4px 20px rgba(200,96,58,0.3)' : 'var(--shadow-sm)', animation: 'slideUp 0.5s ease-out 0.05s both' }}>
+                <button onClick={onOpenJournal} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-lg)', border: 'none', background: showEuroReminder ? 'linear-gradient(135deg, #c8603a, #d97f55)' : 'white', color: showEuroReminder ? 'white' : 'var(--color-navy)', outline: showEuroReminder ? 'none' : '2px solid var(--color-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', boxShadow: showEuroReminder ? '0 4px 20px rgba(200,96,58,0.3)' : 'var(--shadow-sm)', animation: 'slideUp 0.5s ease-out 0.05s both' }}>
                     <div style={{ fontSize: '30px', flexShrink: 0 }}>📖</div>
                     <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                         <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '2px' }}>Write in Your Journal</div>
-                        <div style={{ fontSize: '0.8rem', opacity: !reminderDismissed ? 0.88 : 0.55 }}>{!reminderDismissed ? 'Earn €1 for your entry today!' : "Capture today's memories"}</div>
+                        <div style={{ fontSize: '0.8rem', opacity: showEuroReminder ? 0.88 : 0.55 }}>{showEuroReminder ? 'Earn €1 for your entry today!' : "Capture today's memories"}</div>
                     </div>
-                    {!reminderDismissed && <div style={{ background: 'white', color: '#c8603a', fontSize: '0.62rem', fontWeight: 800, borderRadius: '20px', padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}>📝 Earn €1!</div>}
+                    {showEuroReminder && <div style={{ background: 'white', color: '#c8603a', fontSize: '0.62rem', fontWeight: 800, borderRadius: '20px', padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}>📝 Earn €1!</div>}
                 </button>
 
                 {/* 2. Daily Stories */}
