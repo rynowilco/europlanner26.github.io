@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { CONFIG } from './config'
 import { useStore } from './useStore'
 import { SheetsStatusBanner } from './components/SheetsStatusBanner'
 import { FingerprintModal } from './components/FingerprintModal'
@@ -22,6 +23,22 @@ import { BookingsScreen } from './screens/BookingsScreen'
 import { FlashCardScreen } from './screens/FlashCardScreen'
 import { DailyStoriesScreen } from './screens/DailyStoriesScreen'
 import { SlideshowScreen } from './screens/SlideshowScreen'
+
+// ── Cache version check ───────────────────────────────────────────────────────
+// Runs once when the module loads (before any React rendering). If the stored
+// version doesn't match CONFIG.CACHE_VERSION, all euroPlanner_ cache keys are
+// wiped silently. Bump CACHE_VERSION in config.js to clear everyone's cache
+// on their next visit — useful after data cleanups or major data changes.
+;(function checkCacheVersion() {
+    try {
+        if (localStorage.getItem('euroPlanner_cacheVersion') !== CONFIG.CACHE_VERSION) {
+            Object.keys(localStorage)
+                .filter(k => k.startsWith('euroPlanner_'))
+                .forEach(k => localStorage.removeItem(k))
+            localStorage.setItem('euroPlanner_cacheVersion', CONFIG.CACHE_VERSION)
+        }
+    } catch {}
+})()
 
 // ── Tools hub ─────────────────────────────────────────────────────────────────
 
