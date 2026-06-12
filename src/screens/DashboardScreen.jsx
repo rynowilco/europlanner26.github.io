@@ -329,7 +329,7 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
     }
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)', position: 'relative' }}>
             <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', paddingTop: 'calc(var(--space-md) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
                 <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}><Icon name="ArrowLeft" size={20} /></button>
                 <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Planning Hub</h1>
@@ -536,11 +536,9 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
             )}
 
             {isAdmin && (
-                <footer style={{ padding: 'var(--space-sm) var(--space-md)', paddingBottom: 'calc(var(--space-sm) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-                    <button onClick={handleResetCache} title="Reset cached data" style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '1.1rem', cursor: 'pointer', padding: '4px 6px', lineHeight: 1, borderRadius: 'var(--radius-sm)' }}>
-                        ♻️
-                    </button>
-                </footer>
+                <button onClick={handleResetCache} title="Reset cached data" style={{ position: 'absolute', bottom: 'calc(var(--space-lg) + env(safe-area-inset-bottom, 0px))', left: 'var(--space-lg)', width: '36px', height: '36px', borderRadius: 'var(--radius-full)', background: 'rgba(0,0,0,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', lineHeight: 1, zIndex: 10 }}>
+                    ♻️
+                </button>
             )}
         </div>
     )
