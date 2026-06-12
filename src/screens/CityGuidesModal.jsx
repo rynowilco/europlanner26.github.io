@@ -21,6 +21,8 @@ const HERO_IMAGES = {
     'val gardena':            'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
     'val di funes':           'https://res.cloudinary.com/dxa8sf575/image/upload/v1778697277/hero_dolomites_b4voa8.jpg',
     'innsbruck':    'https://res.cloudinary.com/dxa8sf575/image/upload/v1778611559/hero_innsbruck_iraymb.jpg',
+    'lake garda':   'https://res.cloudinary.com/dxa8sf575/image/upload/hero_lake_garda_h13rxp.jpg',
+    'riva del garda': 'https://res.cloudinary.com/dxa8sf575/image/upload/hero_lake_garda_h13rxp.jpg',
 }
 
 const STATUS_CONFIG = {
