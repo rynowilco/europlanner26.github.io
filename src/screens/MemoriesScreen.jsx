@@ -3,6 +3,7 @@ import { CONFIG, localDate } from '../config'
 import { Icon } from '../components/Icon'
 import { PostcardModal } from '../components/PostcardModal'
 import { CommentSection } from '../components/CommentSection'
+import { PullToRefresh } from '../components/PullToRefresh'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -330,7 +331,7 @@ const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, comme
 export const MemoriesScreen = ({
   userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry,
   onBack, showBack = true, onOpenSlideshow, euroLedger, awardEuros,
-  fabAction, onFabActionHandled, comments, onAddComment
+  fabAction, onFabActionHandled, comments, onAddComment, onRefresh, isRefreshing
 }) => {
   const [showCompose, setShowCompose]           = useState(false)
   const [showPhotoUpload, setShowPhotoUpload]   = useState(false)
@@ -424,7 +425,9 @@ export const MemoriesScreen = ({
       </div>
 
       {/* Scrollable content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
+      <PullToRefresh onRefresh={onRefresh} isRefreshing={isRefreshing}>
+      <div style={{ padding: 'var(--space-md)', minHeight: '100%', boxSizing: 'border-box' }}>
         {displayEntries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
             {photoFilter === 'my' ? (
@@ -499,6 +502,8 @@ export const MemoriesScreen = ({
             )
           })
         )}
+      </div>
+      </PullToRefresh>
       </div>
 
       {showCompose && (

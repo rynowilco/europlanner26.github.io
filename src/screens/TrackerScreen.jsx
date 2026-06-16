@@ -4,6 +4,7 @@ import { CONFIG, marked } from '../config'
 import { Icon } from '../components/Icon'
 import { SlideshowScreen } from './SlideshowScreen'
 import { CommentSection, isFamilyCommenter } from '../components/CommentSection'
+import { PullToRefresh } from '../components/PullToRefresh'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, comme
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, onHeartEntry, comments, onAddComment, journalDigest, userProfiles, onOpenCityGuides }) => {
+export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, onHeartEntry, comments, onAddComment, journalDigest, userProfiles, onOpenCityGuides, onRefresh, isRefreshing }) => {
     const mapRef = useRef(null)
     const mapInstanceRef = useRef(null)
 
@@ -406,7 +407,9 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
             {trackerView === 'home' && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                     <SubHeader title="Follow Along 👁️" subtitle="Team Wonder & Awe · Summer 2026" onBack={onBack} />
-                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)' }}>
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                    <PullToRefresh onRefresh={onRefresh} isRefreshing={isRefreshing}>
+                    <div style={{ padding: 'var(--space-lg)', background: 'linear-gradient(180deg, var(--color-warm-white) 0%, var(--color-cream) 100%)', minHeight: '100%', boxSizing: 'border-box' }}>
 
                         {/* Photo strip */}
                         <div style={{ marginBottom: 'var(--space-lg)' }}>
@@ -462,6 +465,8 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                             </button>
                         </div>
                     </div>
+                    </PullToRefresh>
+                    </div>
                 </div>
             )}
 
@@ -469,7 +474,9 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
             {trackerView === 'familyFeed' && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                     <SubHeader title="📸 Family Feed" onBack={() => setTrackerView('home')} />
-                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)', background: 'var(--color-cream)' }}>
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                    <PullToRefresh onRefresh={onRefresh} isRefreshing={isRefreshing}>
+                    <div style={{ padding: 'var(--space-md)', background: 'var(--color-cream)', minHeight: '100%', boxSizing: 'border-box' }}>
                         {allEntries.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
                                 <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📸</div>
@@ -541,6 +548,8 @@ export const TrackerScreen = ({ onBack, activities, itinerary, journalEntries, o
                                 )
                             })
                         )}
+                    </div>
+                    </PullToRefresh>
                     </div>
                 </div>
             )}
