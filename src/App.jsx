@@ -195,7 +195,7 @@ const App = () => {
                         )}
 
                         {activeTab === 'memories' && (
-                            <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser] || {}} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={() => {}} showBack={false} onOpenSlideshow={handleOpenSlideshow} euroLedger={store.euroLedger} awardEuros={store.awardEuros} fabAction={fabPendingAction} onFabActionHandled={() => setFabPendingAction(null)} comments={store.comments} onAddComment={store.addComment} />
+                            <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser] || {}} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={() => {}} showBack={false} onOpenSlideshow={handleOpenSlideshow} euroLedger={store.euroLedger} awardEuros={store.awardEuros} fabAction={fabPendingAction} onFabActionHandled={() => setFabPendingAction(null)} comments={store.comments} onAddComment={store.addComment} onRefresh={store.manualRefresh} isRefreshing={store.isRefreshing} />
                         )}
 
                         {activeTab === 'feed' && feedView === 'feed' && (
@@ -270,6 +270,8 @@ const App = () => {
                     journalDigest={store.journalDigest}
                     userProfiles={store.userProfiles}
                     onOpenCityGuides={() => setShowCityGuides(true)}
+                    onRefresh={store.manualRefresh}
+                    isRefreshing={store.isRefreshing}
                 />
             )}
 
