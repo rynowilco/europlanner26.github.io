@@ -352,8 +352,15 @@ export const useStore = () => {
                 const wordCount = (entryText || '').trim().split(/\s+/).filter(Boolean).length
                 if (wordCount >= 75) { await awardEuros(userId, CONFIG.EURO_RATES.journalEntry, 'journal_entry'); euroEarned += CONFIG.EURO_RATES.journalEntry }
             } else if (entryType === 'photo') {
-                const todayEarnings = euroLedger.filter(e => e.userId === userId && e.reason === 'photo_upload' && e.timestamp.startsWith(entry.date)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
-                if (todayEarnings < CONFIG.EURO_RATES.photoDailyCap) { await awardEuros(userId, CONFIG.EURO_RATES.photoUpload, 'photo_upload'); euroEarned += CONFIG.EURO_RATES.photoUpload }
+                const todayEarnings = euroLedger.filter(e => e.userId === userId && (e.reason === 'photo_upload' || e.reason === 'photo_captioned') && e.timestamp.startsWith(entry.date)).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
+                if (todayEarnings < CONFIG.EURO_RATES.photoDailyCap) {
+                    const captionWordCount = (entryText || '').trim().split(/\s+/).filter(Boolean).length
+                    const isCaptioned = captionWordCount >= 20
+                    const amount = isCaptioned ? CONFIG.EURO_RATES.photoCaptioned : CONFIG.EURO_RATES.photoUpload
+                    const reason = isCaptioned ? 'photo_captioned' : 'photo_upload'
+                    await awardEuros(userId, amount, reason)
+                    euroEarned += amount
+                }
             }
         }
         return { ...entry, euroEarned }

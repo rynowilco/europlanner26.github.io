@@ -19,11 +19,7 @@ export const localDate = () => {
 }
 
 export const CONFIG = {
-    // Bump this string to silently clear every visitor's localStorage cache on
-    // their next page load. Format: eu26-vN  (e.g. eu26-v2, eu26-v3, ...)
-    CACHE_VERSION: 'eu26-v1',
-
-    CLAUDE_MODEL: 'claude-sonnet-4-6',
+    CLAUDE_MODEL: 'claude-sonnet-4-20250514',
 
     GOOGLE_API_KEY: 'AIzaSyDcsv7an4O4p2XsaE-Dk6kHs3bmesTckfk',
     SPREADSHEET_ID: '12ca-wAeLKrmfgdJQmxKjRFNAvptjdnJCobSkm1wk838',
@@ -48,7 +44,8 @@ export const CONFIG = {
     // Euro earning rates — Session 16
     EURO_RATES: {
         journalEntry: 1.00,      // per entry (min 100 words)
-        photoUpload: 0.10,       // per photo uploaded
+        photoUpload: 0.10,       // per photo, caption under 20 words
+        photoCaptioned: 0.25,    // per photo, caption 20+ words
         photoDailyCap: 3.00,     // max photo earnings per day per kid
         postcard: 1.00,          // per postcard sent (wired when Postcards feature ships)
         postcardDailyCap: 3.00,  // max postcard earnings per day per kid
