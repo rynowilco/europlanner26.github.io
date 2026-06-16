@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { CONFIG, localDate } from '../config'
 import { Icon } from '../components/Icon'
 import { PostcardModal } from '../components/PostcardModal'
+import { CommentSection } from '../components/CommentSection'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -288,7 +289,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
 
 // ─── Lightbox ────────────────────────────────────────────────────────────────
 
-const Lightbox = ({ photos, initialIndex, onClose }) => {
+const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, commenterName, onSetCommenterName }) => {
   const [idx, setIdx] = useState(initialIndex)
   const [dir, setDir] = useState(0)
   const touchStartX = useRef(null)
@@ -303,14 +304,23 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
     touchStartX.current = null
   }
   return (
-    <div onClick={onClose} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.2s ease-out', overflow: 'hidden' }}>
+    <div onClick={onClose} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.2s ease-out', overflow: 'hidden' }}>
       <style>{`@keyframes slideInFromRight{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}@keyframes slideInFromLeft{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:translateX(0)}}`}</style>
-      <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="X" size={20} color="white" /></button>
-      {photos.length > 1 && <button onClick={prev} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="ChevronLeft" size={26} color="white" /></button>}
-      <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', position: 'relative', zIndex: 5, animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out' }} />
-      {photos.length > 1 && <button onClick={next} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 20, background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="ChevronRight" size={26} color="white" /></button>}
-      {entry.entryText && <p style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px', padding: '0 60px' }}>{entry.entryText}</p>}
-      <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 'var(--space-sm)' }}>📍 {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}</div>
+      <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: 'var(--space-md) 0' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 'calc(var(--space-xl) + env(safe-area-inset-top, 0px))', right: '16px', zIndex: 10, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="X" size={20} color="white" /></button>
+        {photos.length > 1 && <button onClick={prev} style={{ position: 'absolute', left: '16px', top: '40%', transform: 'translateY(-50%)', zIndex: 20, background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="ChevronLeft" size={26} color="white" /></button>}
+        <img key={idx} src={getThumbUrl(entry.photoUrl, 1600)} alt={entry.entryText || 'Photo'} onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', position: 'relative', zIndex: 5, animation: dir === 0 ? 'fadeIn 0.2s ease-out' : dir > 0 ? 'slideInFromRight 0.25s ease-out' : 'slideInFromLeft 0.25s ease-out' }} />
+        {photos.length > 1 && <button onClick={next} style={{ position: 'absolute', right: '16px', top: '40%', transform: 'translateY(-50%)', zIndex: 20, background: 'rgba(0,0,0,0.55)', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="ChevronRight" size={26} color="white" /></button>}
+        {entry.entryText && <p onClick={e => e.stopPropagation()} style={{ color: 'white', marginTop: 'var(--space-md)', fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', maxWidth: '500px', padding: '0 60px' }}>{entry.entryText}</p>}
+        <div onClick={e => e.stopPropagation()} style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: 'var(--space-sm)' }}>📍 {entry.city}{photos.length > 1 ? ` · ${idx + 1} / ${photos.length}` : ''}</div>
+      </div>
+      {onAddComment && (
+        <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid rgba(255,255,255,0.15)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ padding: 'var(--space-md) var(--space-lg) var(--space-xl)' }}>
+            <CommentSection entryId={entry.id} entryType="photo" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={onSetCommenterName} dark={true} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -320,7 +330,7 @@ const Lightbox = ({ photos, initialIndex, onClose }) => {
 export const MemoriesScreen = ({
   userId, user, itinerary, journalEntries, onAddEntry, onAddPhotoEntry,
   onBack, showBack = true, onOpenSlideshow, euroLedger, awardEuros,
-  fabAction, onFabActionHandled
+  fabAction, onFabActionHandled, comments, onAddComment
 }) => {
   const [showCompose, setShowCompose]           = useState(false)
   const [showPhotoUpload, setShowPhotoUpload]   = useState(false)
@@ -328,6 +338,19 @@ export const MemoriesScreen = ({
   const [showPostcard, setShowPostcard]         = useState(false)
   const [pendingEuroReward, setPendingEuroReward] = useState(0)
   const [photoFilter, setPhotoFilter]           = useState('my') // 'my' | 'family'
+  const [expandedComments, setExpandedComments] = useState(() => new Set())
+  const [commenterName, setCommenterName]       = useState(() => localStorage.getItem('euroPlanner_commenterName') || user?.name || '')
+
+  const handleSetCommenterName = (name) => {
+    setCommenterName(name)
+    localStorage.setItem('euroPlanner_commenterName', name)
+  }
+  const toggleComments = (id) => setExpandedComments(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+  const commentCountFor = (id) => (comments || []).filter(c => c.entryId === id).length
   const photoEarnedRef = useRef(0)
 
   useEffect(() => {
@@ -432,26 +455,46 @@ export const MemoriesScreen = ({
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-light)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 'var(--space-sm)', paddingBottom: 'var(--space-xs)', borderBottom: '1px solid var(--color-border)' }}>📅 {formatDay(dateKey)}</div>
                 {photos.length > 0 && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: 'var(--space-sm)' }}>
-                    {photos.map(entry => (
+                    {photos.map(entry => {
+                      const photoCommentCount = commentCountFor(entry.id)
+                      return (
                       <div key={entry.id} onClick={() => setLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.id === entry.id) })} style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: 'var(--color-tan)' }}>
                         <img src={getThumbUrl(entry.photoUrl, 400)} alt={entry.entryText || 'Photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {photoCommentCount > 0 && (
+                          <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', borderRadius: 'var(--radius-full)', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            <span style={{ fontSize: '0.65rem', color: 'white' }}>💬{photoCommentCount}</span>
+                          </div>
+                        )}
                         {entry.entryText && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', padding: '16px 6px 6px' }}><div style={{ color: 'white', fontSize: '0.7rem', lineHeight: 1.3 }}>{entry.entryText}</div></div>}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
-                {journals.map(entry => (
+                {journals.map(entry => {
+                  const isExpanded = expandedComments.has(entry.id)
+                  const commentCount = commentCountFor(entry.id)
+                  return (
                   <div key={entry.id} style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
                       <div style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>{new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {entry.mood && <span style={{ fontSize: '20px', lineHeight: 1 }}>{entry.mood}</span>}
                         {entry.heartCount > 0 && <span style={{ fontSize: '0.8rem', color: 'var(--color-terracotta)', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>❤️ {entry.heartCount}</span>}
+                        {onAddComment && (
+                          <button onClick={() => toggleComments(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isExpanded ? '#2E7D32' : 'var(--color-cream)', border: isExpanded ? '1px solid #2E7D32' : '1px solid var(--color-border)', borderRadius: 'var(--radius-full)', padding: '5px 10px', cursor: 'pointer', fontSize: '0.78rem', color: isExpanded ? 'white' : 'var(--color-text-light)', fontWeight: 600 }}>
+                            💬{commentCount > 0 ? ` ${commentCount}` : ''}
+                          </button>
+                        )}
                       </div>
                     </div>
                     <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
+                    {isExpanded && onAddComment && (
+                      <CommentSection entryId={entry.id} entryType="journal" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName} />
+                    )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )
           })
@@ -480,7 +523,7 @@ export const MemoriesScreen = ({
           }}
         />
       )}
-      {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} />}
+      {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName} />}
       {showPostcard && <PostcardModal user={user} userId={userId} allFamilyPhotos={allFamilyPhotos} currentCity={currentCity} euroLedger={euroLedger} awardEuros={awardEuros} onClose={() => setShowPostcard(false)} />}
 
       {pendingEuroReward > 0 && (
