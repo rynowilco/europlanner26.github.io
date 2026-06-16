@@ -4,11 +4,12 @@ import { Icon } from '../components/Icon'
 
 // Friendly display labels for ledger reasons
 const REASON_LABELS = {
-    journal_entry: '✍️ Journal Entry',
-    photo_upload:  '📸 Photo Upload',
-    postcard:      '📮 Postcard Sent',
-    bonus:         '⭐ Parent Bonus',
-    withdrawal:    '💸 Cash Out',
+    journal_entry:   '✍️ Journal Entry',
+    photo_upload:    '📸 Photo Upload',
+    photo_captioned: '📸✨ Photo + Caption',
+    postcard:        '📮 Postcard Sent',
+    bonus:           '⭐ Parent Bonus',
+    withdrawal:      '💸 Cash Out',
 }
 const reasonLabel = (reason) => REASON_LABELS[reason] || reason
 
@@ -260,6 +261,7 @@ const EurosTab = ({ isAdmin, currentUserId, userProfiles, euroLedger, awardEuros
                 {[
                     { icon: '✍️', label: 'Write a journal entry (100+ words)', amount: '+€1.00' },
                     { icon: '📸', label: 'Upload a photo', amount: '+€0.10', note: 'up to €3/day' },
+                    { icon: '📸✨', label: 'Photo + caption (20+ words)', amount: '+€0.25', note: 'up to €3/day' },
                     { icon: '📮', label: 'Send a postcard', amount: '+€1.00', note: 'coming soon' },
                     { icon: '⭐', label: 'Parent bonus — any time!', amount: 'varies' },
                 ].map((item, i) => (
@@ -319,17 +321,18 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
 
     const handleResetCache = () => {
         if (confirm('This will clear all cached data and reload from Google Sheets. Continue?')) {
-            Object.keys(localStorage)
-                .filter(k => k.startsWith('euroPlanner_'))
-                .forEach(k => localStorage.removeItem(k))
-            // Stamp current version so the auto-check doesn't re-fire on reload
-            localStorage.setItem('euroPlanner_cacheVersion', CONFIG.CACHE_VERSION)
+            localStorage.removeItem('euroPlanner_activities')
+            localStorage.removeItem('euroPlanner_savedIdeas')
+            localStorage.removeItem('euroPlanner_conversations')
+            localStorage.removeItem('euroPlanner_sessionSummaries')
+            localStorage.removeItem('euroPlanner_lastActivity')
+            localStorage.removeItem('euroPlanner_profiles')
             window.location.reload()
         }
     }
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)', position: 'relative' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-cream)' }}>
             <header style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-md)', paddingTop: 'calc(var(--space-md) + env(safe-area-inset-top, 0px))', background: 'white', borderBottom: '1px solid var(--color-border)' }}>
                 <button onClick={onBack} style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', padding: '8px', cursor: 'pointer', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: '40px', minHeight: '40px' }}><Icon name="ArrowLeft" size={20} /></button>
                 <h1 style={{ flex: 1, fontSize: '1.25rem', fontWeight: 600 }}>Planning Hub</h1>
@@ -536,9 +539,11 @@ export const DashboardScreen = ({ onBack, activities, savedIdeas, bookingItems, 
             )}
 
             {isAdmin && (
-                <button onClick={handleResetCache} title="Reset cached data" style={{ position: 'absolute', bottom: 'calc(var(--space-lg) + env(safe-area-inset-bottom, 0px))', left: 'var(--space-lg)', width: '36px', height: '36px', borderRadius: 'var(--radius-full)', background: 'rgba(0,0,0,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', lineHeight: 1, zIndex: 10 }}>
-                    ♻️
-                </button>
+                <footer style={{ padding: 'var(--space-md)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--color-border)', background: 'white', textAlign: 'center', flexShrink: 0 }}>
+                    <button onClick={handleResetCache} style={{ background: 'none', border: 'none', color: 'var(--color-text-light)', fontSize: '0.85rem', cursor: 'pointer', padding: 'var(--space-sm) var(--space-md)' }}>
+                        Reset cached data
+                    </button>
+                </footer>
             )}
         </div>
     )

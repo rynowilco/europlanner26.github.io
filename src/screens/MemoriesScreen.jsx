@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react'
 import { CONFIG, localDate } from '../config'
 import { Icon } from '../components/Icon'
 import { PostcardModal } from '../components/PostcardModal'
-import { MicButton } from '../components/MicButton'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -152,7 +151,7 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
                     <img src={photo.previewUrl} alt={`Photo ${i + 1}`} style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', display: 'block' }} />
                     <button onClick={() => removePhoto(i)} style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--color-error)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Icon name="X" size={12} color="white" /></button>
                   </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <select value={photo.city} onChange={e => updatePhoto(i, 'city', e.target.value)} style={{ flex: 1, padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', background: 'white', outline: 'none' }}>
                         <option value="">Select city...</option>
@@ -160,10 +159,16 @@ const PhotoUploadModal = ({ user, itinerary, onUploadComplete, onCancel }) => {
                       </select>
                       {photo.lat && <span style={{ flexShrink: 0, fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-sage)', background: 'rgba(100,160,100,0.12)', borderRadius: 'var(--radius-sm)', padding: '3px 6px', whiteSpace: 'nowrap' }}>📍 Detected</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <textarea value={photo.caption} onChange={e => updatePhoto(i, 'caption', e.target.value)} placeholder="Add a caption... (optional)" rows={2} style={{ flex: 1, padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
-                      <MicButton existingValue={photo.caption} onTranscript={(t) => updatePhoto(i, 'caption', photo.caption ? photo.caption + ' ' + t : t)} />
-                    </div>
+                    <textarea value={photo.caption} onChange={e => updatePhoto(i, 'caption', e.target.value)} placeholder="Add a caption... (optional)" rows={2} style={{ width: '100%', padding: '6px 8px', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.5, boxSizing: 'border-box' }} />
+                    {!user?.isParent && (() => {
+                      const capWords = photo.caption.trim().split(/\s+/).filter(Boolean).length
+                      const hit = capWords >= 20
+                      return (
+                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: hit ? 'var(--color-sage)' : 'var(--color-text-light)' }}>
+                          {hit ? `€0.25 ✓ (${capWords} words)` : `${capWords}/20 words for €0.25 — or €0.10 without`}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               ))}
@@ -204,6 +209,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
   const [entryText, setEntryText] = useState('')
   const [mood, setMood] = useState('')
   const [showWordWarning, setShowWordWarning] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const tripItinerary = (itinerary && itinerary.length > 0) ? itinerary : CONFIG.itinerary
   const today = localDate()
   const currentCity = tripItinerary.find(c => c.startDate <= today && today <= c.endDate)
@@ -213,12 +219,20 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
   const wordCount = entryText.trim().split(/\s+/).filter(Boolean).length
   const isParent = user?.isParent || false
   const MIN_WORDS = 75
-  const canSubmit = entryText.trim().length > 0 && city
+  const canSubmit = entryText.trim().length > 0 && city && !isSaving
+
+  const doSubmit = async () => {
+    if (isSaving) return
+    setIsSaving(true)
+    try { await onSubmit(entryText.trim(), mood, city) }
+    finally { setIsSaving(false) }
+  }
 
   const handleSubmitTap = () => {
     if (!canSubmit) return
     if (!isParent && wordCount < MIN_WORDS && !showWordWarning) { setShowWordWarning(true); return }
-    setShowWordWarning(false); onSubmit(entryText.trim(), mood, city)
+    setShowWordWarning(false)
+    doSubmit()
   }
 
   return (
@@ -244,7 +258,6 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
         <div style={{ marginBottom: 'var(--space-lg)' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-light)', marginBottom: '6px' }}>What happened today?</label>
           <textarea value={entryText} onChange={e => setEntryText(e.target.value)} placeholder="Write about your day, a moment that stood out, something that surprised you..." rows={6} autoFocus style={{ width: '100%', padding: 'var(--space-md)', border: '2px solid var(--color-border)', borderRadius: 'var(--radius-md)', fontSize: '1rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = 'var(--color-navy)'} onBlur={e => e.target.style.borderColor = 'var(--color-border)'} />
-          <MicButton variant="wide" existingValue={entryText} onTranscript={(t) => setEntryText(v => v ? v + ' ' + t : t)} />
           {!isParent && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
               <div style={{ height: '4px', width: '80px', background: 'var(--color-tan)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
@@ -256,7 +269,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
           <button onClick={onCancel} style={{ flex: 1, padding: 'var(--space-md)', background: 'var(--color-cream)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-          <button onClick={handleSubmitTap} disabled={!canSubmit} style={{ flex: 2, padding: 'var(--space-md)', background: canSubmit ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSubmit ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}>Save Memory ✨</button>
+          <button onClick={handleSubmitTap} disabled={!canSubmit} style={{ flex: 2, padding: 'var(--space-md)', background: canSubmit ? 'var(--color-terracotta)' : 'var(--color-tan)', color: canSubmit ? 'white' : 'var(--color-text-light)', border: 'none', borderRadius: 'var(--radius-md)', cursor: canSubmit ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '1rem' }}>{isSaving ? 'Saving…' : 'Save Memory ✨'}</button>
         </div>
         {showWordWarning && !isParent && (
           <div style={{ marginTop: 'var(--space-md)', background: '#FFF3E0', border: '1px solid #FFB74D', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', animation: 'slideUp 0.2s ease-out' }}>
@@ -264,7 +277,7 @@ const JournalComposeModal = ({ user, itinerary, onSubmit, onCancel }) => {
             <div style={{ fontSize: '0.85rem', color: '#bf4500', marginBottom: 'var(--space-md)', lineHeight: 1.4 }}>Write a bit more and earn a Euro. Or save now and skip the reward.</div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
               <button onClick={() => setShowWordWarning(false)} style={{ flex: 2, padding: '10px', background: 'var(--color-terracotta)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>✍️ Keep Writing</button>
-              <button onClick={() => { setShowWordWarning(false); onSubmit(entryText.trim(), mood, city) }} style={{ flex: 1, padding: '10px', background: 'none', border: '1.5px solid #E65100', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#E65100', fontWeight: 500, fontSize: '0.85rem' }}>Save Anyway</button>
+              <button onClick={() => { setShowWordWarning(false); doSubmit() }} disabled={isSaving} style={{ flex: 1, padding: '10px', background: 'none', border: '1.5px solid #E65100', borderRadius: 'var(--radius-sm)', cursor: isSaving ? 'not-allowed' : 'pointer', color: '#E65100', fontWeight: 500, fontSize: '0.85rem' }}>{isSaving ? 'Saving…' : 'Save Anyway'}</button>
             </div>
           </div>
         )}
