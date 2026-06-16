@@ -37,102 +37,114 @@ export const useStore = () => {
     const [sheetsError, setSheetsError]       = useState(null)
 
     // ── Load from Sheets on mount ─────────────────────────────────────────────
+    const [isRefreshing, setIsRefreshing] = useState(false)
+
+    const refreshFromSheets = async () => {
+        try {
+            const [
+                activitiesResult, profilesResult, itineraryResult,
+                ideasResult, bookingResult, journalResult,
+                commentsResult, digestResult, euroLedgerResult
+            ] = await Promise.allSettled([
+                SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.itinerary),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.journal),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.comments),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.journalDigest),
+                SheetsAPI.read(CONFIG.SHEET_NAMES.euroLedger)
+            ])
+
+            if (activitiesResult.status === 'fulfilled' && activitiesResult.value?.length > 1) {
+                try {
+                    const sheetsActivities = SheetsAPI.parseActivities(activitiesResult.value)
+                    if (sheetsActivities.length > 0) {
+                        const sheetsIds = new Set(sheetsActivities.map(a => a.id))
+                        setActivities(prev => {
+                            const updated = prev.map(a => sheetsIds.has(a.id) ? { ...a, syncedToSheets: true } : a)
+                            const localOnlyIds = updated.filter(a => !sheetsIds.has(a.id) && !a.isSample).map(a => a.id)
+                            const samples = updated.filter(a => a.isSample)
+                            return [...samples, ...sheetsActivities, ...updated.filter(a => localOnlyIds.includes(a.id))]
+                        })
+                    }
+                } catch (e) { console.warn('parseActivities error:', e) }
+            }
+
+            if (profilesResult.status === 'fulfilled' && profilesResult.value?.length > 1) {
+                try {
+                    const parsed = SheetsAPI.parseUserProfiles(profilesResult.value)
+                    if (parsed && Object.keys(parsed).length > 0) setUserProfiles(prev => ({ ...prev, ...parsed }))
+                } catch (e) { console.warn('parseUserProfiles error:', e) }
+            }
+
+            if (itineraryResult.status === 'fulfilled' && itineraryResult.value?.length > 1) {
+                try {
+                    const parsed = SheetsAPI.parseItinerary(itineraryResult.value)
+                    if (parsed?.length > 0) setItinerary(parsed)
+                } catch (e) { console.warn('parseItinerary error:', e) }
+            }
+
+            if (ideasResult.status === 'fulfilled' && ideasResult.value?.length > 1) {
+                try {
+                    const parsedIdeas = SheetsAPI.parseSavedIdeas(ideasResult.value)
+                    if (parsedIdeas.length > 0) setSavedIdeas(parsedIdeas)
+                } catch (e) { console.warn('parseSavedIdeas error:', e) }
+            }
+
+            if (bookingResult.status === 'fulfilled' && bookingResult.value?.length > 1) {
+                try {
+                    const parsedBookings = SheetsAPI.parseBookingItems(bookingResult.value)
+                    if (parsedBookings.length > 0) setBookingItems(parsedBookings)
+                } catch (e) { console.warn('parseBookingItems error:', e) }
+            }
+
+            if (journalResult.status === 'fulfilled' && journalResult.value?.length > 1) {
+                try {
+                    const parsedJournal = SheetsAPI.parseJournalEntries(journalResult.value)
+                    if (parsedJournal.length > 0) setJournalEntries(parsedJournal)
+                } catch (e) { console.warn('parseJournalEntries error:', e) }
+            }
+
+            if (commentsResult.status === 'fulfilled' && commentsResult.value?.length > 1) {
+                try { setComments(SheetsAPI.parseComments(commentsResult.value)) }
+                catch (e) { console.warn('parseComments error:', e) }
+            }
+
+            if (digestResult.status === 'fulfilled' && digestResult.value?.length > 1) {
+                try {
+                    const parsedDigest = SheetsAPI.parseJournalDigest(digestResult.value)
+                    if (parsedDigest.length > 0) setJournalDigest(parsedDigest)
+                } catch (e) { console.warn('parseJournalDigest error:', e) }
+            }
+
+            if (euroLedgerResult.status === 'fulfilled' && euroLedgerResult.value?.length > 1) {
+                try { setEuroLedger(SheetsAPI.parseEuroLedger(euroLedgerResult.value)) }
+                catch (e) { console.warn('parseEuroLedger error:', e) }
+            }
+
+            setSheetsLoaded(true)
+        } catch (error) {
+            console.error('refreshFromSheets error:', error)
+            setSheetsError(error.message)
+            setSheetsLoaded(true)
+            throw error
+        }
+    }
+
+    const manualRefresh = async () => {
+        setIsRefreshing(true)
+        try { await refreshFromSheets() }
+        finally { setIsRefreshing(false) }
+    }
+
     useEffect(() => {
         const loadFromSheets = async () => {
-            try {
-                const [
-                    activitiesResult, profilesResult, itineraryResult,
-                    ideasResult, bookingResult, journalResult,
-                    commentsResult, digestResult, euroLedgerResult
-                ] = await Promise.allSettled([
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.activities),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.userProfiles),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.itinerary),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.savedIdeas),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.bookingList),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.journal),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.comments),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.journalDigest),
-                    SheetsAPI.read(CONFIG.SHEET_NAMES.euroLedger)
-                ])
-
-                if (activitiesResult.status === 'fulfilled' && activitiesResult.value?.length > 1) {
-                    try {
-                        const sheetsActivities = SheetsAPI.parseActivities(activitiesResult.value)
-                        if (sheetsActivities.length > 0) {
-                            const sheetsIds = new Set(sheetsActivities.map(a => a.id))
-                            setActivities(prev => {
-                                const updated = prev.map(a => sheetsIds.has(a.id) ? { ...a, syncedToSheets: true } : a)
-                                const localOnlyIds = updated.filter(a => !sheetsIds.has(a.id) && !a.isSample).map(a => a.id)
-                                const samples = updated.filter(a => a.isSample)
-                                return [...samples, ...sheetsActivities, ...updated.filter(a => localOnlyIds.includes(a.id))]
-                            })
-                        }
-                    } catch (e) { console.warn('parseActivities error:', e) }
-                }
-
-                if (profilesResult.status === 'fulfilled' && profilesResult.value?.length > 1) {
-                    try {
-                        const parsed = SheetsAPI.parseUserProfiles(profilesResult.value)
-                        if (parsed && Object.keys(parsed).length > 0) setUserProfiles(prev => ({ ...prev, ...parsed }))
-                    } catch (e) { console.warn('parseUserProfiles error:', e) }
-                }
-
-                if (itineraryResult.status === 'fulfilled' && itineraryResult.value?.length > 1) {
-                    try {
-                        const parsed = SheetsAPI.parseItinerary(itineraryResult.value)
-                        if (parsed?.length > 0) setItinerary(parsed)
-                    } catch (e) { console.warn('parseItinerary error:', e) }
-                }
-
-                if (ideasResult.status === 'fulfilled' && ideasResult.value?.length > 1) {
-                    try {
-                        const parsedIdeas = SheetsAPI.parseSavedIdeas(ideasResult.value)
-                        if (parsedIdeas.length > 0) setSavedIdeas(parsedIdeas)
-                    } catch (e) { console.warn('parseSavedIdeas error:', e) }
-                }
-
-                if (bookingResult.status === 'fulfilled' && bookingResult.value?.length > 1) {
-                    try {
-                        const parsedBookings = SheetsAPI.parseBookingItems(bookingResult.value)
-                        if (parsedBookings.length > 0) setBookingItems(parsedBookings)
-                    } catch (e) { console.warn('parseBookingItems error:', e) }
-                }
-
-                if (journalResult.status === 'fulfilled' && journalResult.value?.length > 1) {
-                    try {
-                        const parsedJournal = SheetsAPI.parseJournalEntries(journalResult.value)
-                        if (parsedJournal.length > 0) setJournalEntries(parsedJournal)
-                    } catch (e) { console.warn('parseJournalEntries error:', e) }
-                }
-
-                if (commentsResult.status === 'fulfilled' && commentsResult.value?.length > 1) {
-                    try { setComments(SheetsAPI.parseComments(commentsResult.value)) }
-                    catch (e) { console.warn('parseComments error:', e) }
-                }
-
-                if (digestResult.status === 'fulfilled' && digestResult.value?.length > 1) {
-                    try {
-                        const parsedDigest = SheetsAPI.parseJournalDigest(digestResult.value)
-                        if (parsedDigest.length > 0) setJournalDigest(parsedDigest)
-                    } catch (e) { console.warn('parseJournalDigest error:', e) }
-                }
-
-                if (euroLedgerResult.status === 'fulfilled' && euroLedgerResult.value?.length > 1) {
-                    try { setEuroLedger(SheetsAPI.parseEuroLedger(euroLedgerResult.value)) }
-                    catch (e) { console.warn('parseEuroLedger error:', e) }
-                }
-
-                const localActivities = safeParseJSON('euroPlanner_activities', [])
-                const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
-                if (unsynced.length > 0) await syncUnsyncedActivities(unsynced)
-
-                setSheetsLoaded(true)
-            } catch (error) {
-                console.error('loadFromSheets error:', error)
-                setSheetsError(error.message)
-                setSheetsLoaded(true)
-            }
+            await refreshFromSheets().catch(() => {})
+            const localActivities = safeParseJSON('euroPlanner_activities', [])
+            const unsynced = localActivities.filter(a => !a.syncedToSheets && !a.isSample)
+            if (unsynced.length > 0) await syncUnsyncedActivities(unsynced)
         }
         loadFromSheets()
     }, [])
@@ -415,6 +427,7 @@ export const useStore = () => {
         comments, addComment,
         journalDigest, saveJournalStory,
         euroLedger, awardEuros, processWithdrawal, getEuroBalance,
-        EmailService
+        EmailService,
+        manualRefresh, isRefreshing
     }
 }
