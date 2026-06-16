@@ -23,7 +23,7 @@ export const CONFIG = {
     // their next page load. Format: eu26-vN  (e.g. eu26-v2, eu26-v3, ...)
     CACHE_VERSION: 'eu26-v1',
 
-    CLAUDE_MODEL: 'claude-sonnet-4-20250514',
+    CLAUDE_MODEL: 'claude-sonnet-4-6',
 
     GOOGLE_API_KEY: 'AIzaSyDcsv7an4O4p2XsaE-Dk6kHs3bmesTckfk',
     SPREADSHEET_ID: '12ca-wAeLKrmfgdJQmxKjRFNAvptjdnJCobSkm1wk838',
