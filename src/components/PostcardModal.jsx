@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import emailjs from '@emailjs/browser'
 import { CONFIG, localDate } from '../config'
-import { MicButton } from '../components/MicButton'
 
 const getThumbUrl = (url, width = 400) => {
   if (!url) return null
@@ -25,6 +24,7 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
   const [step, setStep] = useState('pick')  // pick | compose | preview | sending | success
   const [selectedPhoto, setSelectedPhoto] = useState(null)
   const [message, setMessage] = useState('')
+  const [claudeLoading, setClaudeLoading] = useState(false)
   const [euroEarned, setEuroEarned] = useState(0)
   const [sendError, setSendError] = useState(null)
   const [selectedRecipients, setSelectedRecipients] = useState(
@@ -43,12 +43,39 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
     )
   }
 
+  const handleClaudeHelp = async () => {
+    setClaudeLoading(true)
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: CONFIG.CLAUDE_MODEL,
+          max_tokens: 150,
+          system: 'You ghostwrite short postcard messages for kids on a family trip. Write in the first person as the child — use "I", "we", "my". 2-3 sentences, conversational and upbeat. No greeting, no sign-off, just the message body. Do NOT address the child by name or use second person.',
+          messages: [{
+            role: 'user',
+            content: `Write a postcard message in my voice. I am ${user.name}${user.age ? `, age ${user.age}` : ''}. I am in ${cityName} right now on a family trip through Europe.`
+          }]
+        })
+      })
+      const data = await res.json()
+      const text = data.content?.find(b => b.type === 'text')?.text?.trim() || ''
+      if (text) setMessage(text)
+    } catch {
+      // Fail silently — user can still write manually
+    }
+    setClaudeLoading(false)
+  }
+
   const handleSend = async () => {
     if (!templateReady) return
     setStep('sending')
     setSendError(null)
     try {
-      for (const email of selectedRecipients) {
+      const parentEmails = (CONFIG.PARENT_EMAILS || []).filter(e => !selectedRecipients.includes(e))
+      const allSendTargets = [...selectedRecipients, ...parentEmails]
+      for (const email of allSendTargets) {
         await emailjs.send(
           CONFIG.EMAILJS_SERVICE_ID,
           CONFIG.EMAILJS_POSTCARD_TEMPLATE_ID,
@@ -155,7 +182,18 @@ export const PostcardModal = ({ user, userId, allFamilyPhotos, currentCity, euro
             onFocus={e => e.target.style.borderColor = 'var(--color-navy)'}
             onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
           />
-          <MicButton variant="wide" existingValue={message} onTranscript={(t) => setMessage(v => v ? v + ' ' + t : t)} />
+          <button
+            onClick={handleClaudeHelp}
+            disabled={claudeLoading}
+            style={{ width: '100%', padding: 'var(--space-md)', background: 'white', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-md)', cursor: claudeLoading ? 'default' : 'pointer', fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-navy)', opacity: claudeLoading ? 0.6 : 1 }}
+          >
+            {claudeLoading ? '✨ Getting ideas...' : '✨ Help me write this'}
+          </button>
+          {message.trim().length > 0 && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', marginTop: 'var(--space-sm)', textAlign: 'center' }}>
+              Feel free to edit anything above!
+            </p>
+          )}
         </div>
         <div style={{ padding: 'var(--space-md) var(--space-lg)', paddingBottom: 'calc(var(--space-md) + env(safe-area-inset-bottom, 0px))', background: 'white', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
           <button
