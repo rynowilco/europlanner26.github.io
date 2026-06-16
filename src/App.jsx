@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { CONFIG } from './config'
 import { useStore } from './useStore'
 import { SheetsStatusBanner } from './components/SheetsStatusBanner'
 import { FingerprintModal } from './components/FingerprintModal'
@@ -23,22 +22,6 @@ import { BookingsScreen } from './screens/BookingsScreen'
 import { FlashCardScreen } from './screens/FlashCardScreen'
 import { DailyStoriesScreen } from './screens/DailyStoriesScreen'
 import { SlideshowScreen } from './screens/SlideshowScreen'
-
-// ── Cache version check ───────────────────────────────────────────────────────
-// Runs once when the module loads (before any React rendering). If the stored
-// version doesn't match CONFIG.CACHE_VERSION, all euroPlanner_ cache keys are
-// wiped silently. Bump CACHE_VERSION in config.js to clear everyone's cache
-// on their next visit — useful after data cleanups or major data changes.
-;(function checkCacheVersion() {
-    try {
-        if (localStorage.getItem('euroPlanner_cacheVersion') !== CONFIG.CACHE_VERSION) {
-            Object.keys(localStorage)
-                .filter(k => k.startsWith('euroPlanner_'))
-                .forEach(k => localStorage.removeItem(k))
-            localStorage.setItem('euroPlanner_cacheVersion', CONFIG.CACHE_VERSION)
-        }
-    } catch {}
-})()
 
 // ── Tools hub ─────────────────────────────────────────────────────────────────
 
@@ -125,11 +108,7 @@ const App = () => {
     useEffect(() => {
         try {
             const savedUser = localStorage.getItem('ep26_currentUser')
-            if (savedUser) {
-                setCurrentUser(savedUser)
-                if (CONFIG.users[savedUser]?.isParent) setIsAdmin(true)
-                setScreen('explorer')
-            }
+            if (savedUser) { setCurrentUser(savedUser); setScreen('explorer') }
             else setScreen('home')
         } catch { setScreen('home') }
     }, [])
@@ -137,7 +116,6 @@ const App = () => {
     // ── Navigation ────────────────────────────────────────────────────────────
     const handleSelectUser = (userId) => {
         setCurrentUser(userId)
-        setIsAdmin(CONFIG.users[userId]?.isParent || false)
         try { localStorage.setItem('ep26_currentUser', userId) } catch {}
         setActiveTab('home'); setPlanView('chat'); setFeedView('feed'); setToolsView('hub')
         setFabOpen(false); setScreen('explorer')
@@ -145,7 +123,6 @@ const App = () => {
 
     const handleSwitchUser = () => {
         setCurrentUser(null)
-        setIsAdmin(false)
         try { localStorage.removeItem('ep26_currentUser') } catch {}
         setScreen('familyLanding')
     }
@@ -218,7 +195,7 @@ const App = () => {
                         )}
 
                         {activeTab === 'memories' && (
-                            <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser] || {}} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={() => {}} showBack={false} onOpenSlideshow={handleOpenSlideshow} euroLedger={store.euroLedger} awardEuros={store.awardEuros} fabAction={fabPendingAction} onFabActionHandled={() => setFabPendingAction(null)} />
+                            <MemoriesScreen userId={currentUser} user={store.userProfiles[currentUser] || {}} itinerary={store.itinerary} journalEntries={store.journalEntries} onAddEntry={store.addJournalEntry} onAddPhotoEntry={handleAddPhotoEntry} onBack={() => {}} showBack={false} onOpenSlideshow={handleOpenSlideshow} euroLedger={store.euroLedger} awardEuros={store.awardEuros} fabAction={fabPendingAction} onFabActionHandled={() => setFabPendingAction(null)} comments={store.comments} onAddComment={store.addComment} />
                         )}
 
                         {activeTab === 'feed' && feedView === 'feed' && (
