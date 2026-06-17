@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { Icon } from '../components/Icon'
+import { CommentSection } from '../components/CommentSection'
+import { PullToRefresh } from '../components/PullToRefresh'
 
 // Derive a thumbnail URL from a Drive direct URL
 const getThumbUrl = (url, width = 400) => {
@@ -17,12 +19,11 @@ const formatDay = (dateStr) => {
   return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
-const Lightbox = ({ photos, initialIndex, onClose, comments }) => {
+const Lightbox = ({ photos, initialIndex, onClose, comments, onAddComment, commenterName, onSetCommenterName }) => {
   const [idx, setIdx] = useState(initialIndex)
   const [dir, setDir] = useState(0)
   const touchStartX = useRef(null)
   const entry = photos[idx]
-  const entryComments = (comments || []).filter(c => c.entryId === entry.id)
 
   const prev = (e) => { e.stopPropagation(); setDir(-1); setIdx(i => (i - 1 + photos.length) % photos.length) }
   const next = (e) => { e.stopPropagation(); setDir(1); setIdx(i => (i + 1) % photos.length) }
@@ -66,21 +67,25 @@ const Lightbox = ({ photos, initialIndex, onClose, comments }) => {
           <Icon name="ChevronRight" size={24} color="white" />
         </button>
       )}
-      {/* Comments — independently scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid rgba(255,255,255,0.15)', padding: 'var(--space-md) var(--space-lg) var(--space-xl)' }}>
-        {entryComments.length === 0 ? (
-          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No comments yet</div>
-        ) : entryComments.map(c => (
-          <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'flex-start' }}>
-            <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
-              {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+      {/* Comments — independently scrollable, interactive */}
+      <div onClick={e => e.stopPropagation()} style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid rgba(255,255,255,0.15)', padding: 'var(--space-md) var(--space-lg) var(--space-xl)' }}>
+        {onAddComment ? (
+          <CommentSection entryId={entry.id} entryType="photo" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={onSetCommenterName} dark={true} />
+        ) : (
+          (comments || []).filter(c => c.entryId === entry.id).length === 0 ? (
+            <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No comments yet</div>
+          ) : (comments || []).filter(c => c.entryId === entry.id).map(c => (
+            <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'flex-start' }}>
+              <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
+                {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+              </div>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: '2px' }}>{c.commenterName}</div>
+                <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>{c.commentText}</div>
+              </div>
             </div>
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: '2px' }}>{c.commenterName}</div>
-              <div style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>{c.commentText}</div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
       <style>{`
         @keyframes slideInFromRight { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: translateX(0); } }
@@ -121,31 +126,7 @@ const PhotoGrid = ({ photos, onPhotoTap, comments }) => {
   )
 }
 
-const CommentDisplay = ({ entryId, comments }) => {
-  const entryComments = (comments || []).filter(c => c.entryId === entryId)
-  if (entryComments.length === 0) return (
-    <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)', fontSize: '0.8rem', color: 'var(--color-text-light)', fontStyle: 'italic' }}>
-      No comments yet
-    </div>
-  )
-  return (
-    <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)' }}>
-      {entryComments.map(c => (
-        <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-start' }}>
-          <div style={{ flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%', background: 'var(--color-navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'white', fontWeight: 700 }}>
-            {c.commenterName.split(' ').map(w => w[0]).join('').slice(0, 2)}
-          </div>
-          <div style={{ flex: 1, background: 'var(--color-cream)', borderRadius: 'var(--radius-sm)', padding: '6px 10px' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-navy)', marginBottom: '2px' }}>{c.commenterName}</div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-text)', lineHeight: 1.4 }}>{c.commentText}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount, comments, isExpanded, onToggle }) => {
+const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount, comments, onAddComment, commenterName, onSetCommenterName, isExpanded, onToggle }) => {
   const isHearted = heartedIds.includes(entry.id)
   return (
     <div style={{ background: 'white', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-sm)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
@@ -168,17 +149,30 @@ const JournalCard = ({ entry, onHeartEntry, heartedIds, commentCount, comments, 
         </div>
       </div>
       <p style={{ fontSize: '0.95rem', lineHeight: 1.65, color: 'var(--color-text)', margin: 0, whiteSpace: 'pre-wrap' }}>{entry.entryText}</p>
-      {isExpanded && <CommentDisplay entryId={entry.id} comments={comments} />}
+      {isExpanded && (
+        onAddComment
+          ? <CommentSection entryId={entry.id} entryType="journal" comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={onSetCommenterName} />
+          : (
+            <div style={{ borderTop: '1px solid var(--color-border)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)', fontSize: '0.8rem', color: 'var(--color-text-light)', fontStyle: 'italic' }}>
+              No comments yet
+            </div>
+          )
+      )}
     </div>
   )
 }
 
-export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comments }) => {
+export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comments, onAddComment, currentUserName, onRefresh, isRefreshing }) => {
   const [lightbox, setLightbox] = useState(null) // { photos, index }
   const [expandedComments, setExpandedComments] = useState(() => {
     const ids = (comments || []).map(c => c.entryId)
     return new Set(ids)
   })
+  const [commenterName, setCommenterName] = useState(() => localStorage.getItem('euroPlanner_commenterName') || currentUserName || '')
+  const handleSetCommenterName = (name) => {
+    setCommenterName(name)
+    localStorage.setItem('euroPlanner_commenterName', name)
+  }
   const toggleComments = (id) => setExpandedComments(prev => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -210,7 +204,9 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-md)' }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
+      <PullToRefresh onRefresh={onRefresh} isRefreshing={isRefreshing}>
+      <div style={{ padding: 'var(--space-md)', minHeight: '100%', boxSizing: 'border-box' }}>
         {allEntries.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-lg)', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ fontSize: '52px', marginBottom: 'var(--space-md)' }}>📸</div>
@@ -233,15 +229,18 @@ export const FamilyFeedScreen = ({ onBack, journalEntries, onHeartEntry, comment
                 {journals.map(entry => (
                   <JournalCard key={entry.id} entry={entry} onHeartEntry={onHeartEntry} heartedIds={heartedIds}
                     commentCount={(comments || []).filter(c => c.entryId === entry.id).length}
-                    comments={comments} isExpanded={expandedComments.has(entry.id)} onToggle={() => toggleComments(entry.id)} />
+                    comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName}
+                    isExpanded={expandedComments.has(entry.id)} onToggle={() => toggleComments(entry.id)} />
                 ))}
               </div>
             )
           })
         )}
       </div>
+      </PullToRefresh>
+      </div>
 
-      {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} comments={comments} />}
+      {lightbox && <Lightbox photos={lightbox.photos} initialIndex={lightbox.index} onClose={() => setLightbox(null)} comments={comments} onAddComment={onAddComment} commenterName={commenterName} onSetCommenterName={handleSetCommenterName} />}
     </div>
   )
 }
