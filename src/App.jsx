@@ -199,7 +199,7 @@ const App = () => {
                         )}
 
                         {activeTab === 'feed' && feedView === 'feed' && (
-                            <FamilyFeedScreen onBack={() => setActiveTab('home')} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} />
+                            <FamilyFeedScreen onBack={() => setActiveTab('home')} journalEntries={store.journalEntries} onHeartEntry={store.heartJournalEntry} comments={store.comments} onAddComment={store.addComment} currentUserName={store.userProfiles[currentUser]?.name} onRefresh={store.manualRefresh} isRefreshing={store.isRefreshing} />
                         )}
                         {activeTab === 'feed' && feedView === 'slideshow' && (
                             <SlideshowScreen onBack={() => setFeedView('feed')} journalEntries={store.journalEntries} userProfiles={store.userProfiles} />
